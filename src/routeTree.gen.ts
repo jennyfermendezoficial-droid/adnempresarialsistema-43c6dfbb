@@ -14,12 +14,16 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedSoportePrivadoRouteImport } from './routes/_authenticated/soporte-privado'
 import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticated/permisos'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/pagos'
+import { Route as AuthenticatedMiembrosRouteImport } from './routes/_authenticated/miembros'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
+import { Route as AuthenticatedGeneralRouteImport } from './routes/_authenticated/general'
 import { Route as AuthenticatedCursosRouteImport } from './routes/_authenticated/cursos'
 import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
+import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
 import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
 import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
@@ -48,6 +52,12 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSoportePrivadoRoute =
+  AuthenticatedSoportePrivadoRouteImport.update({
+    id: '/soporte-privado',
+    path: '/soporte-privado',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedPermisosRoute = AuthenticatedPermisosRouteImport.update({
   id: '/permisos',
   path: '/permisos',
@@ -63,9 +73,19 @@ const AuthenticatedPagosRoute = AuthenticatedPagosRouteImport.update({
   path: '/pagos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMiembrosRoute = AuthenticatedMiembrosRouteImport.update({
+  id: '/miembros',
+  path: '/miembros',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
   id: '/inicio',
   path: '/inicio',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedGeneralRoute = AuthenticatedGeneralRouteImport.update({
+  id: '/general',
+  path: '/general',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedCursosRoute = AuthenticatedCursosRouteImport.update({
@@ -78,6 +98,12 @@ const AuthenticatedChatsRoute = AuthenticatedChatsRouteImport.update({
   path: '/chats',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCalendarioClasesRoute =
+  AuthenticatedCalendarioClasesRouteImport.update({
+    id: '/calendario-clases',
+    path: '/calendario-clases',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedBonosRoute = AuthenticatedBonosRouteImport.update({
   id: '/bonos',
   path: '/bonos',
@@ -102,12 +128,16 @@ export interface FileRoutesByFullPath {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
+  '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/cursos': typeof AuthenticatedCursosRoute
+  '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/miembros': typeof AuthenticatedMiembrosRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
+  '/soporte-privado': typeof AuthenticatedSoportePrivadoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -117,12 +147,16 @@ export interface FileRoutesByTo {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
+  '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/cursos': typeof AuthenticatedCursosRoute
+  '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/miembros': typeof AuthenticatedMiembrosRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
+  '/soporte-privado': typeof AuthenticatedSoportePrivadoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,12 +168,16 @@ export interface FileRoutesById {
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/_authenticated/bonos': typeof AuthenticatedBonosRoute
+  '/_authenticated/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
   '/_authenticated/cursos': typeof AuthenticatedCursosRoute
+  '/_authenticated/general': typeof AuthenticatedGeneralRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
+  '/_authenticated/miembros': typeof AuthenticatedMiembrosRoute
   '/_authenticated/pagos': typeof AuthenticatedPagosRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/permisos': typeof AuthenticatedPermisosRoute
+  '/_authenticated/soporte-privado': typeof AuthenticatedSoportePrivadoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,12 +189,16 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/agenda-1a1'
     | '/bonos'
+    | '/calendario-clases'
     | '/chats'
     | '/cursos'
+    | '/general'
     | '/inicio'
+    | '/miembros'
     | '/pagos'
     | '/perfil'
     | '/permisos'
+    | '/soporte-privado'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -166,12 +208,16 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/agenda-1a1'
     | '/bonos'
+    | '/calendario-clases'
     | '/chats'
     | '/cursos'
+    | '/general'
     | '/inicio'
+    | '/miembros'
     | '/pagos'
     | '/perfil'
     | '/permisos'
+    | '/soporte-privado'
   id:
     | '__root__'
     | '/'
@@ -182,12 +228,16 @@ export interface FileRouteTypes {
     | '/_authenticated/agenda'
     | '/_authenticated/agenda-1a1'
     | '/_authenticated/bonos'
+    | '/_authenticated/calendario-clases'
     | '/_authenticated/chats'
     | '/_authenticated/cursos'
+    | '/_authenticated/general'
     | '/_authenticated/inicio'
+    | '/_authenticated/miembros'
     | '/_authenticated/pagos'
     | '/_authenticated/perfil'
     | '/_authenticated/permisos'
+    | '/_authenticated/soporte-privado'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -235,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/soporte-privado': {
+      id: '/_authenticated/soporte-privado'
+      path: '/soporte-privado'
+      fullPath: '/soporte-privado'
+      preLoaderRoute: typeof AuthenticatedSoportePrivadoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/permisos': {
       id: '/_authenticated/permisos'
       path: '/permisos'
@@ -256,11 +313,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPagosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/miembros': {
+      id: '/_authenticated/miembros'
+      path: '/miembros'
+      fullPath: '/miembros'
+      preLoaderRoute: typeof AuthenticatedMiembrosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inicio': {
       id: '/_authenticated/inicio'
       path: '/inicio'
       fullPath: '/inicio'
       preLoaderRoute: typeof AuthenticatedInicioRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/general': {
+      id: '/_authenticated/general'
+      path: '/general'
+      fullPath: '/general'
+      preLoaderRoute: typeof AuthenticatedGeneralRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/cursos': {
@@ -275,6 +346,13 @@ declare module '@tanstack/react-router' {
       path: '/chats'
       fullPath: '/chats'
       preLoaderRoute: typeof AuthenticatedChatsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/calendario-clases': {
+      id: '/_authenticated/calendario-clases'
+      path: '/calendario-clases'
+      fullPath: '/calendario-clases'
+      preLoaderRoute: typeof AuthenticatedCalendarioClasesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/bonos': {
@@ -305,24 +383,32 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedAgenda1a1Route: typeof AuthenticatedAgenda1a1Route
   AuthenticatedBonosRoute: typeof AuthenticatedBonosRoute
+  AuthenticatedCalendarioClasesRoute: typeof AuthenticatedCalendarioClasesRoute
   AuthenticatedChatsRoute: typeof AuthenticatedChatsRoute
   AuthenticatedCursosRoute: typeof AuthenticatedCursosRoute
+  AuthenticatedGeneralRoute: typeof AuthenticatedGeneralRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
+  AuthenticatedMiembrosRoute: typeof AuthenticatedMiembrosRoute
   AuthenticatedPagosRoute: typeof AuthenticatedPagosRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPermisosRoute: typeof AuthenticatedPermisosRoute
+  AuthenticatedSoportePrivadoRoute: typeof AuthenticatedSoportePrivadoRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedAgenda1a1Route: AuthenticatedAgenda1a1Route,
   AuthenticatedBonosRoute: AuthenticatedBonosRoute,
+  AuthenticatedCalendarioClasesRoute: AuthenticatedCalendarioClasesRoute,
   AuthenticatedChatsRoute: AuthenticatedChatsRoute,
   AuthenticatedCursosRoute: AuthenticatedCursosRoute,
+  AuthenticatedGeneralRoute: AuthenticatedGeneralRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
+  AuthenticatedMiembrosRoute: AuthenticatedMiembrosRoute,
   AuthenticatedPagosRoute: AuthenticatedPagosRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPermisosRoute: AuthenticatedPermisosRoute,
+  AuthenticatedSoportePrivadoRoute: AuthenticatedSoportePrivadoRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
