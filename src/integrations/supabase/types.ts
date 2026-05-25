@@ -155,6 +155,36 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_profesores_mensajes: {
+        Row: {
+          autor_id: string
+          contenido: string | null
+          created_at: string
+          eliminado: boolean
+          id: string
+          media_url: string | null
+          tipo: string
+        }
+        Insert: {
+          autor_id: string
+          contenido?: string | null
+          created_at?: string
+          eliminado?: boolean
+          id?: string
+          media_url?: string | null
+          tipo?: string
+        }
+        Update: {
+          autor_id?: string
+          contenido?: string | null
+          created_at?: string
+          eliminado?: boolean
+          id?: string
+          media_url?: string | null
+          tipo?: string
+        }
+        Relationships: []
+      }
       chats_1a1: {
         Row: {
           created_at: string
