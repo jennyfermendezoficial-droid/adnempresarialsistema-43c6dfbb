@@ -14,7 +14,6 @@ const canalesItems: Item[] = [
 ];
 const staffCanalesItems: Item[] = [
   { to: "/chat-profesores", label: "Chat profesores", icon: Headphones },
-  { to: "/soporte-privado", label: "Soporte privado", icon: MessageSquare },
 ];
 const soporteItems: Item[] = [
   { to: "/chats",      label: "Chats",        icon: MessageSquare },
