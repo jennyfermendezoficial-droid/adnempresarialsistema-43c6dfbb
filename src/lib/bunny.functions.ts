@@ -13,8 +13,7 @@ function getConfig() {
   return { libraryId, apiKey, cdnHostname };
 }
 
-async function ensureStaff(supabase: ReturnType<typeof Object>, userId: string) {
-  // @ts-expect-error supabase client typing comes from middleware context
+async function ensureStaff(supabase: any, userId: string) {
   const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
   const roles = ((data ?? []) as { role: string }[]).map((r) => r.role);
   if (!roles.includes("admin") && !roles.includes("soporte")) {
