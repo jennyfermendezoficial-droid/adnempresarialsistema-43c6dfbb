@@ -218,7 +218,7 @@ export function ChatThread({
                 {allowDelete && (mine || role === "admin") && (
                   <button
                     onClick={() => remove(m.id)}
-                    className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-background border rounded-full p-1 transition"
+                    className="absolute -top-2 -right-2 opacity-60 hover:opacity-100 bg-background border rounded-full p-1 transition shadow"
                     title="Eliminar"
                   >
                     <Trash2 className="w-3 h-3" />
