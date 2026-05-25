@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedSoportePrivadoRouteImport } from './routes/_authenticated/soporte-privado'
 import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticated/permisos'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/pagos'
@@ -49,6 +50,12 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSoportePrivadoRoute =
+  AuthenticatedSoportePrivadoRouteImport.update({
+    id: '/soporte-privado',
+    path: '/soporte-privado',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedPermisosRoute = AuthenticatedPermisosRouteImport.update({
   id: '/permisos',
   path: '/permisos',
@@ -115,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
+  '/soporte-privado': typeof AuthenticatedSoportePrivadoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -131,6 +139,7 @@ export interface FileRoutesByTo {
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
+  '/soporte-privado': typeof AuthenticatedSoportePrivadoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -149,6 +158,7 @@ export interface FileRoutesById {
   '/_authenticated/pagos': typeof AuthenticatedPagosRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/permisos': typeof AuthenticatedPermisosRoute
+  '/_authenticated/soporte-privado': typeof AuthenticatedSoportePrivadoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/pagos'
     | '/perfil'
     | '/permisos'
+    | '/soporte-privado'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/pagos'
     | '/perfil'
     | '/permisos'
+    | '/soporte-privado'
   id:
     | '__root__'
     | '/'
@@ -200,6 +212,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pagos'
     | '/_authenticated/perfil'
     | '/_authenticated/permisos'
+    | '/_authenticated/soporte-privado'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -246,6 +259,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/soporte-privado': {
+      id: '/_authenticated/soporte-privado'
+      path: '/soporte-privado'
+      fullPath: '/soporte-privado'
+      preLoaderRoute: typeof AuthenticatedSoportePrivadoRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/permisos': {
       id: '/_authenticated/permisos'
@@ -331,6 +351,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPagosRoute: typeof AuthenticatedPagosRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPermisosRoute: typeof AuthenticatedPermisosRoute
+  AuthenticatedSoportePrivadoRoute: typeof AuthenticatedSoportePrivadoRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -344,6 +365,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPagosRoute: AuthenticatedPagosRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPermisosRoute: AuthenticatedPermisosRoute,
+  AuthenticatedSoportePrivadoRoute: AuthenticatedSoportePrivadoRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
