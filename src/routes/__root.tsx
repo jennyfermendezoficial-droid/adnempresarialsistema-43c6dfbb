@@ -76,11 +76,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "ADN Empresarial · Mentoría Jennyfer Méndez" },
       { name: "description", content: "Plataforma de mentoría ADN Empresarial." },
-      { property: "og:title", content: "ADN Empresarial" },
-      { property: "og:description", content: "Mentoría de Jennyfer Méndez." },
+      { property: "og:title", content: "ADN Empresarial · Mentoría Jennyfer Méndez" },
+      { property: "og:description", content: "Plataforma de mentoría ADN Empresarial." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "ADN Empresarial · Mentoría Jennyfer Méndez" },
+      { name: "twitter:description", content: "Plataforma de mentoría ADN Empresarial." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9ffd9189-3b01-41c1-b525-ae4565ef0ffc/id-preview-3ff600b0--6980a227-5530-486f-bd67-bf641e83d284.lovable.app-1779745897024.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9ffd9189-3b01-41c1-b525-ae4565ef0ffc/id-preview-3ff600b0--6980a227-5530-486f-bd67-bf641e83d284.lovable.app-1779745897024.png" },
     ],
     links: [
       {
