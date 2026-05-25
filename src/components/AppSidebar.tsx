@@ -10,8 +10,10 @@ interface Item { to: string; label: string; icon: typeof Home; }
 
 const inicioItems: Item[] =  [{ to: "/inicio", label: "Inicio", icon: Home }];
 const canalesItems: Item[] = [
-  { to: "/general",         label: "General",         icon: Hash },
-  { to: "/soporte-privado", label: "Soporte privado", icon: Headphones },
+  { to: "/general", label: "General", icon: Hash },
+];
+const staffCanalesItems: Item[] = [
+  { to: "/soporte-privado", label: "Chat profesores", icon: Headphones },
 ];
 const soporteItems: Item[] = [
   { to: "/chats",      label: "Chats",        icon: MessageSquare },
@@ -61,6 +63,9 @@ export function AppSidebar() {
 
         <SectionLabel className="mt-3">Canales</SectionLabel>
         <Nav items={canalesItems} isActive={isActive} />
+        {(role === "admin" || role === "soporte") && (
+          <Nav items={staffCanalesItems} isActive={isActive} />
+        )}
 
         <SectionLabel className="mt-3">Soporte</SectionLabel>
         <Nav items={soporteItems} isActive={isActive} />
