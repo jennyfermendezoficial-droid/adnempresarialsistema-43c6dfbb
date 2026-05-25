@@ -12,7 +12,8 @@ export const Route = createFileRoute("/_authenticated/agenda-1a1")({ component: 
 interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string }
 interface Profile { id: string; nombre_completo: string; email: string }
 
-const HORAS = ["09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00"];
+// Una reserva por hora (30 min cada una). 09:00, 10:00, 11:00, ...
+const HORAS = ["09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00"];
 const DIAS = ["Lun","Mar","Mié","Jue","Vie"];
 
 function startOfWeek(d: Date) {
@@ -70,8 +71,8 @@ function Page() {
   const reservar = async () => {
     if (!booking || !uid || !profesorId) return;
     const { fecha, hora } = booking;
-    const [h, m] = hora.split(":").map(Number);
-    const fin = `${String(h + (m === 30 ? 1 : 0)).padStart(2, "0")}:${m === 30 ? "00" : "30"}`;
+    const [h] = hora.split(":").map(Number);
+    const fin = `${String(h).padStart(2, "0")}:30`;
     const start_time = `${fecha}T${hora}:00`;
     try {
       const zoom = await createZoom({ data: { topic: `Sesión 1a1`, start_time, duration: 30 } });
