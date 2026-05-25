@@ -18,6 +18,7 @@ import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/pagos'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
+import { Route as AuthenticatedGeneralRouteImport } from './routes/_authenticated/general'
 import { Route as AuthenticatedCursosRouteImport } from './routes/_authenticated/cursos'
 import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
 import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
@@ -68,6 +69,11 @@ const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
   path: '/inicio',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedGeneralRoute = AuthenticatedGeneralRouteImport.update({
+  id: '/general',
+  path: '/general',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedCursosRoute = AuthenticatedCursosRouteImport.update({
   id: '/cursos',
   path: '/cursos',
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/bonos': typeof AuthenticatedBonosRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/cursos': typeof AuthenticatedCursosRoute
+  '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/bonos': typeof AuthenticatedBonosRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/cursos': typeof AuthenticatedCursosRoute
+  '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/_authenticated/bonos': typeof AuthenticatedBonosRoute
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
   '/_authenticated/cursos': typeof AuthenticatedCursosRoute
+  '/_authenticated/general': typeof AuthenticatedGeneralRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
   '/_authenticated/pagos': typeof AuthenticatedPagosRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/bonos'
     | '/chats'
     | '/cursos'
+    | '/general'
     | '/inicio'
     | '/pagos'
     | '/perfil'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/bonos'
     | '/chats'
     | '/cursos'
+    | '/general'
     | '/inicio'
     | '/pagos'
     | '/perfil'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bonos'
     | '/_authenticated/chats'
     | '/_authenticated/cursos'
+    | '/_authenticated/general'
     | '/_authenticated/inicio'
     | '/_authenticated/pagos'
     | '/_authenticated/perfil'
@@ -263,6 +275,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInicioRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/general': {
+      id: '/_authenticated/general'
+      path: '/general'
+      fullPath: '/general'
+      preLoaderRoute: typeof AuthenticatedGeneralRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/cursos': {
       id: '/_authenticated/cursos'
       path: '/cursos'
@@ -307,6 +326,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedBonosRoute: typeof AuthenticatedBonosRoute
   AuthenticatedChatsRoute: typeof AuthenticatedChatsRoute
   AuthenticatedCursosRoute: typeof AuthenticatedCursosRoute
+  AuthenticatedGeneralRoute: typeof AuthenticatedGeneralRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
   AuthenticatedPagosRoute: typeof AuthenticatedPagosRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
@@ -319,6 +339,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBonosRoute: AuthenticatedBonosRoute,
   AuthenticatedChatsRoute: AuthenticatedChatsRoute,
   AuthenticatedCursosRoute: AuthenticatedCursosRoute,
+  AuthenticatedGeneralRoute: AuthenticatedGeneralRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
   AuthenticatedPagosRoute: AuthenticatedPagosRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
@@ -339,3 +360,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
