@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_config: {
+        Row: {
+          id: boolean
+          inicio_mensaje: string | null
+          inicio_titulo: string | null
+          inicio_video_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          inicio_mensaje?: string | null
+          inicio_titulo?: string | null
+          inicio_video_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          inicio_mensaje?: string | null
+          inicio_titulo?: string | null
+          inicio_video_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bonos: {
         Row: {
           anio: number
@@ -603,6 +627,39 @@ export type Database = {
           profesor_id?: string
           zoom_link?: string | null
           zoom_meeting_id?: string | null
+        }
+        Relationships: []
+      }
+      soporte_privado_mensajes: {
+        Row: {
+          autor_id: string
+          contenido: string | null
+          created_at: string
+          id: string
+          leido: boolean
+          media_url: string | null
+          tipo: string
+          usuario_id: string
+        }
+        Insert: {
+          autor_id: string
+          contenido?: string | null
+          created_at?: string
+          id?: string
+          leido?: boolean
+          media_url?: string | null
+          tipo?: string
+          usuario_id: string
+        }
+        Update: {
+          autor_id?: string
+          contenido?: string | null
+          created_at?: string
+          id?: string
+          leido?: boolean
+          media_url?: string | null
+          tipo?: string
+          usuario_id?: string
         }
         Relationships: []
       }
