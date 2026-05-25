@@ -98,65 +98,72 @@ function Page() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Agenda 1 a 1</h1>
-          <p className="text-sm text-muted-foreground">Lunes a viernes, sesiones de 30 minutos. Se crea Zoom automáticamente.</p>
-        </div>
+      <div className="relative overflow-hidden rounded-3xl p-6 mb-6 bg-violet-gradient text-white shadow-xl">
+        <div aria-hidden className="absolute -top-12 -right-12 w-56 h-56 rounded-full bg-white/10 blur-3xl" />
+        <div className="relative flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.18em] opacity-80">Sesiones privadas</div>
+            <h1 className="text-3xl font-bold mt-1">Agenda 1 a 1</h1>
+            <p className="text-sm opacity-90 mt-1">Lunes a viernes · Una reserva por hora · 30 min con Zoom automático.</p>
+          </div>
         <div className="flex items-center gap-2">
           {profesores.length > 1 && (
-            <select value={profesorId ?? ""} onChange={(e) => setProfesorId(e.target.value)} className="px-3 py-2 rounded-lg border bg-background text-sm">
+            <select value={profesorId ?? ""} onChange={(e) => setProfesorId(e.target.value)} className="px-3 py-2 rounded-lg bg-white/15 backdrop-blur text-white text-sm border border-white/20">
               {profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre_completo || p.email}</option>)}
             </select>
           )}
-          <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }} className="p-2 rounded-lg border hover:bg-muted"><ChevronLeft className="w-4 h-4"/></button>
-          <div className="text-sm font-medium">{weekStart.toLocaleDateString("es-PE", { day: "numeric", month: "short" })} – {new Date(weekStart.getTime() + 4*86400000).toLocaleDateString("es-PE", { day: "numeric", month: "short", year: "numeric" })}</div>
-          <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); }} className="p-2 rounded-lg border hover:bg-muted"><ChevronRight className="w-4 h-4"/></button>
+          <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }} className="p-2 rounded-lg bg-white/15 hover:bg-white/25"><ChevronLeft className="w-4 h-4"/></button>
+          <div className="text-sm font-semibold px-2">{weekStart.toLocaleDateString("es-PE", { day: "numeric", month: "short" })} – {new Date(weekStart.getTime() + 4*86400000).toLocaleDateString("es-PE", { day: "numeric", month: "short", year: "numeric" })}</div>
+          <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); }} className="p-2 rounded-lg bg-white/15 hover:bg-white/25"><ChevronRight className="w-4 h-4"/></button>
+        </div>
         </div>
       </div>
 
       {!profesorId ? (
         <div className="p-8 text-center text-muted-foreground border rounded-2xl">Aún no hay administradores configurados.</div>
       ) : (
-        <div className="overflow-auto rounded-2xl border bg-card">
+        <div className="overflow-auto rounded-3xl border bg-card shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted">
-                <th className="px-3 py-2 text-left w-20">Hora</th>
+              <tr className="bg-muted/60 backdrop-blur">
+                <th className="px-3 py-3 text-left w-24 text-[11px] uppercase tracking-wider opacity-70">Hora</th>
                 {dias.map((d, i) => (
-                  <th key={i} className="px-3 py-2 text-left">{DIAS[i]} {d.getDate()}/{d.getMonth() + 1}</th>
+                  <th key={i} className="px-3 py-3 text-left">
+                    <div className="text-[11px] uppercase tracking-wider opacity-70">{DIAS[i]}</div>
+                    <div className="text-base font-semibold">{d.getDate()}/{d.getMonth() + 1}</div>
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {HORAS.map((h) => (
                 <tr key={h} className="border-t">
-                  <td className="px-3 py-2 font-mono text-xs">{h}</td>
+                  <td className="px-3 py-3 font-mono text-xs font-semibold opacity-80">{h}<span className="opacity-50"> – {String(parseInt(h)).padStart(2,"0")}:30</span></td>
                   {dias.map((d, i) => {
                     const fecha = fmt(d);
                     const ses = miSesion(fecha, h);
                     const taken = ocupado(fecha, h);
                     if (ses) {
                       return (
-                        <td key={i} className="px-2 py-1.5">
-                          <div className="rounded-lg bg-violet-gradient text-white p-2 text-xs">
+                        <td key={i} className="px-2 py-2">
+                          <div className="rounded-xl bg-violet-gradient text-white p-2.5 text-xs shadow-md">
                             <div className="font-semibold flex items-center gap-1"><Video className="w-3 h-3"/> Reservada</div>
-                            {ses.zoom_link && <a href={ses.zoom_link} target="_blank" rel="noreferrer" className="underline">Entrar a Zoom</a>}
+                            {ses.zoom_link && <a href={ses.zoom_link} target="_blank" rel="noreferrer" className="underline opacity-95">Entrar a Zoom →</a>}
                             {(ses.alumna_id === uid || role === "admin") && (
-                              <button onClick={() => cancelar(ses.id)} className="block underline mt-0.5">Cancelar</button>
+                              <button onClick={() => cancelar(ses.id)} className="block underline mt-0.5 opacity-80">Cancelar</button>
                             )}
                           </div>
                         </td>
                       );
                     }
                     return (
-                      <td key={i} className="px-2 py-1.5">
+                      <td key={i} className="px-2 py-2">
                         <button
                           disabled={taken || d < new Date(new Date().setHours(0,0,0,0))}
                           onClick={() => setBooking({ fecha, hora: h })}
-                          className="w-full py-1.5 rounded-lg border border-dashed text-xs hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="w-full py-2.5 rounded-xl border border-dashed border-violet/40 text-xs font-medium text-violet hover:bg-violet/10 hover:border-violet transition disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                         >
-                          {taken ? "Ocupado" : "Disponible"}
+                          {taken ? "Ocupado" : "+ Reservar"}
                         </button>
                       </td>
                     );
