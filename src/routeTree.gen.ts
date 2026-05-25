@@ -23,6 +23,7 @@ import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedGeneralRouteImport } from './routes/_authenticated/general'
 import { Route as AuthenticatedCursosRouteImport } from './routes/_authenticated/cursos'
 import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
+import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
 import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
 import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
@@ -97,6 +98,12 @@ const AuthenticatedChatsRoute = AuthenticatedChatsRouteImport.update({
   path: '/chats',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCalendarioClasesRoute =
+  AuthenticatedCalendarioClasesRouteImport.update({
+    id: '/calendario-clases',
+    path: '/calendario-clases',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedBonosRoute = AuthenticatedBonosRouteImport.update({
   id: '/bonos',
   path: '/bonos',
@@ -121,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
+  '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/cursos': typeof AuthenticatedCursosRoute
   '/general': typeof AuthenticatedGeneralRoute
@@ -139,6 +147,7 @@ export interface FileRoutesByTo {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
+  '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/cursos': typeof AuthenticatedCursosRoute
   '/general': typeof AuthenticatedGeneralRoute
@@ -159,6 +168,7 @@ export interface FileRoutesById {
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/_authenticated/bonos': typeof AuthenticatedBonosRoute
+  '/_authenticated/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
   '/_authenticated/cursos': typeof AuthenticatedCursosRoute
   '/_authenticated/general': typeof AuthenticatedGeneralRoute
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/agenda-1a1'
     | '/bonos'
+    | '/calendario-clases'
     | '/chats'
     | '/cursos'
     | '/general'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/agenda-1a1'
     | '/bonos'
+    | '/calendario-clases'
     | '/chats'
     | '/cursos'
     | '/general'
@@ -216,6 +228,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agenda'
     | '/_authenticated/agenda-1a1'
     | '/_authenticated/bonos'
+    | '/_authenticated/calendario-clases'
     | '/_authenticated/chats'
     | '/_authenticated/cursos'
     | '/_authenticated/general'
@@ -335,6 +348,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/calendario-clases': {
+      id: '/_authenticated/calendario-clases'
+      path: '/calendario-clases'
+      fullPath: '/calendario-clases'
+      preLoaderRoute: typeof AuthenticatedCalendarioClasesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/bonos': {
       id: '/_authenticated/bonos'
       path: '/bonos'
@@ -363,6 +383,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedAgenda1a1Route: typeof AuthenticatedAgenda1a1Route
   AuthenticatedBonosRoute: typeof AuthenticatedBonosRoute
+  AuthenticatedCalendarioClasesRoute: typeof AuthenticatedCalendarioClasesRoute
   AuthenticatedChatsRoute: typeof AuthenticatedChatsRoute
   AuthenticatedCursosRoute: typeof AuthenticatedCursosRoute
   AuthenticatedGeneralRoute: typeof AuthenticatedGeneralRoute
@@ -378,6 +399,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedAgenda1a1Route: AuthenticatedAgenda1a1Route,
   AuthenticatedBonosRoute: AuthenticatedBonosRoute,
+  AuthenticatedCalendarioClasesRoute: AuthenticatedCalendarioClasesRoute,
   AuthenticatedChatsRoute: AuthenticatedChatsRoute,
   AuthenticatedCursosRoute: AuthenticatedCursosRoute,
   AuthenticatedGeneralRoute: AuthenticatedGeneralRoute,
