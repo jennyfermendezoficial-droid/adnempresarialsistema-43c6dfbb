@@ -1,25 +1,33 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  Home, BookOpen, Calendar, Users, MessageSquare,
-  ShieldCheck, Wallet, Gift, User, LogOut,
+  Home, BookOpen, CalendarDays, Users, MessageSquare,
+  ShieldCheck, Wallet, Gift, LogOut, Hash, Headphones, Calendar,
 } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 
 interface Item { to: string; label: string; icon: typeof Home; }
 
-const mainItems: Item[] = [
-  { to: "/inicio",      label: "Inicio",            icon: Home },
-  { to: "/cursos",      label: "Cursos",            icon: BookOpen },
-  { to: "/agenda",      label: "Clases en vivo",    icon: Calendar },
-  { to: "/agenda-1a1",  label: "Agenda 1 a 1",      icon: Users },
-  { to: "/chats",       label: "Chats",             icon: MessageSquare },
+const inicioItems: Item[] =  [{ to: "/inicio", label: "Inicio", icon: Home }];
+const canalesItems: Item[] = [
+  { to: "/general",         label: "General",         icon: Hash },
+  { to: "/soporte-privado", label: "Soporte privado", icon: Headphones },
 ];
-
+const soporteItems: Item[] = [
+  { to: "/chats",      label: "Chats",        icon: MessageSquare },
+  { to: "/agenda-1a1", label: "Agenda 1 a 1", icon: CalendarDays },
+];
+const academiaItems: Item[] = [
+  { to: "/cursos",            label: "Cursos",               icon: BookOpen },
+  { to: "/calendario-clases", label: "Calendario de clases", icon: Calendar },
+];
+const comunidadItems: Item[] = [
+  { to: "/miembros", label: "Miembros", icon: Users },
+];
 const adminItems: Item[] = [
-  { to: "/permisos", label: "Permisos", icon: ShieldCheck },
+  { to: "/permisos", label: "Permisos",         icon: ShieldCheck },
   { to: "/pagos",    label: "Pagos e informes", icon: Wallet },
-  { to: "/bonos",    label: "Bonos",    icon: Gift },
+  { to: "/bonos",    label: "Bonos",            icon: Gift },
 ];
 
 export function AppSidebar() {
@@ -48,12 +56,24 @@ export function AppSidebar() {
           <BrandName className="text-[15px]" />
         </Link>
 
-        <SectionLabel>Principal</SectionLabel>
-        <Nav items={mainItems} isActive={isActive} />
+        <SectionLabel>Inicio</SectionLabel>
+        <Nav items={inicioItems} isActive={isActive} />
+
+        <SectionLabel className="mt-3">Canales</SectionLabel>
+        <Nav items={canalesItems} isActive={isActive} />
+
+        <SectionLabel className="mt-3">Soporte</SectionLabel>
+        <Nav items={soporteItems} isActive={isActive} />
+
+        <SectionLabel className="mt-3">Academia</SectionLabel>
+        <Nav items={academiaItems} isActive={isActive} />
+
+        <SectionLabel className="mt-3">Comunidad</SectionLabel>
+        <Nav items={comunidadItems} isActive={isActive} />
 
         {role === "admin" && (
           <>
-            <SectionLabel className="mt-4">Administración</SectionLabel>
+            <SectionLabel className="mt-3">Admin</SectionLabel>
             <Nav items={adminItems} isActive={isActive} />
           </>
         )}
