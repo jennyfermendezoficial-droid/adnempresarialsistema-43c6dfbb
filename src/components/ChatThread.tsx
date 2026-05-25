@@ -65,7 +65,7 @@ export function ChatThread({
         (payload) => {
           const row = payload.new as ChatMessageRow;
           const old = payload.old as ChatMessageRow;
-          if (filter && row && (row as Record<string, unknown>)[filter.column] !== filter.value) return;
+          if (filter && row && (row as unknown as Record<string, unknown>)[filter.column] !== filter.value) return;
           if (payload.eventType === "INSERT") setMessages((m) => [...m, row]);
           if (payload.eventType === "UPDATE") setMessages((m) => m.map((x) => (x.id === row.id ? row : x)));
           if (payload.eventType === "DELETE") setMessages((m) => m.filter((x) => x.id !== old.id));
