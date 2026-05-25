@@ -12,8 +12,9 @@ interface Profile { id: string; nombre_completo: string; email: string }
 interface Chat { id: string; usuario_a_id: string; usuario_b_id: string; last_message_at: string }
 
 function Page() {
-  const { session } = useAuth();
+  const { session, role } = useAuth();
   const uid = session?.user.id;
+  const isStaff = role === "admin" || role === "soporte";
   const [chats, setChats] = useState<Chat[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [selected, setSelected] = useState<string | null>(null);
@@ -23,17 +24,29 @@ function Page() {
 
   useEffect(() => {
     if (!uid) return;
-    supabase.from("profiles").select("id,nombre_completo,email").then(({ data }) => {
-      const list = (data ?? []) as Profile[];
+    (async () => {
+      const { data: profs } = await supabase.from("profiles").select("id,nombre_completo,email");
+      const list = (profs ?? []) as Profile[];
       const m: Record<string, Profile> = {};
       list.forEach((p) => { m[p.id] = p; });
       setProfiles(m);
-      setAllUsers(list.filter((p) => p.id !== uid));
-    });
+
+      if (isStaff) {
+        setAllUsers(list.filter((p) => p.id !== uid));
+      } else {
+        // Estudiantes solo pueden chatear con admin o soporte (profesores).
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("user_id, role")
+          .in("role", ["admin", "soporte"]);
+        const staffIds = new Set(((roles ?? []) as { user_id: string }[]).map((r) => r.user_id));
+        setAllUsers(list.filter((p) => p.id !== uid && staffIds.has(p.id)));
+      }
+    })();
     supabase.from("chats_1a1").select("*").order("last_message_at", { ascending: false }).then(({ data }) => {
       setChats((data as Chat[]) ?? []);
     });
-  }, [uid]);
+  }, [uid, isStaff]);
 
   const authorMap = useMemo(() => {
     const m: Record<string, { name: string }> = {};
