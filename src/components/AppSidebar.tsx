@@ -13,7 +13,8 @@ const canalesItems: Item[] = [
   { to: "/general", label: "General", icon: Hash },
 ];
 const staffCanalesItems: Item[] = [
-  { to: "/soporte-privado", label: "Chat profesores", icon: Headphones },
+  { to: "/chat-profesores", label: "Chat profesores", icon: Headphones },
+  { to: "/soporte-privado", label: "Soporte privado", icon: MessageSquare },
 ];
 const soporteItems: Item[] = [
   { to: "/chats",      label: "Chats",        icon: MessageSquare },

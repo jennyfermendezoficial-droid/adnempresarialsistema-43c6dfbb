@@ -23,6 +23,7 @@ import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedGeneralRouteImport } from './routes/_authenticated/general'
 import { Route as AuthenticatedCursosRouteImport } from './routes/_authenticated/cursos'
 import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
+import { Route as AuthenticatedChatProfesoresRouteImport } from './routes/_authenticated/chat-profesores'
 import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
 import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
 import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
@@ -97,6 +98,12 @@ const AuthenticatedChatsRoute = AuthenticatedChatsRouteImport.update({
   path: '/chats',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedChatProfesoresRoute =
+  AuthenticatedChatProfesoresRouteImport.update({
+    id: '/chat-profesores',
+    path: '/chat-profesores',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedCalendarioClasesRoute =
   AuthenticatedCalendarioClasesRouteImport.update({
     id: '/calendario-clases',
@@ -122,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
+  '/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/cursos': typeof AuthenticatedCursosRoute
   '/general': typeof AuthenticatedGeneralRoute
@@ -140,6 +148,7 @@ export interface FileRoutesByTo {
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
+  '/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/cursos': typeof AuthenticatedCursosRoute
   '/general': typeof AuthenticatedGeneralRoute
@@ -160,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/_authenticated/bonos': typeof AuthenticatedBonosRoute
   '/_authenticated/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
+  '/_authenticated/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
   '/_authenticated/cursos': typeof AuthenticatedCursosRoute
   '/_authenticated/general': typeof AuthenticatedGeneralRoute
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/agenda-1a1'
     | '/bonos'
     | '/calendario-clases'
+    | '/chat-profesores'
     | '/chats'
     | '/cursos'
     | '/general'
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/agenda-1a1'
     | '/bonos'
     | '/calendario-clases'
+    | '/chat-profesores'
     | '/chats'
     | '/cursos'
     | '/general'
@@ -217,6 +229,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agenda-1a1'
     | '/_authenticated/bonos'
     | '/_authenticated/calendario-clases'
+    | '/_authenticated/chat-profesores'
     | '/_authenticated/chats'
     | '/_authenticated/cursos'
     | '/_authenticated/general'
@@ -336,6 +349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/chat-profesores': {
+      id: '/_authenticated/chat-profesores'
+      path: '/chat-profesores'
+      fullPath: '/chat-profesores'
+      preLoaderRoute: typeof AuthenticatedChatProfesoresRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/calendario-clases': {
       id: '/_authenticated/calendario-clases'
       path: '/calendario-clases'
@@ -364,6 +384,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgenda1a1Route: typeof AuthenticatedAgenda1a1Route
   AuthenticatedBonosRoute: typeof AuthenticatedBonosRoute
   AuthenticatedCalendarioClasesRoute: typeof AuthenticatedCalendarioClasesRoute
+  AuthenticatedChatProfesoresRoute: typeof AuthenticatedChatProfesoresRoute
   AuthenticatedChatsRoute: typeof AuthenticatedChatsRoute
   AuthenticatedCursosRoute: typeof AuthenticatedCursosRoute
   AuthenticatedGeneralRoute: typeof AuthenticatedGeneralRoute
@@ -379,6 +400,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgenda1a1Route: AuthenticatedAgenda1a1Route,
   AuthenticatedBonosRoute: AuthenticatedBonosRoute,
   AuthenticatedCalendarioClasesRoute: AuthenticatedCalendarioClasesRoute,
+  AuthenticatedChatProfesoresRoute: AuthenticatedChatProfesoresRoute,
   AuthenticatedChatsRoute: AuthenticatedChatsRoute,
   AuthenticatedCursosRoute: AuthenticatedCursosRoute,
   AuthenticatedGeneralRoute: AuthenticatedGeneralRoute,
@@ -404,3 +426,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

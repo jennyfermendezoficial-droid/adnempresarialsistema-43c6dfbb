@@ -15,7 +15,11 @@ export interface ChatMessageRow {
 }
 
 export interface ChatThreadProps {
-  table: "canal_general_mensajes" | "mensajes_chat_1a1" | "soporte_privado_mensajes";
+  table:
+    | "canal_general_mensajes"
+    | "mensajes_chat_1a1"
+    | "soporte_privado_mensajes"
+    | "chat_profesores_mensajes";
   filter?: { column: string; value: string };
   extraInsert?: Record<string, unknown>;
   bucket?: string;
