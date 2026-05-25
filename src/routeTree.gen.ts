@@ -18,6 +18,7 @@ import { Route as AuthenticatedSoportePrivadoRouteImport } from './routes/_authe
 import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticated/permisos'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/pagos'
+import { Route as AuthenticatedMiembrosRouteImport } from './routes/_authenticated/miembros'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
 import { Route as AuthenticatedGeneralRouteImport } from './routes/_authenticated/general'
 import { Route as AuthenticatedCursosRouteImport } from './routes/_authenticated/cursos'
@@ -71,6 +72,11 @@ const AuthenticatedPagosRoute = AuthenticatedPagosRouteImport.update({
   path: '/pagos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMiembrosRoute = AuthenticatedMiembrosRouteImport.update({
+  id: '/miembros',
+  path: '/miembros',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
   id: '/inicio',
   path: '/inicio',
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/cursos': typeof AuthenticatedCursosRoute
   '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/miembros': typeof AuthenticatedMiembrosRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/cursos': typeof AuthenticatedCursosRoute
   '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/miembros': typeof AuthenticatedMiembrosRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/_authenticated/cursos': typeof AuthenticatedCursosRoute
   '/_authenticated/general': typeof AuthenticatedGeneralRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
+  '/_authenticated/miembros': typeof AuthenticatedMiembrosRoute
   '/_authenticated/pagos': typeof AuthenticatedPagosRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/permisos': typeof AuthenticatedPermisosRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/cursos'
     | '/general'
     | '/inicio'
+    | '/miembros'
     | '/pagos'
     | '/perfil'
     | '/permisos'
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/cursos'
     | '/general'
     | '/inicio'
+    | '/miembros'
     | '/pagos'
     | '/perfil'
     | '/permisos'
@@ -209,6 +220,7 @@ export interface FileRouteTypes {
     | '/_authenticated/cursos'
     | '/_authenticated/general'
     | '/_authenticated/inicio'
+    | '/_authenticated/miembros'
     | '/_authenticated/pagos'
     | '/_authenticated/perfil'
     | '/_authenticated/permisos'
@@ -288,6 +300,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPagosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/miembros': {
+      id: '/_authenticated/miembros'
+      path: '/miembros'
+      fullPath: '/miembros'
+      preLoaderRoute: typeof AuthenticatedMiembrosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inicio': {
       id: '/_authenticated/inicio'
       path: '/inicio'
@@ -348,6 +367,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCursosRoute: typeof AuthenticatedCursosRoute
   AuthenticatedGeneralRoute: typeof AuthenticatedGeneralRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
+  AuthenticatedMiembrosRoute: typeof AuthenticatedMiembrosRoute
   AuthenticatedPagosRoute: typeof AuthenticatedPagosRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPermisosRoute: typeof AuthenticatedPermisosRoute
@@ -362,6 +382,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCursosRoute: AuthenticatedCursosRoute,
   AuthenticatedGeneralRoute: AuthenticatedGeneralRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
+  AuthenticatedMiembrosRoute: AuthenticatedMiembrosRoute,
   AuthenticatedPagosRoute: AuthenticatedPagosRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPermisosRoute: AuthenticatedPermisosRoute,
