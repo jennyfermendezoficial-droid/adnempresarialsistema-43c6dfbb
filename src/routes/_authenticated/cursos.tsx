@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { BookOpen, Plus, Trash2, ChevronRight, X, Play } from "lucide-react";
+import { BookOpen, Plus, Trash2, ChevronRight, X, Play, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo } from "@/lib/bunny.functions";
+import * as tus from "tus-js-client";
 
 export const Route = createFileRoute("/_authenticated/cursos")({ component: Page });
 
@@ -15,12 +18,22 @@ function Page() {
   const { session, role } = useAuth();
   const isStaff = role === "admin" || role === "soporte";
   const uid = session?.user.id;
+  const createBunny = useServerFn(createBunnyVideoForUpload);
+  const getBunnyCfg = useServerFn(getBunnyPublicConfig);
+  const removeBunny = useServerFn(deleteBunnyVideo);
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [permisos, setPermisos] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<Curso | null>(null);
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [lecciones, setLecciones] = useState<Leccion[]>([]);
   const [playing, setPlaying] = useState<Leccion | null>(null);
+  const [bunnyCfg, setBunnyCfg] = useState<{ libraryId: string; cdnHostname: string } | null>(null);
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [uploadPct, setUploadPct] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingModId = useRef<string | null>(null);
+
+  useEffect(() => { getBunnyCfg().then(setBunnyCfg).catch(() => {}); }, []); // eslint-disable-line
 
   useEffect(() => {
     supabase.from("cursos").select("*").order("orden").then(({ data }) => setCursos((data as Curso[]) ?? []));
@@ -61,20 +74,79 @@ function Page() {
     if (error) return toast.error(error.message);
     setModulos((m) => [...m, data as Modulo]);
   };
-  const crearLeccion = async (modId: string) => {
-    const nombre = prompt("Nombre de la lección");
+  const subirLeccion = (modId: string) => {
+    pendingModId.current = modId;
+    fileInputRef.current?.click();
+  };
+
+  const onFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    const modId = pendingModId.current;
+    if (!file || !modId) return;
+    const nombre = prompt("Nombre de la lección", file.name.replace(/\.[^.]+$/, ""));
     if (!nombre) return;
-    const url = prompt("URL del video (YouTube o MP4 directo) — opcional") || "";
-    const orden = lecciones.filter((l) => l.modulo_id === modId).length;
-    const { data, error } = await supabase.from("lecciones").insert({ modulo_id: modId, nombre, bunny_video_id: url || null, orden }).select().single();
-    if (error) return toast.error(error.message);
-    setLecciones((l) => [...l, data as Leccion]);
+
+    try {
+      setUploadingFor(modId);
+      setUploadPct(0);
+      const cred = await createBunny({ data: { title: nombre } });
+
+      await new Promise<void>((resolve, reject) => {
+        const upload = new tus.Upload(file, {
+          endpoint: "https://video.bunnycdn.com/tusupload",
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          headers: {
+            AuthorizationSignature: cred.authorizationSignature,
+            AuthorizationExpire: String(cred.authorizationExpire),
+            VideoId: cred.videoId,
+            LibraryId: cred.libraryId,
+          },
+          metadata: { filetype: file.type, title: nombre },
+          onError: (err) => reject(err),
+          onProgress: (sent, total) => setUploadPct(Math.round((sent / total) * 100)),
+          onSuccess: () => resolve(),
+        });
+        upload.start();
+      });
+
+      const orden = lecciones.filter((l) => l.modulo_id === modId).length;
+      const { data, error } = await supabase
+        .from("lecciones")
+        .insert({ modulo_id: modId, nombre, bunny_video_id: cred.videoId, orden })
+        .select()
+        .single();
+      if (error) throw error;
+      setLecciones((l) => [...l, data as Leccion]);
+      toast.success("Lección subida");
+    } catch (err) {
+      toast.error((err as Error).message || "Error subiendo el video");
+    } finally {
+      setUploadingFor(null);
+      setUploadPct(0);
+      pendingModId.current = null;
+    }
+  };
+
+  const borrarLeccion = async (l: Leccion) => {
+    if (!confirm("¿Eliminar lección y su video?")) return;
+    try {
+      if (l.bunny_video_id && /^[0-9a-f-]{20,}$/i.test(l.bunny_video_id)) {
+        await removeBunny({ data: { videoId: l.bunny_video_id } }).catch(() => {});
+      }
+      const { error } = await supabase.from("lecciones").delete().eq("id", l.id);
+      if (error) throw error;
+      setLecciones((arr) => arr.filter((x) => x.id !== l.id));
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
   };
 
   const tieneAcceso = (c: Curso) => isStaff || permisos.has(c.id);
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
+      <input ref={fileInputRef} type="file" accept="video/*" hidden onChange={onFileChosen} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-semibold">Cursos</h1>
@@ -124,15 +196,30 @@ function Page() {
                 <div key={m.id} className="border rounded-xl p-3">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold">{m.nombre}</h3>
-                    {isStaff && <button onClick={() => crearLeccion(m.id)} className="text-xs px-2 py-1 rounded border flex items-center gap-1"><Plus className="w-3 h-3"/>Lección</button>}
+                    {isStaff && (
+                      <button
+                        disabled={uploadingFor !== null}
+                        onClick={() => subirLeccion(m.id)}
+                        className="text-xs px-2 py-1 rounded border flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {uploadingFor === m.id ? (
+                          <><Loader2 className="w-3 h-3 animate-spin"/>Subiendo {uploadPct}%</>
+                        ) : (
+                          <><Upload className="w-3 h-3"/>Subir lección</>
+                        )}
+                      </button>
+                    )}
                   </div>
                   <ul className="mt-2 space-y-1">
                     {lecciones.filter((l) => l.modulo_id === m.id).map((l) => (
-                      <li key={l.id}>
-                        <button onClick={() => setPlaying(l)} className="w-full text-left flex items-center gap-2 p-2 rounded hover:bg-muted text-sm">
+                      <li key={l.id} className="flex items-center gap-1">
+                        <button onClick={() => setPlaying(l)} className="flex-1 text-left flex items-center gap-2 p-2 rounded hover:bg-muted text-sm">
                           <Play className="w-4 h-4 text-violet" /> {l.nombre}
                           <ChevronRight className="w-4 h-4 ml-auto opacity-50" />
                         </button>
+                        {isStaff && (
+                          <button onClick={() => borrarLeccion(l)} className="p-1 opacity-50 hover:opacity-100" title="Eliminar"><Trash2 className="w-3.5 h-3.5"/></button>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -155,6 +242,13 @@ function Page() {
               {playing.bunny_video_id ? (
                 /youtube\.com|youtu\.be/.test(playing.bunny_video_id) ? (
                   <iframe src={playing.bunny_video_id.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/")} className="w-full h-full" allowFullScreen />
+                ) : /^[0-9a-f-]{20,}$/i.test(playing.bunny_video_id) && bunnyCfg ? (
+                  <iframe
+                    src={`https://iframe.mediadelivery.net/embed/${bunnyCfg.libraryId}/${playing.bunny_video_id}?autoplay=true`}
+                    className="w-full h-full"
+                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                    allowFullScreen
+                  />
                 ) : (
                   <video src={playing.bunny_video_id} controls autoPlay className="w-full h-full" />
                 )
