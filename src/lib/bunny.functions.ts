@@ -58,9 +58,9 @@ export const createBunnyVideoForUpload = createServerFn({ method: "POST" })
     }
     const video = (await createRes.json()) as { guid: string };
 
-    // 2) Firma TUS válida por 24h
+    // 2) Firma TUS válida por 24h (Bunny exige SHA-256)
     const expirationTime = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
-    const signature = createHash("sha512")
+    const signature = createHash("sha256")
       .update(`${libraryId}${apiKey}${expirationTime}${video.guid}`)
       .digest("hex");
 
