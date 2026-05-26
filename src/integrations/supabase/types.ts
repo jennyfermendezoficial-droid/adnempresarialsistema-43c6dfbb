@@ -685,6 +685,8 @@ export type Database = {
           email: string
           estado: Database["public"]["Enums"]["user_estado"]
           id: string
+          negocio_foto_url: string | null
+          negocio_nombre: string | null
           nombre_completo: string
           tarifa_hora_clase: number
           tarifa_sesion_1a1: number
@@ -696,6 +698,8 @@ export type Database = {
           email: string
           estado?: Database["public"]["Enums"]["user_estado"]
           id: string
+          negocio_foto_url?: string | null
+          negocio_nombre?: string | null
           nombre_completo?: string
           tarifa_hora_clase?: number
           tarifa_sesion_1a1?: number
@@ -707,6 +711,8 @@ export type Database = {
           email?: string
           estado?: Database["public"]["Enums"]["user_estado"]
           id?: string
+          negocio_foto_url?: string | null
+          negocio_nombre?: string | null
           nombre_completo?: string
           tarifa_hora_clase?: number
           tarifa_sesion_1a1?: number
@@ -745,6 +751,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       sesiones_1a1: {
         Row: {
