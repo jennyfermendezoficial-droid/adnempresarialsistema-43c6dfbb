@@ -20,12 +20,12 @@ import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedMiembrosRouteImport } from './routes/_authenticated/miembros'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
 import { Route as AuthenticatedGeneralRouteImport } from './routes/_authenticated/general'
-import { Route as AuthenticatedCursosRouteImport } from './routes/_authenticated/cursos'
 import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
 import { Route as AuthenticatedChatProfesoresRouteImport } from './routes/_authenticated/chat-profesores'
 import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
 import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
 import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
+import { Route as AuthenticatedCursosIndexRouteImport } from './routes/_authenticated/cursos.index'
 import { Route as AuthenticatedCursosCursoIdRouteImport } from './routes/_authenticated/cursos.$cursoId'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -82,11 +82,6 @@ const AuthenticatedGeneralRoute = AuthenticatedGeneralRouteImport.update({
   path: '/general',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedCursosRoute = AuthenticatedCursosRouteImport.update({
-  id: '/cursos',
-  path: '/cursos',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedChatsRoute = AuthenticatedChatsRouteImport.update({
   id: '/chats',
   path: '/chats',
@@ -114,11 +109,17 @@ const AuthenticatedAgenda1a1Route = AuthenticatedAgenda1a1RouteImport.update({
   path: '/agenda-1a1',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCursosIndexRoute =
+  AuthenticatedCursosIndexRouteImport.update({
+    id: '/cursos/',
+    path: '/cursos/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedCursosCursoIdRoute =
   AuthenticatedCursosCursoIdRouteImport.update({
-    id: '/$cursoId',
-    path: '/$cursoId',
-    getParentRoute: () => AuthenticatedCursosRoute,
+    id: '/cursos/$cursoId',
+    path: '/cursos/$cursoId',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -131,7 +132,6 @@ export interface FileRoutesByFullPath {
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/chats': typeof AuthenticatedChatsRoute
-  '/cursos': typeof AuthenticatedCursosRouteWithChildren
   '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
@@ -139,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
+  '/cursos/': typeof AuthenticatedCursosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -150,7 +151,6 @@ export interface FileRoutesByTo {
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/chats': typeof AuthenticatedChatsRoute
-  '/cursos': typeof AuthenticatedCursosRouteWithChildren
   '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
@@ -158,6 +158,7 @@ export interface FileRoutesByTo {
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
+  '/cursos': typeof AuthenticatedCursosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -171,7 +172,6 @@ export interface FileRoutesById {
   '/_authenticated/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/_authenticated/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
-  '/_authenticated/cursos': typeof AuthenticatedCursosRouteWithChildren
   '/_authenticated/general': typeof AuthenticatedGeneralRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
   '/_authenticated/miembros': typeof AuthenticatedMiembrosRoute
@@ -179,6 +179,7 @@ export interface FileRoutesById {
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/permisos': typeof AuthenticatedPermisosRoute
   '/_authenticated/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
+  '/_authenticated/cursos/': typeof AuthenticatedCursosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -192,7 +193,6 @@ export interface FileRouteTypes {
     | '/calendario-clases'
     | '/chat-profesores'
     | '/chats'
-    | '/cursos'
     | '/general'
     | '/inicio'
     | '/miembros'
@@ -200,6 +200,7 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/permisos'
     | '/cursos/$cursoId'
+    | '/cursos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -211,7 +212,6 @@ export interface FileRouteTypes {
     | '/calendario-clases'
     | '/chat-profesores'
     | '/chats'
-    | '/cursos'
     | '/general'
     | '/inicio'
     | '/miembros'
@@ -219,6 +219,7 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/permisos'
     | '/cursos/$cursoId'
+    | '/cursos'
   id:
     | '__root__'
     | '/'
@@ -231,7 +232,6 @@ export interface FileRouteTypes {
     | '/_authenticated/calendario-clases'
     | '/_authenticated/chat-profesores'
     | '/_authenticated/chats'
-    | '/_authenticated/cursos'
     | '/_authenticated/general'
     | '/_authenticated/inicio'
     | '/_authenticated/miembros'
@@ -239,6 +239,7 @@ export interface FileRouteTypes {
     | '/_authenticated/perfil'
     | '/_authenticated/permisos'
     | '/_authenticated/cursos/$cursoId'
+    | '/_authenticated/cursos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -328,13 +329,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGeneralRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/cursos': {
-      id: '/_authenticated/cursos'
-      path: '/cursos'
-      fullPath: '/cursos'
-      preLoaderRoute: typeof AuthenticatedCursosRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/chats': {
       id: '/_authenticated/chats'
       path: '/chats'
@@ -370,26 +364,22 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgenda1a1RouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/cursos/': {
+      id: '/_authenticated/cursos/'
+      path: '/cursos'
+      fullPath: '/cursos/'
+      preLoaderRoute: typeof AuthenticatedCursosIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/cursos/$cursoId': {
       id: '/_authenticated/cursos/$cursoId'
-      path: '/$cursoId'
+      path: '/cursos/$cursoId'
       fullPath: '/cursos/$cursoId'
       preLoaderRoute: typeof AuthenticatedCursosCursoIdRouteImport
-      parentRoute: typeof AuthenticatedCursosRoute
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
-
-interface AuthenticatedCursosRouteChildren {
-  AuthenticatedCursosCursoIdRoute: typeof AuthenticatedCursosCursoIdRoute
-}
-
-const AuthenticatedCursosRouteChildren: AuthenticatedCursosRouteChildren = {
-  AuthenticatedCursosCursoIdRoute: AuthenticatedCursosCursoIdRoute,
-}
-
-const AuthenticatedCursosRouteWithChildren =
-  AuthenticatedCursosRoute._addFileChildren(AuthenticatedCursosRouteChildren)
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAgenda1a1Route: typeof AuthenticatedAgenda1a1Route
@@ -397,13 +387,14 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCalendarioClasesRoute: typeof AuthenticatedCalendarioClasesRoute
   AuthenticatedChatProfesoresRoute: typeof AuthenticatedChatProfesoresRoute
   AuthenticatedChatsRoute: typeof AuthenticatedChatsRoute
-  AuthenticatedCursosRoute: typeof AuthenticatedCursosRouteWithChildren
   AuthenticatedGeneralRoute: typeof AuthenticatedGeneralRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
   AuthenticatedMiembrosRoute: typeof AuthenticatedMiembrosRoute
   AuthenticatedPagosRoute: typeof AuthenticatedPagosRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPermisosRoute: typeof AuthenticatedPermisosRoute
+  AuthenticatedCursosCursoIdRoute: typeof AuthenticatedCursosCursoIdRoute
+  AuthenticatedCursosIndexRoute: typeof AuthenticatedCursosIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -412,13 +403,14 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCalendarioClasesRoute: AuthenticatedCalendarioClasesRoute,
   AuthenticatedChatProfesoresRoute: AuthenticatedChatProfesoresRoute,
   AuthenticatedChatsRoute: AuthenticatedChatsRoute,
-  AuthenticatedCursosRoute: AuthenticatedCursosRouteWithChildren,
   AuthenticatedGeneralRoute: AuthenticatedGeneralRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
   AuthenticatedMiembrosRoute: AuthenticatedMiembrosRoute,
   AuthenticatedPagosRoute: AuthenticatedPagosRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPermisosRoute: AuthenticatedPermisosRoute,
+  AuthenticatedCursosCursoIdRoute: AuthenticatedCursosCursoIdRoute,
+  AuthenticatedCursosIndexRoute: AuthenticatedCursosIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -435,3 +427,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
