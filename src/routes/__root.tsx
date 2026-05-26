@@ -11,6 +11,37 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
+import { useEffect } from "react";
+
+// Defensive patch: Google Translate (and similar DOM-mutating extensions)
+// replace text nodes, which makes React throw NotFoundError on removeChild /
+// insertBefore during reconciliation, crashing the whole app. Wrapping these
+// in try/catch is the community-accepted workaround.
+function patchDomForTranslate() {
+  if (typeof Node === "undefined") return;
+  const w = window as unknown as { __lovableDomPatched?: boolean };
+  if (w.__lovableDomPatched) return;
+  w.__lovableDomPatched = true;
+
+  const origRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function <T extends Node>(child: T): T {
+    if (child.parentNode !== this) {
+      if (child.parentNode) {
+        try { return origRemoveChild.call(child.parentNode, child) as T; } catch { return child; }
+      }
+      return child;
+    }
+    return origRemoveChild.call(this, child) as T;
+  } as typeof Node.prototype.removeChild;
+
+  const origInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function <T extends Node>(newNode: T, referenceNode: Node | null): T {
+    if (referenceNode && referenceNode.parentNode !== this) {
+      try { return origInsertBefore.call(this, newNode, null) as T; } catch { return newNode; }
+    }
+    return origInsertBefore.call(this, newNode, referenceNode) as T;
+  } as typeof Node.prototype.insertBefore;
+}
 
 function NotFoundComponent() {
   return (
