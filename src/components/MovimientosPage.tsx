@@ -11,6 +11,7 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
   const uid = session?.user.id;
   const [movs, setMovs] = useState<Mov[]>([]);
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ tipo: "ingreso" as "ingreso" | "gasto", categoria: "", monto: "", descripcion: "", fecha: new Date().toISOString().slice(0,10) });
 
   const cargar = async () => {
@@ -26,11 +27,14 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
   const utilidad = ingresos - gastos;
 
   const crear = async () => {
+    if (saving) return;
     if (!uid || !form.monto) return toast.error("Pon un monto");
+    setSaving(true);
     const { error } = await supabase.from("ae_movimientos").insert({
       usuario_id: uid, ambito, tipo: form.tipo, categoria: form.categoria || null,
       monto: Number(form.monto), descripcion: form.descripcion || null, fecha: form.fecha,
     });
+    setSaving(false);
     if (error) return toast.error(error.message);
     setOpen(false); setForm({ ...form, categoria: "", monto: "", descripcion: "" });
     cargar();
@@ -93,7 +97,9 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setOpen(false)} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button>
-              <button onClick={crear} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm">Guardar</button>
+              <button onClick={crear} disabled={saving} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm disabled:opacity-60">
+                {saving ? "Guardando…" : "Guardar"}
+              </button>
             </div>
           </div>
         </div>

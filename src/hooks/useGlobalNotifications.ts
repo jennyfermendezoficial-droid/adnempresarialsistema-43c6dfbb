@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { notify, registerSW, ensureNotificationPermission } from "@/lib/notifications";
+import { subscribePushIfPossible } from "@/lib/push-subscribe";
 
 /**
  * Suscribe al usuario a notificaciones globales:
@@ -22,7 +23,13 @@ export function useGlobalNotifications() {
     if (!uid) return;
     registerSW();
     // Pedir permiso después de un pequeño delay para que no sea agresivo
-    const t = setTimeout(() => { ensureNotificationPermission(); }, 2500);
+    const t = setTimeout(async () => {
+      const perm = await ensureNotificationPermission();
+      if (perm === "granted") {
+        // Suscribir al Web Push (para notificaciones con navegador cerrado)
+        subscribePushIfPossible(uid);
+      }
+    }, 2500);
 
     // Navegar cuando el SW pide abrir una URL al click
     const onMsg = (ev: MessageEvent) => {

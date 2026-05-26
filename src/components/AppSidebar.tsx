@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
+import { InstallAppButton } from "./InstallAppButton";
 
 interface Item { to: string; label: string; icon: typeof Home; }
 
@@ -103,6 +104,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
         )}
 
         <div className="mt-auto pt-4 border-t" style={{ borderColor: "var(--line-dark)" }}>
+          <div className="mb-3"><InstallAppButton compact /></div>
           <Link
             to="/perfil"
             onClick={onNavigate}

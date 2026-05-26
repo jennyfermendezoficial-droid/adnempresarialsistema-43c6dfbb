@@ -21,6 +21,7 @@ function Page() {
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
   const [acts, setActs] = useState<Actividad[]>([]);
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ titulo: "", hora_inicio: "09:00", duracion_min: 60, descripcion: "", ubicacion: "", link: "", color: "#7C6BFF" });
 
   const cargar = async () => {
@@ -41,12 +42,15 @@ function Page() {
   }, []);
 
   const crear = async () => {
+    if (saving) return;
     if (!uid || !form.titulo.trim()) return toast.error("Pon un título");
+    setSaving(true);
     const { error } = await supabase.from("ae_actividades").insert({
       usuario_id: uid, titulo: form.titulo, descripcion: form.descripcion || null,
       fecha, hora_inicio: form.hora_inicio, duracion_min: form.duracion_min,
       color: form.color, ubicacion: form.ubicacion || null, link: form.link || null,
     });
+    setSaving(false);
     if (error) return toast.error(error.message);
     setOpen(false); setForm({ ...form, titulo: "", descripcion: "", ubicacion: "", link: "" });
     cargar();
@@ -137,7 +141,9 @@ function Page() {
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setOpen(false)} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button>
-              <button onClick={crear} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm">Guardar</button>
+              <button onClick={crear} disabled={saving} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm disabled:opacity-60">
+                {saving ? "Guardando…" : "Guardar"}
+              </button>
             </div>
           </div>
         </div>
