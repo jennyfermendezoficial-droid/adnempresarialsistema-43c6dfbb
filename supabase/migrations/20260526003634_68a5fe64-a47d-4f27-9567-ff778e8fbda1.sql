@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS course_covers_public_read ON storage.objects;
