@@ -195,7 +195,7 @@ function Page() {
   const addRecurso = async (r: Recurso) => {
     if (!active) return;
     const recursos = [...(active.recursos_adjuntos ?? []), r];
-    const { error } = await supabase.from("lecciones").update({ recursos_adjuntos: recursos }).eq("id", active.id);
+    const { error } = await supabase.from("lecciones").update({ recursos_adjuntos: recursos as unknown as never }).eq("id", active.id);
     if (error) return toast.error(error.message);
     updateActive({ recursos_adjuntos: recursos });
   };
@@ -203,7 +203,7 @@ function Page() {
   const removeRecurso = async (idx: number) => {
     if (!active) return;
     const recursos = (active.recursos_adjuntos ?? []).filter((_, i) => i !== idx);
-    const { error } = await supabase.from("lecciones").update({ recursos_adjuntos: recursos }).eq("id", active.id);
+    const { error } = await supabase.from("lecciones").update({ recursos_adjuntos: recursos as unknown as never }).eq("id", active.id);
     if (error) return toast.error(error.message);
     updateActive({ recursos_adjuntos: recursos });
   };
