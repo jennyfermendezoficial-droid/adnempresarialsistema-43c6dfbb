@@ -24,7 +24,7 @@ function patchDomForTranslate() {
   w.__lovableDomPatched = true;
 
   const origRemoveChild = Node.prototype.removeChild;
-  Node.prototype.removeChild = function <T extends Node>(child: T): T {
+  Node.prototype.removeChild = function <T extends Node>(this: Node, child: T): T {
     if (child.parentNode !== this) {
       if (child.parentNode) {
         try { return origRemoveChild.call(child.parentNode, child) as T; } catch { return child; }
@@ -35,7 +35,7 @@ function patchDomForTranslate() {
   } as typeof Node.prototype.removeChild;
 
   const origInsertBefore = Node.prototype.insertBefore;
-  Node.prototype.insertBefore = function <T extends Node>(newNode: T, referenceNode: Node | null): T {
+  Node.prototype.insertBefore = function <T extends Node>(this: Node, newNode: T, referenceNode: Node | null): T {
     if (referenceNode && referenceNode.parentNode !== this) {
       try { return origInsertBefore.call(this, newNode, null) as T; } catch { return newNode; }
     }
