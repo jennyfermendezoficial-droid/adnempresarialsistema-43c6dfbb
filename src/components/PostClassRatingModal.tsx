@@ -28,7 +28,16 @@ export function PostClassRatingModal() {
   const [vals, setVals] = useState<Record<CK, number>>({ claridad: 0, didactica: 0, desenvolvimiento: 0, practico: 0 });
   const [comentario, setComentario] = useState("");
   const [saving, setSaving] = useState(false);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const STORAGE_KEY = `adn_calif_skip_${uid ?? "anon"}`;
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]")); }
+    catch { return new Set(); }
+  });
+  const [confirmSkip, setConfirmSkip] = useState(false);
+
+  const persistDismissed = (next: Set<string>) => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(next))); } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     if (!uid || role !== "usuario") return;
@@ -110,21 +119,34 @@ export function PostClassRatingModal() {
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("¡Gracias por tu calificación!");
-    setDismissed((s) => new Set(s).add(pending.id));
+    setDismissed((s) => {
+      const next = new Set(s).add(pending.id);
+      persistDismissed(next);
+      return next;
+    });
     setPending(null);
     setVals({ claridad: 0, didactica: 0, desenvolvimiento: 0, practico: 0 });
     setComentario("");
   };
 
-  const cerrar = () => {
-    setDismissed((s) => new Set(s).add(pending.id));
+  const intentarCerrar = () => setConfirmSkip(true);
+
+  const omitirDefinitivo = () => {
+    setDismissed((s) => {
+      const next = new Set(s).add(pending.id);
+      persistDismissed(next);
+      return next;
+    });
+    setConfirmSkip(false);
     setPending(null);
   };
+
+  const volverACalificar = () => setConfirmSkip(false);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center z-[100] p-4">
       <div className="bg-card rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-        <button onClick={cerrar} className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-muted">
+        <button onClick={intentarCerrar} className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-muted">
           <X className="w-4 h-4" />
         </button>
         <div className="text-xs uppercase tracking-wider text-violet font-semibold mb-1">Tu clase acaba de terminar</div>
@@ -159,11 +181,28 @@ export function PostClassRatingModal() {
         />
 
         <div className="flex gap-2 justify-end">
-          <button onClick={cerrar} className="px-4 py-2 rounded-lg border text-sm">Ahora no</button>
+          <button onClick={intentarCerrar} className="px-4 py-2 rounded-lg border text-sm">Ahora no</button>
           <button onClick={enviar} disabled={saving} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm disabled:opacity-50">
             {saving ? "Enviando…" : "Enviar calificación"}
           </button>
         </div>
+
+        {confirmSkip && (
+          <div className="absolute inset-0 bg-card/95 backdrop-blur-sm rounded-2xl grid place-items-center p-6">
+            <div className="text-center max-w-sm">
+              <div className="text-2xl mb-2">⚠️</div>
+              <h4 className="text-lg font-semibold mb-2">¿Estás segura?</h4>
+              <p className="text-sm text-muted-foreground mb-5">
+                Calificar a tu mentor es <b>obligatorio</b> y nos ayuda a mejorar el sistema.
+                Si omites ahora, no volveremos a mostrarte este aviso para esta sesión.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <button onClick={omitirDefinitivo} className="px-4 py-2 rounded-lg border text-sm">Sí, omitir</button>
+                <button onClick={volverACalificar} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm">Calificar ahora</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
