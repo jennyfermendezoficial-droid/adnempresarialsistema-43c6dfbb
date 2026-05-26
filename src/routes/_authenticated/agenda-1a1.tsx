@@ -12,8 +12,9 @@ export const Route = createFileRoute("/_authenticated/agenda-1a1")({ component: 
 interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string }
 interface Profile { id: string; nombre_completo: string; email: string; avatar_url?: string | null }
 
-// Slots a HORA PUNTUAL (1 reserva por hora, 60 min)
+// Slots cada HORA PUNTUAL · sesiones de 30 minutos
 const HORAS = ["09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00","19:00"];
+const DURACION_MIN = 30;
 const DIAS = ["Lun","Mar","Mié","Jue","Vie"];
 
 // Descripciones por profesor (match por nombre / email)
@@ -140,10 +141,11 @@ function Page() {
         .eq("profesor_id", profesorId).eq("fecha", fecha).eq("hora_inicio", hora + ":00").limit(1);
       if (existe && existe.length) { toast.error("Ese horario acaba de ser reservado."); setSaving(false); return; }
 
-      const [h] = hora.split(":").map(Number);
-      const fin = `${String(h + 1).padStart(2, "0")}:00`;
+      const [hh] = hora.split(":").map(Number);
+      const totalMin = hh * 60 + DURACION_MIN;
+      const fin = `${String(Math.floor(totalMin / 60)).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
       const start_time = `${fecha}T${hora}:00`;
-      const zoom = await createZoom({ data: { topic: `Sesión 1a1`, start_time, duration: 60 } });
+      const zoom = await createZoom({ data: { topic: `Sesión 1a1`, start_time, duration: DURACION_MIN } });
       const { data, error } = await supabase.from("sesiones_1a1").insert({
         profesor_id: profesorId, alumna_id: uid, fecha, hora_inicio: hora + ":00", hora_fin: fin + ":00",
         zoom_meeting_id: zoom.meeting_id, zoom_link: zoom.join_url, estado: "confirmada",
@@ -174,7 +176,7 @@ function Page() {
           <div>
             <div className="text-[11px] uppercase tracking-[0.18em] opacity-80">Sesiones privadas</div>
             <h1 className="text-3xl font-bold mt-1">Agenda 1 a 1</h1>
-            <p className="text-sm opacity-90 mt-1">Lunes a viernes · 1 hora por sesión · Zoom automático.</p>
+            <p className="text-sm opacity-90 mt-1">Lunes a viernes · 30 minutos por sesión · Zoom automático.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }} className="p-2 rounded-lg bg-white/15 hover:bg-white/25"><ChevronLeft className="w-4 h-4"/></button>
@@ -262,7 +264,7 @@ function Page() {
               {HORAS.map((h) => (
                 <tr key={h} className="border-t">
                   <td className="px-3 py-3 font-mono text-xs font-semibold opacity-80">
-                    {h}<span className="opacity-50"> – {String(parseInt(h) + 1).padStart(2, "0")}:00</span>
+                    {h}<span className="opacity-50"> – {h.slice(0,2)}:30</span>
                   </td>
                   {dias.map((d, i) => {
                     const fecha = fmt(d);
@@ -334,7 +336,7 @@ function Page() {
               </p>
             )}
             <p className="text-sm text-muted-foreground mb-4">
-              {new Date(booking.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })} a las {booking.hora} (1 hora).
+              {new Date(booking.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })} a las {booking.hora} (30 minutos).
               <br />Se creará una reunión de Zoom automáticamente.
             </p>
             <div className="flex gap-2 justify-end">
