@@ -130,6 +130,12 @@ function Page() {
                 extraInsert={{ chat_id: selected }}
                 authorMap={authorMap}
                 height="100%"
+                pushRecipientIds={(() => {
+                  const c = chats.find((c) => c.id === selected);
+                  return c ? [other(c)] : undefined;
+                })()}
+                pushTitle={profiles[other(chats.find((c) => c.id === selected)!)]?.nombre_completo || "Mensaje nuevo"}
+                pushUrl="/chats"
               />
             </div>
           </>

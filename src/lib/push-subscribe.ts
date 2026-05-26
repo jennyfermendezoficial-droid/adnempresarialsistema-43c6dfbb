@@ -1,7 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getVapidPublicKey } from "@/lib/vapid.functions";
 
-// Clave pública VAPID — segura para estar en el cliente.
-export const VAPID_PUBLIC_KEY = "BJBNkptXciPF0n-PaYpdMoLqNgJB_Zg4a48x51TX8XKnuCj9snzRjPTYdfI_nDhpRQLQEKVtK0UUX4Ig2LzIvTw";
+let cachedKey: string | null = null;
+async function fetchPublicKey(): Promise<string> {
+  if (cachedKey) return cachedKey;
+  try {
+    const r = await getVapidPublicKey();
+    cachedKey = r.publicKey || "";
+  } catch {
+    cachedKey = "";
+  }
+  return cachedKey;
+}
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -26,6 +36,8 @@ export async function subscribePushIfPossible(userId: string): Promise<boolean> 
     if (typeof window === "undefined") return false;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
     if (Notification.permission !== "granted") return false;
+    const VAPID_PUBLIC_KEY = await fetchPublicKey();
+    if (!VAPID_PUBLIC_KEY) return false;
     const reg = await navigator.serviceWorker.getRegistration();
     if (!reg) return false;
     let sub = await reg.pushManager.getSubscription();
