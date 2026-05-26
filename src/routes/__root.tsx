@@ -76,6 +76,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "ADN Empresarial · Mentoría Jennyfer Méndez" },
       { name: "description", content: "Plataforma de mentoría ADN Empresarial." },
+      { name: "google", content: "notranslate" },
       { property: "og:title", content: "ADN Empresarial · Mentoría Jennyfer Méndez" },
       { property: "og:description", content: "Plataforma de mentoría ADN Empresarial." },
       { property: "og:type", content: "website" },
