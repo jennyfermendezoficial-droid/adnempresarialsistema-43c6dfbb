@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil, Youtube } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo } from "@/lib/bunny.functions";
+import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo, getBunnyVideoStatus } from "@/lib/bunny.functions";
 
 export const Route = createFileRoute("/_authenticated/cursos/$cursoId")({ component: Page });
 
@@ -23,6 +23,7 @@ function Page() {
   const createBunny = useServerFn(createBunnyVideoForUpload);
   const getBunnyCfg = useServerFn(getBunnyPublicConfig);
   const removeBunny = useServerFn(deleteBunnyVideo);
+  const getBunnyStatus = useServerFn(getBunnyVideoStatus);
 
   const [curso, setCurso] = useState<Curso | null>(null);
   const [modulos, setModulos] = useState<Modulo[]>([]);
@@ -35,11 +36,35 @@ function Page() {
   const [editLec, setEditLec] = useState<{ descripcion: string } | null>(null);
   const [savingLec, setSavingLec] = useState(false);
   const [uploadingRecurso, setUploadingRecurso] = useState(false);
+  const [videoStatus, setVideoStatus] = useState<{ ready: boolean; failed: boolean; encodeProgress: number; status: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingModId = useRef<string | null>(null);
 
   useEffect(() => { getBunnyCfg().then(setBunnyCfg).catch(() => {}); }, []); // eslint-disable-line
+
+  // Poll Bunny encoding status for the active lesson
+  useEffect(() => {
+    setVideoStatus(null);
+    if (!active?.bunny_video_id) return;
+    if (!/^[0-9a-f-]{20,}$/i.test(active.bunny_video_id)) return; // sólo IDs Bunny
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const check = async () => {
+      try {
+        const s = await getBunnyStatus({ data: { videoId: active.bunny_video_id! } });
+        if (cancelled) return;
+        setVideoStatus(s);
+        if (!s.ready && !s.failed) {
+          timer = setTimeout(check, 5000);
+        }
+      } catch {
+        if (!cancelled) timer = setTimeout(check, 8000);
+      }
+    };
+    check();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [active?.id, active?.bunny_video_id]); // eslint-disable-line
 
   useEffect(() => {
     (async () => {
@@ -298,12 +323,35 @@ function Page() {
                   allowFullScreen
                 />
               ) : /^[0-9a-f-]{20,}$/i.test(active.bunny_video_id) && bunnyCfg ? (
-                <iframe
-                  src={`https://iframe.mediadelivery.net/embed/${bunnyCfg.libraryId}/${active.bunny_video_id}?autoplay=false`}
-                  className="w-full h-full"
-                  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                  allowFullScreen
-                />
+                videoStatus?.failed ? (
+                  <div className="w-full h-full grid place-items-center text-white/80 text-center p-6">
+                    <div>
+                      <p className="font-semibold">El video falló al procesarse</p>
+                      <p className="text-xs opacity-70 mt-1">Vuelve a subirlo, por favor.</p>
+                    </div>
+                  </div>
+                ) : videoStatus && !videoStatus.ready ? (
+                  <div className="w-full h-full grid place-items-center text-white/80 text-center p-6">
+                    <div className="space-y-3 max-w-sm">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+                      <p className="font-semibold">Procesando video… {videoStatus.encodeProgress}%</p>
+                      <p className="text-xs opacity-70">
+                        Bunny está transcodificando el archivo. Esto puede tardar varios minutos según el tamaño. La página se actualiza sola cuando esté listo.
+                      </p>
+                      <div className="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
+                        <div className="h-full bg-violet-gradient transition-all" style={{ width: `${videoStatus.encodeProgress}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    key={active.bunny_video_id}
+                    src={`https://iframe.mediadelivery.net/embed/${bunnyCfg.libraryId}/${active.bunny_video_id}?autoplay=false`}
+                    className="w-full h-full"
+                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                    allowFullScreen
+                  />
+                )
               ) : (
                 <video src={active.bunny_video_id} controls className="w-full h-full" />
               )
