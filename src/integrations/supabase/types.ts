@@ -14,6 +14,128 @@ export type Database = {
   }
   public: {
     Tables: {
+      ae_actividades: {
+        Row: {
+          categoria_id: string | null
+          color: string | null
+          created_at: string
+          descripcion: string | null
+          duracion_min: number
+          fecha: string
+          hora_inicio: string
+          id: string
+          link: string | null
+          recordatorios: Json | null
+          recurrencia: string | null
+          titulo: string
+          ubicacion: string | null
+          usuario_id: string
+        }
+        Insert: {
+          categoria_id?: string | null
+          color?: string | null
+          created_at?: string
+          descripcion?: string | null
+          duracion_min?: number
+          fecha: string
+          hora_inicio: string
+          id?: string
+          link?: string | null
+          recordatorios?: Json | null
+          recurrencia?: string | null
+          titulo: string
+          ubicacion?: string | null
+          usuario_id: string
+        }
+        Update: {
+          categoria_id?: string | null
+          color?: string | null
+          created_at?: string
+          descripcion?: string | null
+          duracion_min?: number
+          fecha?: string
+          hora_inicio?: string
+          id?: string
+          link?: string | null
+          recordatorios?: Json | null
+          recurrencia?: string | null
+          titulo?: string
+          ubicacion?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ae_actividades_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "ae_categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ae_categorias: {
+        Row: {
+          color: string
+          created_at: string
+          icono: string | null
+          id: string
+          nombre: string
+          usuario_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icono?: string | null
+          id?: string
+          nombre: string
+          usuario_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icono?: string | null
+          id?: string
+          nombre?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
+      ae_movimientos: {
+        Row: {
+          ambito: string
+          categoria: string | null
+          created_at: string
+          descripcion: string | null
+          fecha: string
+          id: string
+          monto: number
+          tipo: string
+          usuario_id: string
+        }
+        Insert: {
+          ambito: string
+          categoria?: string | null
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          id?: string
+          monto: number
+          tipo: string
+          usuario_id: string
+        }
+        Update: {
+          ambito?: string
+          categoria?: string | null
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          id?: string
+          monto?: number
+          tipo?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       app_config: {
         Row: {
           id: boolean
@@ -630,6 +752,7 @@ export type Database = {
           created_at: string
           estado: string
           fecha: string
+          finalizada_at: string | null
           hora_fin: string
           hora_inicio: string
           id: string
@@ -642,6 +765,7 @@ export type Database = {
           created_at?: string
           estado?: string
           fecha: string
+          finalizada_at?: string | null
           hora_fin: string
           hora_inicio: string
           id?: string
@@ -654,6 +778,7 @@ export type Database = {
           created_at?: string
           estado?: string
           fecha?: string
+          finalizada_at?: string | null
           hora_fin?: string
           hora_inicio?: string
           id?: string
