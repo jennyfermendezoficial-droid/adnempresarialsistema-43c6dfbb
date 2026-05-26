@@ -89,12 +89,8 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
         <SectionLabel className="mt-3">Comunidad</SectionLabel>
         <Nav items={comunidadItems} isActive={isActive} onClick={onNavigate} />
 
-        {role === "usuario" && (
-          <>
-            <SectionLabel className="mt-3">Mi Agenda Emprendedora</SectionLabel>
-            <Nav items={miAgendaItems} isActive={isActive} onClick={onNavigate} />
-          </>
-        )}
+        <SectionLabel className="mt-3">Mi Agenda Emprendedora</SectionLabel>
+        <Nav items={miAgendaItems} isActive={isActive} onClick={onNavigate} />
 
         {(role === "admin" || role === "soporte") && (
           <>
