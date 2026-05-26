@@ -47,7 +47,11 @@ export const sendPushToUsers = createServerFn({ method: "POST" })
             sub,
             { subject, publicKey, privateKey },
           );
-          const res = await fetch(sub.endpoint, message);
+          const res = await fetch(sub.endpoint, {
+            method: message.method,
+            headers: message.headers as HeadersInit,
+            body: new Uint8Array(message.body).buffer as ArrayBuffer,
+          });
           if (res.status === 404 || res.status === 410) {
             expiredIds.push(s.id);
           } else if (res.ok || res.status === 201 || res.status === 202) {
