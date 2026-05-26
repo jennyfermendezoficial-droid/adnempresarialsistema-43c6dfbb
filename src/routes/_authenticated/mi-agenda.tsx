@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Plus, Trash2, Clock, MapPin, Link as LinkIcon } from "lucide-react";
+import { Plus, Trash2, Clock, MapPin, Link as LinkIcon, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/mi-agenda")({ component: Page });
@@ -14,6 +14,13 @@ interface Actividad {
 }
 
 const HORAS = Array.from({ length: 19 }, (_, i) => 5 + i); // 5–23
+const COLORES = [
+  { name: "Trabajo", v: "#7A8B6F" },
+  { name: "Personal", v: "#C2756B" },
+  { name: "Reunión", v: "#6B8AA8" },
+  { name: "Clase", v: "#B8894A" },
+  { name: "Lectura", v: "#8B6B8B" },
+];
 
 function Page() {
   const { session, profile } = useAuth();
@@ -22,7 +29,7 @@ function Page() {
   const [acts, setActs] = useState<Actividad[]>([]);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ titulo: "", hora_inicio: "09:00", duracion_min: 60, descripcion: "", ubicacion: "", link: "", color: "#7C6BFF" });
+  const [form, setForm] = useState({ titulo: "", hora_inicio: "09:00", duracion_min: 60, descripcion: "", ubicacion: "", link: "", color: "#7A8B6F" });
 
   const cargar = async () => {
     if (!uid) return;
@@ -32,11 +39,11 @@ function Page() {
   useEffect(() => { cargar(); }, [uid, fecha]); // eslint-disable-line
 
   const dias = useMemo(() => {
-    const out: { d: Date; label: string }[] = [];
+    const out: { d: Date; dow: string; num: number }[] = [];
     const base = new Date(); base.setHours(0, 0, 0, 0);
     for (let i = -3; i <= 10; i++) {
       const d = new Date(base); d.setDate(d.getDate() + i);
-      out.push({ d, label: d.toLocaleDateString("es-EC", { weekday: "short", day: "numeric" }) });
+      out.push({ d, dow: d.toLocaleDateString("es-EC", { weekday: "short" }).replace(".", "").slice(0, 3), num: d.getDate() });
     }
     return out;
   }, []);
@@ -65,89 +72,121 @@ function Page() {
   const nombre = (profile?.nombre_completo || "").split(" ")[0] || "amiga";
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Mi Agenda Emprendedora</div>
-      <h1 className="text-3xl font-semibold mb-1">Hola, <em className="not-italic" style={{ color: "var(--violet)" }}>{nombre}</em></h1>
-      <p className="text-sm text-muted-foreground mb-5">Tu día, tu negocio y tu casa en un solo lugar.</p>
+    <div className="ae-app">
+      <div className="max-w-[480px] mx-auto px-5 pt-8 pb-24">
+        <div className="ae-eyebrow mb-1">Mi Agenda Emprendedora</div>
+        <h1 className="ae-h1 mb-1">Hola, <em>{nombre}</em></h1>
+        <p className="ae-sub mb-5">Tu día, tu negocio y tu casa en un solo lugar.</p>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-        {dias.map(({ d, label }) => {
-          const v = d.toISOString().slice(0, 10);
-          const sel = v === fecha;
-          return (
-            <button key={v} onClick={() => setFecha(v)}
-              className="flex-shrink-0 px-3 py-2 rounded-xl border text-xs font-medium transition"
-              style={sel
-                ? { background: "var(--violet)", color: "white", borderColor: "var(--violet)" }
-                : { background: "var(--card)" }}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-5 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+          {dias.map(({ d, dow, num }) => {
+            const v = d.toISOString().slice(0, 10);
+            const sel = v === fecha;
+            return (
+              <button key={v} onClick={() => setFecha(v)} className={`ae-day ${sel ? "ae-day-active" : ""}`}>
+                <span className="dow">{dow}</span>
+                <span className="num">{num}</span>
+              </button>
+            );
+          })}
+        </div>
 
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-semibold">{new Date(fecha + "T00:00").toLocaleDateString("es-EC", { weekday: "long", day: "numeric", month: "long" })}</div>
-        <button onClick={() => setOpen(true)} className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center gap-2"><Plus className="w-4 h-4"/> Actividad</button>
-      </div>
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <div className="ae-eyebrow" style={{ color: "var(--ae-gold-deep)" }}>Hoy</div>
+            <div className="text-base font-semibold capitalize" style={{ fontFamily: "Fraunces, serif" }}>
+              {new Date(fecha + "T00:00").toLocaleDateString("es-EC", { weekday: "long", day: "numeric", month: "long" })}
+            </div>
+          </div>
+          <button onClick={() => setOpen(true)} className="ae-btn-ink flex items-center gap-2"><Plus className="w-4 h-4"/> Actividad</button>
+        </div>
 
-      <div className="rounded-2xl border bg-card overflow-hidden">
-        {HORAS.map((h) => {
-          const hh = String(h).padStart(2, "0") + ":00";
-          const enHora = acts.filter((a) => parseInt(a.hora_inicio.slice(0, 2)) === h);
-          return (
-            <div key={h} className="flex border-t first:border-t-0 min-h-[64px]">
-              <div className="w-16 px-3 py-3 text-xs font-mono text-muted-foreground">{hh}</div>
-              <div className="flex-1 p-2 space-y-1.5">
-                {enHora.map((a) => (
-                  <div key={a.id} className="rounded-lg px-3 py-2 text-sm flex items-start justify-between gap-2"
-                    style={{ background: (a.color ?? "#7C6BFF") + "22", borderLeft: `4px solid ${a.color ?? "#7C6BFF"}` }}>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold">{a.titulo}</div>
-                      <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3"/>{a.hora_inicio.slice(0,5)} · {a.duracion_min} min</span>
-                        {a.ubicacion && <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{a.ubicacion}</span>}
-                        {a.link && <a href={a.link} target="_blank" rel="noreferrer" className="flex items-center gap-1 underline"><LinkIcon className="w-3 h-3"/>link</a>}
+        <div className="space-y-0">
+          {HORAS.map((h) => {
+            const hh = String(h).padStart(2, "0") + ":00";
+            const enHora = acts.filter((a) => parseInt(a.hora_inicio.slice(0, 2)) === h);
+            return (
+              <div key={h} className="flex gap-3 py-3" style={{ borderTop: h === 5 ? "none" : "1px solid var(--ae-line)" }}>
+                <div className="ae-time">{hh}</div>
+                <div className="flex-1 space-y-2">
+                  {enHora.length === 0 ? (
+                    <div className="text-xs text-center py-2.5 rounded-xl border border-dashed" style={{ color: "var(--ae-ink-soft)", borderColor: "var(--ae-line)" }}>—</div>
+                  ) : enHora.map((a) => (
+                    <div key={a.id} className="ae-activity" style={{ borderLeftColor: a.color ?? "var(--ae-sage)" }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-sm">{a.titulo}</div>
+                          <div className="text-[11px] mt-1 flex items-center gap-3 flex-wrap" style={{ color: "var(--ae-ink-soft)" }}>
+                            <span className="flex items-center gap-1"><Clock className="w-3 h-3"/>{a.hora_inicio.slice(0,5)} · {a.duracion_min} min</span>
+                            {a.ubicacion && <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{a.ubicacion}</span>}
+                            {a.link && <a href={a.link} target="_blank" rel="noreferrer" className="flex items-center gap-1 underline"><LinkIcon className="w-3 h-3"/>link</a>}
+                          </div>
+                          {a.descripcion && <div className="text-[12px] mt-1.5 opacity-80">{a.descripcion}</div>}
+                        </div>
+                        <button onClick={() => borrar(a.id)} className="opacity-40 hover:opacity-90 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
                       </div>
-                      {a.descripcion && <div className="text-[12px] mt-1 opacity-80">{a.descripcion}</div>}
                     </div>
-                    <button onClick={() => borrar(a.id)} className="opacity-50 hover:opacity-100 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      {open && (
-        <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" onClick={() => setOpen(false)}>
-          <div className="bg-card rounded-2xl p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-3">Nueva actividad · {fecha}</h3>
-            <div className="space-y-2.5">
-              <input placeholder="Título" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background" />
-              <div className="grid grid-cols-2 gap-2">
-                <input type="time" value={form.hora_inicio} onChange={(e) => setForm({ ...form, hora_inicio: e.target.value })} className="px-3 py-2 rounded-lg border bg-background" />
-                <input type="number" min="15" step="15" value={form.duracion_min} onChange={(e) => setForm({ ...form, duracion_min: +e.target.value })} className="px-3 py-2 rounded-lg border bg-background" placeholder="Min" />
+        {open && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-end sm:place-items-center z-50 p-0 sm:p-4" onClick={() => setOpen(false)}>
+            <div className="ae-modal" style={{ borderRadius: "24px 24px 0 0" }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-xl font-semibold" style={{ fontFamily: "Fraunces, serif" }}>Nueva actividad</h3>
+                <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full grid place-items-center" style={{ background: "var(--ae-paper)", color: "var(--ae-ink-soft)" }}><X className="w-4 h-4"/></button>
               </div>
-              <input placeholder="Ubicación (opcional)" value={form.ubicacion} onChange={(e) => setForm({ ...form, ubicacion: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background" />
-              <input placeholder="Link Zoom/Meet (opcional)" value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background" />
-              <textarea placeholder="Notas" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} rows={2} className="w-full px-3 py-2 rounded-lg border bg-background" />
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Color:</span>
-                <input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="w-10 h-10 rounded border" />
+              <div className="space-y-3">
+                <div>
+                  <label className="ae-label">Título</label>
+                  <input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className="ae-input" placeholder="Ej. Reunión con cliente"/>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="ae-label">Hora</label>
+                    <input type="time" value={form.hora_inicio} onChange={(e) => setForm({ ...form, hora_inicio: e.target.value })} className="ae-input"/>
+                  </div>
+                  <div>
+                    <label className="ae-label">Duración (min)</label>
+                    <input type="number" min="15" step="15" value={form.duracion_min} onChange={(e) => setForm({ ...form, duracion_min: +e.target.value })} className="ae-input"/>
+                  </div>
+                </div>
+                <div>
+                  <label className="ae-label">Categoría / color</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {COLORES.map((c) => (
+                      <button key={c.v} type="button" onClick={() => setForm({ ...form, color: c.v })}
+                        className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border transition"
+                        style={{ background: form.color === c.v ? c.v : "#fff", color: form.color === c.v ? "#fff" : "var(--ae-ink)", borderColor: c.v }}>
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: form.color === c.v ? "#fff" : c.v }}/> {c.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="ae-label">Ubicación (opcional)</label>
+                  <input value={form.ubicacion} onChange={(e) => setForm({ ...form, ubicacion: e.target.value })} className="ae-input" placeholder="Casa, oficina…"/>
+                </div>
+                <div>
+                  <label className="ae-label">Link Zoom / Meet (opcional)</label>
+                  <input value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} className="ae-input" placeholder="https://…"/>
+                </div>
+                <div>
+                  <label className="ae-label">Notas</label>
+                  <textarea rows={2} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="ae-input"/>
+                </div>
               </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setOpen(false)} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button>
-              <button onClick={crear} disabled={saving} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm disabled:opacity-60">
-                {saving ? "Guardando…" : "Guardar"}
+              <button onClick={crear} disabled={saving} className="ae-btn-ink w-full mt-5 disabled:opacity-60">
+                {saving ? "Guardando…" : "Guardar actividad"}
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
