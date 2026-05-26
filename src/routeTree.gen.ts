@@ -17,7 +17,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticated/permisos'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/pagos'
+import { Route as AuthenticatedMisReportesRouteImport } from './routes/_authenticated/mis-reportes'
 import { Route as AuthenticatedMiembrosRouteImport } from './routes/_authenticated/miembros'
+import { Route as AuthenticatedMiNegocioRouteImport } from './routes/_authenticated/mi-negocio'
+import { Route as AuthenticatedMiCasaRouteImport } from './routes/_authenticated/mi-casa'
+import { Route as AuthenticatedMiCalendarioRouteImport } from './routes/_authenticated/mi-calendario'
+import { Route as AuthenticatedMiAgendaRouteImport } from './routes/_authenticated/mi-agenda'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
 import { Route as AuthenticatedGeneralRouteImport } from './routes/_authenticated/general'
 import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
@@ -69,9 +74,36 @@ const AuthenticatedPagosRoute = AuthenticatedPagosRouteImport.update({
   path: '/pagos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMisReportesRoute =
+  AuthenticatedMisReportesRouteImport.update({
+    id: '/mis-reportes',
+    path: '/mis-reportes',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMiembrosRoute = AuthenticatedMiembrosRouteImport.update({
   id: '/miembros',
   path: '/miembros',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMiNegocioRoute = AuthenticatedMiNegocioRouteImport.update({
+  id: '/mi-negocio',
+  path: '/mi-negocio',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMiCasaRoute = AuthenticatedMiCasaRouteImport.update({
+  id: '/mi-casa',
+  path: '/mi-casa',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMiCalendarioRoute =
+  AuthenticatedMiCalendarioRouteImport.update({
+    id: '/mi-calendario',
+    path: '/mi-calendario',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMiAgendaRoute = AuthenticatedMiAgendaRouteImport.update({
+  id: '/mi-agenda',
+  path: '/mi-agenda',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
@@ -148,7 +180,12 @@ export interface FileRoutesByFullPath {
   '/chats': typeof AuthenticatedChatsRoute
   '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/mi-agenda': typeof AuthenticatedMiAgendaRoute
+  '/mi-calendario': typeof AuthenticatedMiCalendarioRoute
+  '/mi-casa': typeof AuthenticatedMiCasaRoute
+  '/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
+  '/mis-reportes': typeof AuthenticatedMisReportesRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
@@ -169,7 +206,12 @@ export interface FileRoutesByTo {
   '/chats': typeof AuthenticatedChatsRoute
   '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/mi-agenda': typeof AuthenticatedMiAgendaRoute
+  '/mi-calendario': typeof AuthenticatedMiCalendarioRoute
+  '/mi-casa': typeof AuthenticatedMiCasaRoute
+  '/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
+  '/mis-reportes': typeof AuthenticatedMisReportesRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
@@ -192,7 +234,12 @@ export interface FileRoutesById {
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
   '/_authenticated/general': typeof AuthenticatedGeneralRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
+  '/_authenticated/mi-agenda': typeof AuthenticatedMiAgendaRoute
+  '/_authenticated/mi-calendario': typeof AuthenticatedMiCalendarioRoute
+  '/_authenticated/mi-casa': typeof AuthenticatedMiCasaRoute
+  '/_authenticated/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/_authenticated/miembros': typeof AuthenticatedMiembrosRoute
+  '/_authenticated/mis-reportes': typeof AuthenticatedMisReportesRoute
   '/_authenticated/pagos': typeof AuthenticatedPagosRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/permisos': typeof AuthenticatedPermisosRoute
@@ -215,7 +262,12 @@ export interface FileRouteTypes {
     | '/chats'
     | '/general'
     | '/inicio'
+    | '/mi-agenda'
+    | '/mi-calendario'
+    | '/mi-casa'
+    | '/mi-negocio'
     | '/miembros'
+    | '/mis-reportes'
     | '/pagos'
     | '/perfil'
     | '/permisos'
@@ -236,7 +288,12 @@ export interface FileRouteTypes {
     | '/chats'
     | '/general'
     | '/inicio'
+    | '/mi-agenda'
+    | '/mi-calendario'
+    | '/mi-casa'
+    | '/mi-negocio'
     | '/miembros'
+    | '/mis-reportes'
     | '/pagos'
     | '/perfil'
     | '/permisos'
@@ -258,7 +315,12 @@ export interface FileRouteTypes {
     | '/_authenticated/chats'
     | '/_authenticated/general'
     | '/_authenticated/inicio'
+    | '/_authenticated/mi-agenda'
+    | '/_authenticated/mi-calendario'
+    | '/_authenticated/mi-casa'
+    | '/_authenticated/mi-negocio'
     | '/_authenticated/miembros'
+    | '/_authenticated/mis-reportes'
     | '/_authenticated/pagos'
     | '/_authenticated/perfil'
     | '/_authenticated/permisos'
@@ -334,11 +396,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPagosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/mis-reportes': {
+      id: '/_authenticated/mis-reportes'
+      path: '/mis-reportes'
+      fullPath: '/mis-reportes'
+      preLoaderRoute: typeof AuthenticatedMisReportesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/miembros': {
       id: '/_authenticated/miembros'
       path: '/miembros'
       fullPath: '/miembros'
       preLoaderRoute: typeof AuthenticatedMiembrosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-negocio': {
+      id: '/_authenticated/mi-negocio'
+      path: '/mi-negocio'
+      fullPath: '/mi-negocio'
+      preLoaderRoute: typeof AuthenticatedMiNegocioRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-casa': {
+      id: '/_authenticated/mi-casa'
+      path: '/mi-casa'
+      fullPath: '/mi-casa'
+      preLoaderRoute: typeof AuthenticatedMiCasaRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-calendario': {
+      id: '/_authenticated/mi-calendario'
+      path: '/mi-calendario'
+      fullPath: '/mi-calendario'
+      preLoaderRoute: typeof AuthenticatedMiCalendarioRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-agenda': {
+      id: '/_authenticated/mi-agenda'
+      path: '/mi-agenda'
+      fullPath: '/mi-agenda'
+      preLoaderRoute: typeof AuthenticatedMiAgendaRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/inicio': {
@@ -430,7 +527,12 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChatsRoute: typeof AuthenticatedChatsRoute
   AuthenticatedGeneralRoute: typeof AuthenticatedGeneralRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
+  AuthenticatedMiAgendaRoute: typeof AuthenticatedMiAgendaRoute
+  AuthenticatedMiCalendarioRoute: typeof AuthenticatedMiCalendarioRoute
+  AuthenticatedMiCasaRoute: typeof AuthenticatedMiCasaRoute
+  AuthenticatedMiNegocioRoute: typeof AuthenticatedMiNegocioRoute
   AuthenticatedMiembrosRoute: typeof AuthenticatedMiembrosRoute
+  AuthenticatedMisReportesRoute: typeof AuthenticatedMisReportesRoute
   AuthenticatedPagosRoute: typeof AuthenticatedPagosRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPermisosRoute: typeof AuthenticatedPermisosRoute
@@ -447,7 +549,12 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChatsRoute: AuthenticatedChatsRoute,
   AuthenticatedGeneralRoute: AuthenticatedGeneralRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
+  AuthenticatedMiAgendaRoute: AuthenticatedMiAgendaRoute,
+  AuthenticatedMiCalendarioRoute: AuthenticatedMiCalendarioRoute,
+  AuthenticatedMiCasaRoute: AuthenticatedMiCasaRoute,
+  AuthenticatedMiNegocioRoute: AuthenticatedMiNegocioRoute,
   AuthenticatedMiembrosRoute: AuthenticatedMiembrosRoute,
+  AuthenticatedMisReportesRoute: AuthenticatedMisReportesRoute,
   AuthenticatedPagosRoute: AuthenticatedPagosRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPermisosRoute: AuthenticatedPermisosRoute,
@@ -470,3 +577,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
