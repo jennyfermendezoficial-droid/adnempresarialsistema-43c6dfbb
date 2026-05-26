@@ -1,7 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Home, BookOpen, CalendarDays, Users, MessageSquare,
-  ShieldCheck, Wallet, Gift, LogOut, Hash, Headphones, Calendar, Star,
+  ShieldCheck, Wallet, Gift, LogOut, Hash, Headphones, Calendar,
+  Clock3, CalendarRange, Briefcase, Home as HomeIcon, BarChart3,
 } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
@@ -26,8 +27,12 @@ const academiaItems: Item[] = [
 const comunidadItems: Item[] = [
   { to: "/miembros", label: "Miembros", icon: Users },
 ];
-const alumnaItems: Item[] = [
-  { to: "/calificar", label: "Calificar profesores", icon: Star },
+const miAgendaItems: Item[] = [
+  { to: "/mi-agenda",     label: "Agenda diaria",  icon: Clock3 },
+  { to: "/mi-calendario", label: "Calendario",     icon: CalendarRange },
+  { to: "/mi-negocio",    label: "Negocio",        icon: Briefcase },
+  { to: "/mi-casa",       label: "Casa",           icon: HomeIcon },
+  { to: "/mis-reportes",  label: "Reportes",       icon: BarChart3 },
 ];
 const adminItems: Item[] = [
   { to: "/permisos", label: "Permisos",         icon: ShieldCheck },
@@ -81,7 +86,10 @@ export function AppSidebar() {
         <Nav items={comunidadItems} isActive={isActive} />
 
         {role === "usuario" && (
-          <Nav items={alumnaItems} isActive={isActive} />
+          <>
+            <SectionLabel className="mt-3">Mi Agenda Emprendedora</SectionLabel>
+            <Nav items={miAgendaItems} isActive={isActive} />
+          </>
         )}
 
         {(role === "admin" || role === "soporte") && (
