@@ -1,0 +1,1 @@
+REVOKE SELECT (tarifa_sesion_1a1, tarifa_hora_clase) ON public.profiles FROM authenticated;
