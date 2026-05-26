@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { notify, registerSW, ensureNotificationPermission } from "@/lib/notifications";
-import { useNavigate } from "@tanstack/react-router";
 
 /**
  * Suscribe al usuario a notificaciones globales:
@@ -15,7 +14,6 @@ import { useNavigate } from "@tanstack/react-router";
 export function useGlobalNotifications() {
   const { session, role } = useAuth();
   const uid = session?.user.id;
-  const navigate = useNavigate();
   const remindedRef = useRef<Set<string>>(new Set());
   const seenRef = useRef<Set<string>>(new Set());
 
@@ -30,7 +28,10 @@ export function useGlobalNotifications() {
     const onMsg = (ev: MessageEvent) => {
       const data = ev.data as { type?: string; url?: string } | undefined;
       if (data?.type === "NAVIGATE" && data.url) {
-        navigate({ to: data.url }).catch(() => {});
+        try {
+          if (/^https?:\/\//i.test(data.url)) window.open(data.url, "_blank");
+          else window.location.assign(data.url);
+        } catch { /* noop */ }
       }
     };
     navigator.serviceWorker?.addEventListener("message", onMsg);
@@ -38,7 +39,7 @@ export function useGlobalNotifications() {
       clearTimeout(t);
       navigator.serviceWorker?.removeEventListener("message", onMsg);
     };
-  }, [uid, navigate]);
+  }, [uid]);
 
   // --- Realtime: mensajes 1a1 dirigidos a este usuario ---
   useEffect(() => {
