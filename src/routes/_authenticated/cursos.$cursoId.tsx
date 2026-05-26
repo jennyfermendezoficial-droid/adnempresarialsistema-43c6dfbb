@@ -379,7 +379,7 @@ function Page() {
                   <iframe
                     key={active.bunny_video_id}
                     ref={playerIframeRef}
-                    src={`https://iframe.mediadelivery.net/embed/${bunnyCfg.libraryId}/${active.bunny_video_id}?autoplay=false`}
+                    src={`https://iframe.mediadelivery.net/embed/${bunnyCfg.libraryId}/${active.bunny_video_id}?autoplay=false&playerjs=true`}
                     className="w-full h-full"
                     allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
                     allowFullScreen
