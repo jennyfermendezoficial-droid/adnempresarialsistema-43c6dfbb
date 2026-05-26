@@ -56,10 +56,11 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
   const borrar = async (id: string) => { if (!confirm("¿Borrar?")) return; await supabase.from("ae_movimientos").delete().eq("id", id); cargar(); };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Mi Agenda Emprendedora</div>
-      <h1 className="text-3xl font-semibold mb-1">{titulo}</h1>
-      <p className="text-sm text-muted-foreground mb-5">{subtitulo}</p>
+    <div className="ae-app">
+      <div className="max-w-[480px] mx-auto px-5 pt-8 pb-24">
+        <div className="ae-eyebrow mb-1">Mi Agenda Emprendedora</div>
+        <h1 className="ae-h1 mb-1">{titulo}</h1>
+        <p className="ae-sub mb-5">{subtitulo}</p>
 
       <div className="ae-balance mb-5">
         <div className="ae-balance-label">{ambito === "negocio" ? "Utilidad del mes" : "Balance del mes"}</div>
