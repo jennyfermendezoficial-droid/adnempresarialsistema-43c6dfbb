@@ -50,84 +50,75 @@ function Page() {
   const actsDia = diaSel ? (mapActs[diaSel] ?? []) : [];
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Mi Agenda Emprendedora</div>
-      <h1 className="text-3xl font-semibold mb-1">Calendario mensual</h1>
-      <p className="text-sm text-muted-foreground mb-5">Toca cualquier día para ver tus pendientes con detalle.</p>
+    <div className="ae-app">
+      <div className="max-w-[480px] mx-auto px-5 pt-8 pb-24">
+        <div className="ae-eyebrow mb-1">Mi Agenda Emprendedora</div>
+        <h1 className="ae-h1 mb-1">Calendario <em>mensual</em></h1>
+        <p className="ae-sub mb-5">Toca un día para ver tus pendientes.</p>
 
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => cambiar(-1)} className="p-2 rounded-lg border"><ChevronLeft className="w-4 h-4"/></button>
-        <div className="text-lg font-semibold capitalize">{cursor.toLocaleDateString("es-EC", { month: "long", year: "numeric" })}</div>
-        <button onClick={() => cambiar(1)} className="p-2 rounded-lg border"><ChevronRight className="w-4 h-4"/></button>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {["L","M","M","J","V","S","D"].map((d, i) => (
-          <div key={i} className="text-center text-xs font-semibold text-muted-foreground py-2">{d}</div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {dias.map(({ date, key }) => {
-          if (!date) return <div key={key} className="aspect-square" />;
-          const iso = date.toISOString().slice(0, 10);
-          const lista = mapActs[iso] || [];
-          const hoy = iso === new Date().toISOString().slice(0, 10);
-          const visible = lista.slice(0, 2);
-          const restantes = lista.length - visible.length;
-          return (
-            <button key={key} onClick={() => setDiaSel(iso)}
-              className="min-h-[92px] sm:aspect-square rounded-lg border bg-card p-1.5 flex flex-col text-left hover:border-violet transition overflow-hidden"
-              style={hoy ? { borderColor: "var(--violet)", background: "rgba(124,107,255,.08)" } : {}}
-            >
-              <div className="text-[12px] font-semibold mb-0.5">{date.getDate()}</div>
-              <div className="flex flex-col gap-0.5 flex-1 min-h-0">
-                {visible.map((a) => (
-                  <div key={a.id} className="text-[9.5px] sm:text-[10px] leading-tight px-1 py-0.5 rounded truncate"
-                    style={{ background: (a.color || "#7C6BFF") + "33", color: "var(--ink)", borderLeft: `2px solid ${a.color || "#7C6BFF"}` }}
-                    title={`${a.hora_inicio.slice(0,5)} ${a.titulo}`}>
-                    <span className="font-semibold">{a.hora_inicio.slice(0,5)}</span> {a.titulo}
-                  </div>
-                ))}
-                {restantes > 0 && (
-                  <div className="text-[9.5px] text-muted-foreground pl-1">+{restantes} más</div>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {diaSel && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4" onClick={() => setDiaSel(null)}>
-          <div className="bg-card rounded-2xl p-5 max-w-md w-full max-h-[80vh] overflow-y-auto relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setDiaSel(null)} className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-muted"><X className="w-4 h-4"/></button>
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Pendientes</div>
-            <div className="text-xl font-semibold capitalize mb-1">{new Date(diaSel + "T00:00").toLocaleDateString("es-EC", { weekday: "long", day: "numeric", month: "long" })}</div>
-            <div className="text-xs text-muted-foreground mb-4">{actsDia.length} actividad{actsDia.length === 1 ? "" : "es"}</div>
-
-            {actsDia.length === 0 ? (
-              <div className="text-sm text-muted-foreground py-6 text-center border-2 border-dashed rounded-xl">Sin actividades este día.</div>
-            ) : (
-              <div className="space-y-2">
-                {actsDia.map((a) => (
-                  <div key={a.id} className="rounded-xl p-3 border-l-4" style={{ background: (a.color || "#7C6BFF") + "1a", borderLeftColor: a.color || "#7C6BFF" }}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="font-semibold text-sm">{a.titulo}</div>
-                      <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3"/>{a.hora_inicio.slice(0,5)}</div>
-                    </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">{a.duracion_min} min{a.ubicacion ? <> · <MapPin className="w-3 h-3 inline"/> {a.ubicacion}</> : null}</div>
-                    {a.descripcion && <div className="text-[12px] mt-1.5 opacity-80">{a.descripcion}</div>}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <Link to="/mi-agenda" onClick={() => setDiaSel(null)} className="mt-4 block text-center px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: "linear-gradient(135deg,var(--violet),var(--violet-2))" }}>
-              Ir a Agenda diaria
-            </Link>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={() => cambiar(-1)} className="ae-btn-ghost !p-2 !px-3"><ChevronLeft className="w-4 h-4"/></button>
+          <div className="text-lg font-semibold capitalize" style={{ fontFamily: "Fraunces, serif" }}>{cursor.toLocaleDateString("es-EC", { month: "long", year: "numeric" })}</div>
+          <button onClick={() => cambiar(1)} className="ae-btn-ghost !p-2 !px-3"><ChevronRight className="w-4 h-4"/></button>
         </div>
-      )}
+
+        <div className="ae-cal">
+          {["L","M","X","J","V","S","D"].map((d, i) => (
+            <div key={i} className="ae-cal-head">{d}</div>
+          ))}
+          {dias.map(({ date, key }) => {
+            if (!date) return <div key={key} />;
+            const iso = date.toISOString().slice(0, 10);
+            const lista = mapActs[iso] || [];
+            const hoy = iso === new Date().toISOString().slice(0, 10);
+            const colores = Array.from(new Set(lista.map((a) => a.color || "#7A8B6F"))).slice(0, 4);
+            return (
+              <button key={key} onClick={() => setDiaSel(iso)} className={`ae-cal-day ${hoy ? "today" : ""}`}>
+                <span>{date.getDate()}</span>
+                <div className="ae-cal-dots">
+                  {colores.map((c, i) => <span key={i} className="ae-cal-dot" style={{ background: c }}/>)}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {diaSel && (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm grid place-items-end sm:place-items-center p-0 sm:p-4" onClick={() => setDiaSel(null)}>
+            <div className="ae-modal max-h-[80vh] overflow-y-auto" style={{ borderRadius: "24px 24px 0 0" }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="ae-eyebrow">Pendientes</div>
+                  <div className="text-xl font-semibold capitalize" style={{ fontFamily: "Fraunces, serif" }}>{new Date(diaSel + "T00:00").toLocaleDateString("es-EC", { weekday: "long", day: "numeric", month: "long" })}</div>
+                </div>
+                <button onClick={() => setDiaSel(null)} className="w-8 h-8 rounded-full grid place-items-center" style={{ background: "var(--ae-paper)", color: "var(--ae-ink-soft)" }}><X className="w-4 h-4"/></button>
+              </div>
+              <div className="text-xs mb-4" style={{ color: "var(--ae-ink-soft)" }}>{actsDia.length} actividad{actsDia.length === 1 ? "" : "es"}</div>
+
+              {actsDia.length === 0 ? (
+                <div className="text-sm py-6 text-center border border-dashed rounded-xl" style={{ color: "var(--ae-ink-soft)", borderColor: "var(--ae-line)" }}>Sin actividades este día.</div>
+              ) : (
+                <div className="space-y-2.5">
+                  {actsDia.map((a) => (
+                    <div key={a.id} className="ae-activity" style={{ borderLeftColor: a.color || "var(--ae-sage)" }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-semibold text-sm">{a.titulo}</div>
+                        <div className="text-[11px] flex items-center gap-1" style={{ color: "var(--ae-ink-soft)", fontFamily: "Fraunces, serif" }}><Clock className="w-3 h-3"/>{a.hora_inicio.slice(0,5)}</div>
+                      </div>
+                      <div className="text-[11px] mt-0.5" style={{ color: "var(--ae-ink-soft)" }}>{a.duracion_min} min{a.ubicacion ? <> · <MapPin className="w-3 h-3 inline"/> {a.ubicacion}</> : null}</div>
+                      {a.descripcion && <div className="text-[12px] mt-1.5 opacity-80">{a.descripcion}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Link to="/mi-agenda" onClick={() => setDiaSel(null)} className="ae-btn-ink w-full mt-5 text-center block">
+                Ir a la agenda del día
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
