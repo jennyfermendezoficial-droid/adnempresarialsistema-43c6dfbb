@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { BookOpen, Plus, Trash2, ImagePlus, Loader2 } from "lucide-react";
+import { BookOpen, Plus, Trash2, ImagePlus, Loader2, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/cursos")({ component: Page });
@@ -17,6 +17,8 @@ function Page() {
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [permisos, setPermisos] = useState<Set<string>>(new Set());
   const [uploadingCover, setUploadingCover] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Curso | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCursoId = useRef<string | null>(null);
 
@@ -64,6 +66,7 @@ function Page() {
       const { error } = await supabase.from("cursos").update({ image_url: pub.publicUrl }).eq("id", cursoId);
       if (error) throw error;
       setCursos((cs) => cs.map((c) => (c.id === cursoId ? { ...c, image_url: pub.publicUrl } : c)));
+      setEditing((e) => (e && e.id === cursoId ? { ...e, image_url: pub.publicUrl } : e));
       toast.success("Portada actualizada");
     } catch (err) {
       toast.error((err as Error).message);
@@ -71,6 +74,20 @@ function Page() {
       setUploadingCover(null);
       pendingCursoId.current = null;
     }
+  };
+
+  const guardarEdicion = async () => {
+    if (!editing) return;
+    setSavingEdit(true);
+    const { error } = await supabase
+      .from("cursos")
+      .update({ nombre: editing.nombre, descripcion: editing.descripcion })
+      .eq("id", editing.id);
+    setSavingEdit(false);
+    if (error) return toast.error(error.message);
+    setCursos((cs) => cs.map((c) => (c.id === editing.id ? { ...c, nombre: editing.nombre, descripcion: editing.descripcion } : c)));
+    toast.success("Curso actualizado");
+    setEditing(null);
   };
 
   const tieneAcceso = (c: Curso) => isStaff || permisos.has(c.id);
@@ -91,21 +108,30 @@ function Page() {
           const acceso = tieneAcceso(c);
           return (
             <div key={c.id} className="rounded-2xl border bg-card overflow-hidden group">
-              <div className="relative h-40">
+              <div className="relative aspect-square">
                 {c.image_url ? (
                   <img src={c.image_url} alt={c.nombre} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${c.color_cover || "#7C6BFF"}, var(--violet-2))` }} />
                 )}
                 {isStaff && (
-                  <button
-                    onClick={() => cambiarPortada(c.id)}
-                    disabled={uploadingCover === c.id}
-                    className="absolute top-2 right-2 px-2 py-1 rounded-md bg-black/60 backdrop-blur text-white text-xs flex items-center gap-1 hover:bg-black/80"
-                  >
-                    {uploadingCover === c.id ? <Loader2 className="w-3 h-3 animate-spin"/> : <ImagePlus className="w-3 h-3"/>}
-                    {c.image_url ? "Cambiar" : "Subir portada"}
-                  </button>
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <button
+                      onClick={() => cambiarPortada(c.id)}
+                      disabled={uploadingCover === c.id}
+                      title="Cambiar portada (1:1)"
+                      className="px-2 py-1 rounded-md bg-black/60 backdrop-blur text-white text-xs flex items-center gap-1 hover:bg-black/80"
+                    >
+                      {uploadingCover === c.id ? <Loader2 className="w-3 h-3 animate-spin"/> : <ImagePlus className="w-3 h-3"/>}
+                    </button>
+                    <button
+                      onClick={() => setEditing(c)}
+                      title="Editar curso"
+                      className="px-2 py-1 rounded-md bg-black/60 backdrop-blur text-white text-xs flex items-center gap-1 hover:bg-black/80"
+                    >
+                      <Pencil className="w-3 h-3"/> Editar
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="p-4">
@@ -131,6 +157,71 @@ function Page() {
         })}
         {cursos.length === 0 && <div className="col-span-full text-center text-muted-foreground py-12">No hay cursos todavía.</div>}
       </div>
+
+      {editing && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4" onClick={() => setEditing(null)}>
+          <div className="bg-card border rounded-2xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b">
+              <h3 className="font-semibold">Editar curso</h3>
+              <button onClick={() => setEditing(null)} className="opacity-60 hover:opacity-100"><X className="w-4 h-4"/></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex gap-4 items-start">
+                <div className="relative w-32 h-32 rounded-lg overflow-hidden border shrink-0 bg-muted">
+                  {editing.image_url ? (
+                    <img src={editing.image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${editing.color_cover || "#7C6BFF"}, var(--violet-2))` }} />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground mb-2">Portada cuadrada (1:1). Recomendado: 800×800px.</p>
+                  <button
+                    onClick={() => cambiarPortada(editing.id)}
+                    disabled={uploadingCover === editing.id}
+                    className="px-3 py-2 rounded-lg border text-sm flex items-center gap-1"
+                  >
+                    {uploadingCover === editing.id ? <Loader2 className="w-3 h-3 animate-spin"/> : <ImagePlus className="w-3 h-3"/>}
+                    Subir imagen
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium">Nombre</label>
+                <input
+                  value={editing.nombre}
+                  onChange={(e) => setEditing({ ...editing, nombre: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Descripción</label>
+                <textarea
+                  value={editing.descripcion ?? ""}
+                  onChange={(e) => setEditing({ ...editing, descripcion: e.target.value })}
+                  rows={4}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none"
+                  placeholder="Descripción del curso, objetivos, a quién va dirigido…"
+                />
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                Para añadir clases, módulos, links y archivos entra al curso desde "Entrar al curso".
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t flex justify-end gap-2">
+              <button onClick={() => setEditing(null)} className="px-3 py-2 rounded-lg border text-sm">Cancelar</button>
+              <button
+                onClick={guardarEdicion}
+                disabled={savingEdit}
+                className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center gap-1"
+              >
+                {savingEdit && <Loader2 className="w-3 h-3 animate-spin"/>}
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
