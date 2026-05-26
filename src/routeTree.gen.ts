@@ -22,6 +22,7 @@ import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedGeneralRouteImport } from './routes/_authenticated/general'
 import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
 import { Route as AuthenticatedChatProfesoresRouteImport } from './routes/_authenticated/chat-profesores'
+import { Route as AuthenticatedCalificarRouteImport } from './routes/_authenticated/calificar'
 import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
 import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
 import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
@@ -93,6 +94,11 @@ const AuthenticatedChatProfesoresRoute =
     path: '/chat-profesores',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedCalificarRoute = AuthenticatedCalificarRouteImport.update({
+  id: '/calificar',
+  path: '/calificar',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedCalendarioClasesRoute =
   AuthenticatedCalendarioClasesRouteImport.update({
     id: '/calendario-clases',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
+  '/calificar': typeof AuthenticatedCalificarRoute
   '/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/general': typeof AuthenticatedGeneralRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByTo {
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
+  '/calificar': typeof AuthenticatedCalificarRoute
   '/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/general': typeof AuthenticatedGeneralRoute
@@ -170,6 +178,7 @@ export interface FileRoutesById {
   '/_authenticated/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/_authenticated/bonos': typeof AuthenticatedBonosRoute
   '/_authenticated/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
+  '/_authenticated/calificar': typeof AuthenticatedCalificarRoute
   '/_authenticated/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
   '/_authenticated/general': typeof AuthenticatedGeneralRoute
@@ -191,6 +200,7 @@ export interface FileRouteTypes {
     | '/agenda-1a1'
     | '/bonos'
     | '/calendario-clases'
+    | '/calificar'
     | '/chat-profesores'
     | '/chats'
     | '/general'
@@ -210,6 +220,7 @@ export interface FileRouteTypes {
     | '/agenda-1a1'
     | '/bonos'
     | '/calendario-clases'
+    | '/calificar'
     | '/chat-profesores'
     | '/chats'
     | '/general'
@@ -230,6 +241,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agenda-1a1'
     | '/_authenticated/bonos'
     | '/_authenticated/calendario-clases'
+    | '/_authenticated/calificar'
     | '/_authenticated/chat-profesores'
     | '/_authenticated/chats'
     | '/_authenticated/general'
@@ -343,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatProfesoresRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/calificar': {
+      id: '/_authenticated/calificar'
+      path: '/calificar'
+      fullPath: '/calificar'
+      preLoaderRoute: typeof AuthenticatedCalificarRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/calendario-clases': {
       id: '/_authenticated/calendario-clases'
       path: '/calendario-clases'
@@ -385,6 +404,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgenda1a1Route: typeof AuthenticatedAgenda1a1Route
   AuthenticatedBonosRoute: typeof AuthenticatedBonosRoute
   AuthenticatedCalendarioClasesRoute: typeof AuthenticatedCalendarioClasesRoute
+  AuthenticatedCalificarRoute: typeof AuthenticatedCalificarRoute
   AuthenticatedChatProfesoresRoute: typeof AuthenticatedChatProfesoresRoute
   AuthenticatedChatsRoute: typeof AuthenticatedChatsRoute
   AuthenticatedGeneralRoute: typeof AuthenticatedGeneralRoute
@@ -401,6 +421,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgenda1a1Route: AuthenticatedAgenda1a1Route,
   AuthenticatedBonosRoute: AuthenticatedBonosRoute,
   AuthenticatedCalendarioClasesRoute: AuthenticatedCalendarioClasesRoute,
+  AuthenticatedCalificarRoute: AuthenticatedCalificarRoute,
   AuthenticatedChatProfesoresRoute: AuthenticatedChatProfesoresRoute,
   AuthenticatedChatsRoute: AuthenticatedChatsRoute,
   AuthenticatedGeneralRoute: AuthenticatedGeneralRoute,
