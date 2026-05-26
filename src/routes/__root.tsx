@@ -11,6 +11,37 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
+import { useEffect } from "react";
+
+// Defensive patch: Google Translate (and similar DOM-mutating extensions)
+// replace text nodes, which makes React throw NotFoundError on removeChild /
+// insertBefore during reconciliation, crashing the whole app. Wrapping these
+// in try/catch is the community-accepted workaround.
+function patchDomForTranslate() {
+  if (typeof Node === "undefined") return;
+  const w = window as unknown as { __lovableDomPatched?: boolean };
+  if (w.__lovableDomPatched) return;
+  w.__lovableDomPatched = true;
+
+  const origRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function <T extends Node>(this: Node, child: T): T {
+    if (child.parentNode !== this) {
+      if (child.parentNode) {
+        try { return origRemoveChild.call(child.parentNode, child) as T; } catch { return child; }
+      }
+      return child;
+    }
+    return origRemoveChild.call(this, child) as T;
+  } as typeof Node.prototype.removeChild;
+
+  const origInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function <T extends Node>(this: Node, newNode: T, referenceNode: Node | null): T {
+    if (referenceNode && referenceNode.parentNode !== this) {
+      try { return origInsertBefore.call(this, newNode, null) as T; } catch { return newNode; }
+    }
+    return origInsertBefore.call(this, newNode, referenceNode) as T;
+  } as typeof Node.prototype.insertBefore;
+}
 
 function NotFoundComponent() {
   return (
@@ -76,6 +107,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "ADN Empresarial · Mentoría Jennyfer Méndez" },
       { name: "description", content: "Plataforma de mentoría ADN Empresarial." },
+      { name: "google", content: "notranslate" },
       { property: "og:title", content: "ADN Empresarial · Mentoría Jennyfer Méndez" },
       { property: "og:description", content: "Plataforma de mentoría ADN Empresarial." },
       { property: "og:type", content: "website" },
@@ -101,11 +133,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" translate="no" className="notranslate">
       <head>
+        <meta name="google" content="notranslate" />
         <HeadContent />
       </head>
-      <body>
+      <body className="notranslate" translate="no">
         {children}
         <Scripts />
       </body>
@@ -115,6 +148,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    patchDomForTranslate();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
