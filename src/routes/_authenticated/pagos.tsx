@@ -10,10 +10,23 @@ interface Profile { id: string; nombre_completo: string; email: string }
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
+interface StaffRow {
+  id: string;
+  nombre: string;
+  rol: string;
+  reservas: number;
+  mensajes: number;
+  bonos: number;
+}
+
 function Page() {
   const { role } = useAuth();
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [profs, setProfs] = useState<Record<string, Profile>>({});
+  const [staff, setStaff] = useState<StaffRow[]>([]);
+  const now = new Date();
+  const mes = now.getMonth() + 1;
+  const anio = now.getFullYear();
 
   useEffect(() => {
     supabase.from("pagos_mensuales").select("*").order("anio", { ascending: false }).order("mes", { ascending: false })
@@ -23,6 +36,55 @@ function Page() {
       (data ?? []).forEach((p: Profile) => { m[p.id] = p; });
       setProfs(m);
     });
+    (async () => {
+      // Staff = admin + soporte
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("role", ["admin", "soporte"]);
+      const map = new Map<string, string>();
+      (roles ?? []).forEach((r: { user_id: string; role: string }) => {
+        const prev = map.get(r.user_id);
+        // admin tiene prioridad sobre soporte
+        if (!prev || r.role === "admin") map.set(r.user_id, r.role);
+      });
+      const ids = Array.from(map.keys());
+      if (!ids.length) { setStaff([]); return; }
+      const { data: ps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", ids);
+
+      // Rango del mes actual
+      const ini = `${anio}-${String(mes).padStart(2, "0")}-01`;
+      const finDate = new Date(anio, mes, 0);
+      const fin = `${anio}-${String(mes).padStart(2, "0")}-${String(finDate.getDate()).padStart(2, "0")}`;
+      const iniTs = `${ini}T00:00:00`;
+      const finTs = `${fin}T23:59:59`;
+
+      const rows: StaffRow[] = await Promise.all(
+        (ps ?? []).map(async (p: Profile) => {
+          const [reservasRes, mGeneral, mPriv, mSop, bonosRes] = await Promise.all([
+            supabase.from("sesiones_1a1").select("id", { count: "exact", head: true })
+              .eq("profesor_id", p.id).gte("fecha", ini).lte("fecha", fin),
+            supabase.from("canal_general_mensajes").select("id", { count: "exact", head: true })
+              .eq("autor_id", p.id).gte("created_at", iniTs).lte("created_at", finTs),
+            supabase.from("mensajes_chat_1a1").select("id", { count: "exact", head: true })
+              .eq("autor_id", p.id).gte("created_at", iniTs).lte("created_at", finTs),
+            supabase.from("soporte_privado_mensajes").select("id", { count: "exact", head: true })
+              .eq("autor_id", p.id).gte("created_at", iniTs).lte("created_at", finTs),
+            supabase.from("bonos").select("monto").eq("profesor_id", p.id).eq("mes", mes).eq("anio", anio),
+          ]);
+          const totalBonos = (bonosRes.data ?? []).reduce((a: number, b: { monto: number }) => a + Number(b.monto), 0);
+          return {
+            id: p.id,
+            nombre: p.nombre_completo || p.email,
+            rol: map.get(p.id) ?? "soporte",
+            reservas: reservasRes.count ?? 0,
+            mensajes: (mGeneral.count ?? 0) + (mPriv.count ?? 0) + (mSop.count ?? 0),
+            bonos: totalBonos,
+          };
+        })
+      );
+      setStaff(rows.sort((a, b) => b.reservas + b.mensajes - (a.reservas + a.mensajes)));
+    })();
   }, []);
 
   const total = pagos.reduce((a, b) => a + Number(b.monto_total), 0);
@@ -37,6 +99,39 @@ function Page() {
         <Card label="Por pagar" value={`S/ ${pendiente.toFixed(2)}`} />
         <Card label="Registros" value={String(pagos.length)} />
       </div>
+
+      {(role === "admin" || role === "soporte") && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold mb-2">Actividad del equipo · {MESES[mes - 1]} {anio}</h2>
+          <p className="text-xs text-muted-foreground mb-3">Incluye admins y soporte: reservas 1a1 atendidas, mensajes enviados y bonos del mes.</p>
+          <div className="rounded-2xl border bg-card overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="text-left px-3 py-2">Miembro</th>
+                  <th className="text-left px-3 py-2">Rol</th>
+                  <th className="text-right px-3 py-2">Reservas 1a1</th>
+                  <th className="text-right px-3 py-2">Mensajes</th>
+                  <th className="text-right px-3 py-2">Bonos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staff.map((s) => (
+                  <tr key={s.id} className="border-t">
+                    <td className="px-3 py-2">{s.nombre}</td>
+                    <td className="px-3 py-2"><span className="px-2 py-0.5 rounded text-xs bg-violet/10 text-violet capitalize">{s.rol}</span></td>
+                    <td className="text-right px-3 py-2">{s.reservas}</td>
+                    <td className="text-right px-3 py-2">{s.mensajes}</td>
+                    <td className="text-right px-3 py-2 font-semibold">S/ {s.bonos.toFixed(2)}</td>
+                  </tr>
+                ))}
+                {staff.length === 0 && <tr><td colSpan={5} className="text-center py-6 text-muted-foreground">Sin actividad.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-2xl border bg-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted">
