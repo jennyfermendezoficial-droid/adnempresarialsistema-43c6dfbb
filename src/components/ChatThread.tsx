@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Send, Paperclip, Mic, Square, Image as ImageIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { sendPushToUsers } from "@/lib/send-push.functions";
 
 export interface ChatMessageRow {
   id: string;
@@ -27,6 +28,9 @@ export interface ChatThreadProps {
   emptyHint?: string;
   authorMap?: Record<string, { name: string; avatar?: string | null }>;
   allowDelete?: boolean;
+  pushRecipientIds?: string[];
+  pushTitle?: string;
+  pushUrl?: string;
 }
 
 const MAX_BYTES = 25 * 1024 * 1024; // 25MB
@@ -40,6 +44,9 @@ export function ChatThread({
   emptyHint = "Sé el primero en escribir.",
   authorMap = {},
   allowDelete = true,
+  pushRecipientIds,
+  pushTitle,
+  pushUrl,
 }: ChatThreadProps) {
   const { session, role } = useAuth();
   const uid = session?.user.id;
@@ -138,7 +145,19 @@ export function ChatThread({
     const { error } = await supabase.from(table).insert(payload);
     setSending(false);
     if (error) return toast.error(error.message);
+    const body = text.trim();
     setText("");
+    if (pushRecipientIds && pushRecipientIds.length) {
+      sendPushToUsers({
+        data: {
+          userIds: pushRecipientIds,
+          title: pushTitle || "Nuevo mensaje",
+          body: body.slice(0, 200),
+          url: pushUrl || "/chats",
+          tag: `chat-${table}`,
+        },
+      }).catch(() => {});
+    }
   };
 
   const uploadAndSend = async (file: File, tipo: "imagen" | "video" | "audio" | "archivo") => {
@@ -155,6 +174,17 @@ export function ChatThread({
       ...extraInsert,
     });
     if (error) toast.error(error.message);
+    else if (pushRecipientIds && pushRecipientIds.length) {
+      sendPushToUsers({
+        data: {
+          userIds: pushRecipientIds,
+          title: pushTitle || "Nuevo mensaje",
+          body: `Te envió ${tipo === "imagen" ? "una imagen" : tipo === "video" ? "un video" : tipo === "audio" ? "un audio" : "un archivo"}`,
+          url: pushUrl || "/chats",
+          tag: `chat-${table}`,
+        },
+      }).catch(() => {});
+    }
   };
 
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
