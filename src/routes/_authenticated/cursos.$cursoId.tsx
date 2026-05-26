@@ -6,7 +6,6 @@ import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, L
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo } from "@/lib/bunny.functions";
-import * as tus from "tus-js-client";
 
 export const Route = createFileRoute("/_authenticated/cursos/$cursoId")({ component: Page });
 
