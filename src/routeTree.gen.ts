@@ -26,6 +26,7 @@ import { Route as AuthenticatedCalificarRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
 import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
 import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
+import { Route as AuthenticatedAccesoCursosRouteImport } from './routes/_authenticated/acceso-cursos'
 import { Route as AuthenticatedCursosIndexRouteImport } from './routes/_authenticated/cursos.index'
 import { Route as AuthenticatedCursosCursoIdRouteImport } from './routes/_authenticated/cursos.$cursoId'
 
@@ -115,6 +116,12 @@ const AuthenticatedAgenda1a1Route = AuthenticatedAgenda1a1RouteImport.update({
   path: '/agenda-1a1',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAccesoCursosRoute =
+  AuthenticatedAccesoCursosRouteImport.update({
+    id: '/acceso-cursos',
+    path: '/acceso-cursos',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedCursosIndexRoute =
   AuthenticatedCursosIndexRouteImport.update({
     id: '/cursos/',
@@ -133,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/acceso-cursos': typeof AuthenticatedAccesoCursosRoute
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
@@ -153,6 +161,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/acceso-cursos': typeof AuthenticatedAccesoCursosRoute
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
@@ -175,6 +184,7 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/_authenticated/acceso-cursos': typeof AuthenticatedAccesoCursosRoute
   '/_authenticated/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/_authenticated/bonos': typeof AuthenticatedBonosRoute
   '/_authenticated/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/acceso-cursos'
     | '/agenda-1a1'
     | '/bonos'
     | '/calendario-clases'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/acceso-cursos'
     | '/agenda-1a1'
     | '/bonos'
     | '/calendario-clases'
@@ -238,6 +250,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/_authenticated/acceso-cursos'
     | '/_authenticated/agenda-1a1'
     | '/_authenticated/bonos'
     | '/_authenticated/calendario-clases'
@@ -383,6 +396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgenda1a1RouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/acceso-cursos': {
+      id: '/_authenticated/acceso-cursos'
+      path: '/acceso-cursos'
+      fullPath: '/acceso-cursos'
+      preLoaderRoute: typeof AuthenticatedAccesoCursosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/cursos/': {
       id: '/_authenticated/cursos/'
       path: '/cursos'
@@ -401,6 +421,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAccesoCursosRoute: typeof AuthenticatedAccesoCursosRoute
   AuthenticatedAgenda1a1Route: typeof AuthenticatedAgenda1a1Route
   AuthenticatedBonosRoute: typeof AuthenticatedBonosRoute
   AuthenticatedCalendarioClasesRoute: typeof AuthenticatedCalendarioClasesRoute
@@ -418,6 +439,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAccesoCursosRoute: AuthenticatedAccesoCursosRoute,
   AuthenticatedAgenda1a1Route: AuthenticatedAgenda1a1Route,
   AuthenticatedBonosRoute: AuthenticatedBonosRoute,
   AuthenticatedCalendarioClasesRoute: AuthenticatedCalendarioClasesRoute,
@@ -448,3 +470,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

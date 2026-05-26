@@ -31,6 +31,7 @@ const alumnaItems: Item[] = [
 ];
 const adminItems: Item[] = [
   { to: "/permisos", label: "Permisos",         icon: ShieldCheck },
+  { to: "/acceso-cursos", label: "Acceso a cursos", icon: BookOpen },
   { to: "/pagos",    label: "Pagos e informes", icon: Wallet },
   { to: "/bonos",    label: "Bonos",            icon: Gift },
 ];

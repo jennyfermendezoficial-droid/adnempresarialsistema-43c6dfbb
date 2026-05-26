@@ -198,8 +198,10 @@ export function ChatThread({
                   mine ? "bg-violet-gradient text-white" : "bg-muted text-foreground"
                 }`}
               >
-                {!mine && author && (
-                  <div className="text-[11px] font-semibold opacity-80 mb-0.5">{author.name}</div>
+                {(author?.name || mine) && (
+                  <div className="text-[11px] font-semibold opacity-80 mb-0.5">
+                    {mine ? (author?.name ?? "Tú") : author?.name}
+                  </div>
                 )}
                 {m.tipo === "texto" && <div className="whitespace-pre-wrap break-words">{m.contenido}</div>}
                 {m.tipo === "imagen" && signedUrls[m.id] && (
