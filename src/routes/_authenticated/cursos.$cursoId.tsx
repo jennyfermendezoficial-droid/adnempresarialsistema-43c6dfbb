@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil, Youtube } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo } from "@/lib/bunny.functions";
@@ -92,6 +92,24 @@ function Page() {
   const subirLeccion = (modId: string) => {
     pendingModId.current = modId;
     fileInputRef.current?.click();
+  };
+
+  const agregarLeccionURL = async (modId: string) => {
+    const url = prompt("Pega la URL del video (YouTube o MP4 directo)");
+    if (!url) return;
+    const nombre = prompt("Nombre de la clase", "Nueva clase");
+    if (!nombre) return;
+    const orden = lecciones.filter((l) => l.modulo_id === modId).length;
+    const { data, error } = await supabase
+      .from("lecciones")
+      .insert({ modulo_id: modId, nombre, bunny_video_id: url, orden })
+      .select()
+      .single();
+    if (error) return toast.error(error.message);
+    const nueva = data as Leccion;
+    setLecciones((l) => [...l, nueva]);
+    if (!active) setActive(nueva);
+    toast.success("Clase agregada");
   };
 
   const onFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -398,10 +416,17 @@ function Page() {
                       <button
                         disabled={uploadingFor !== null}
                         onClick={() => subirLeccion(m.id)}
-                        title="Subir clase"
+                        title="Subir video (Bunny)"
                         className="p-1.5 rounded border hover:bg-muted disabled:opacity-50"
                       >
                         {uploadingFor === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Upload className="w-3.5 h-3.5"/>}
+                      </button>
+                      <button
+                        onClick={() => agregarLeccionURL(m.id)}
+                        title="Agregar clase por URL (YouTube/MP4)"
+                        className="p-1.5 rounded border hover:bg-muted"
+                      >
+                        <Youtube className="w-3.5 h-3.5"/>
                       </button>
                       <button onClick={() => borrarModulo(m.id)} className="p-1.5 rounded opacity-50 hover:opacity-100">
                         <Trash2 className="w-3.5 h-3.5"/>
