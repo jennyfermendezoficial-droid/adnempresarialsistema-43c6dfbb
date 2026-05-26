@@ -18,6 +18,7 @@ function Page() {
   const [cursor, setCursor] = useState(new Date());
   const [clases, setClases] = useState<Clase[]>([]);
   const [newOn, setNewOn] = useState<string | null>(null);
+  const [staff, setStaff] = useState<{ id: string; nombre: string }[]>([]);
   const [form, setForm] = useState({
     titulo: "",
     descripcion: "",
@@ -25,6 +26,7 @@ function Page() {
     hora_fin: "11:00",
     repetir: false,
     repetir_hasta: "",
+    profesor_id: "",
   });
 
   const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
@@ -39,6 +41,17 @@ function Page() {
       .order("fecha").order("hora_inicio")
       .then(({ data }) => setClases((data as Clase[]) ?? []));
   }, [cursor]); // eslint-disable-line
+
+  // Cargar mentores (admin + soporte) para asignar quien dicta la clase
+  useEffect(() => {
+    (async () => {
+      const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("role", ["admin", "soporte"]);
+      const ids = Array.from(new Set((roles ?? []).map((r: { user_id: string }) => r.user_id)));
+      if (!ids.length) return;
+      const { data: ps } = await supabase.from("profiles").select("id, nombre_completo, email").in("id", ids);
+      setStaff((ps ?? []).map((p: { id: string; nombre_completo: string; email: string }) => ({ id: p.id, nombre: p.nombre_completo || p.email })));
+    })();
+  }, []);
 
   const dayClases = (d: number) => {
     const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -70,14 +83,14 @@ function Page() {
           fecha: f, hora_inicio: form.hora_inicio + ":00", hora_fin: form.hora_fin + ":00",
           titulo: form.titulo, descripcion: form.descripcion || null,
           zoom_meeting_id: zoom.meeting_id, zoom_link: zoom.join_url,
-          profesor_id: session.user.id, created_by: session.user.id,
+          profesor_id: form.profesor_id || session.user.id, created_by: session.user.id,
         }).select().single();
         if (error) throw error;
         nuevas.push(data as Clase);
       }
       setClases((c) => [...c, ...nuevas]);
       setNewOn(null);
-      setForm({ titulo: "", descripcion: "", hora_inicio: "10:00", hora_fin: "11:00", repetir: false, repetir_hasta: "" });
+      setForm({ titulo: "", descripcion: "", hora_inicio: "10:00", hora_fin: "11:00", repetir: false, repetir_hasta: "", profesor_id: "" });
       toast.success(nuevas.length > 1 ? `${nuevas.length} clases creadas (con Zoom)` : "Clase creada con Zoom");
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -139,6 +152,15 @@ function Page() {
             <p className="text-xs text-muted-foreground capitalize">{new Date(newOn + "T00:00:00").toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })}</p>
             <input placeholder="Título" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background" />
             <textarea placeholder="Descripción (opcional)" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background" rows={2} />
+            <div>
+              <label className="text-xs opacity-70 mb-1 block">Profesor que dicta</label>
+              <select value={form.profesor_id} onChange={(e) => setForm({ ...form, profesor_id: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background">
+                <option value="">— Yo mismo —</option>
+                {staff.filter((s) => s.id !== session?.user.id).map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <input type="time" value={form.hora_inicio} onChange={(e) => setForm({ ...form, hora_inicio: e.target.value })} className="px-3 py-2 rounded-lg border bg-background" />
               <input type="time" value={form.hora_fin} onChange={(e) => setForm({ ...form, hora_fin: e.target.value })} className="px-3 py-2 rounded-lg border bg-background" />
