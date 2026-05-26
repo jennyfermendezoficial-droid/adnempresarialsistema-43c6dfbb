@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { ChatThread } from "@/components/ChatThread";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/chats")({ component: Page });
@@ -70,8 +70,9 @@ function Page() {
   if (!uid) return null;
 
   return (
-    <div className="flex h-screen">
-      <aside className="w-80 border-r flex flex-col bg-card">
+    <div className="flex h-[calc(100dvh-3.5rem)] md:h-screen">
+      {/* En móvil: si hay chat seleccionado se oculta la lista */}
+      <aside className={`${selected ? "hidden md:flex" : "flex"} w-full md:w-80 border-r flex-col bg-card`}>
         <div className="p-3 border-b flex items-center gap-2">
           <h2 className="font-semibold flex-1">Chats</h2>
           <button onClick={() => setShowNew((v) => !v)} className="p-1.5 rounded-lg hover:bg-muted" title="Nuevo chat"><Plus className="w-4 h-4" /></button>
@@ -104,10 +105,17 @@ function Page() {
           {chats.length === 0 && <p className="p-4 text-xs text-muted-foreground">No tienes chats. Pulsa + para iniciar.</p>}
         </div>
       </aside>
-      <main className="flex-1 p-6 flex flex-col min-h-0">
+      <main className={`${selected ? "flex" : "hidden md:flex"} flex-1 p-4 md:p-6 flex-col min-h-0`}>
         {selected ? (
           <>
-            <h1 className="text-xl font-semibold mb-3">{profiles[other(chats.find((c) => c.id === selected)!)]?.nombre_completo || "Chat"}</h1>
+            <div className="flex items-center gap-2 mb-3">
+              <button onClick={() => setSelected(null)} className="md:hidden p-2 -ml-2 rounded-lg hover:bg-muted">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-lg md:text-xl font-semibold truncate">
+                {profiles[other(chats.find((c) => c.id === selected)!)]?.nombre_completo || "Chat"}
+              </h1>
+            </div>
             <div className="flex-1 min-h-0">
               <ChatThread
                 table="mensajes_chat_1a1"
