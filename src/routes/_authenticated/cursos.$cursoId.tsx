@@ -6,7 +6,6 @@ import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, L
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo } from "@/lib/bunny.functions";
-import * as tus from "tus-js-client";
 
 export const Route = createFileRoute("/_authenticated/cursos/$cursoId")({ component: Page });
 
@@ -123,6 +122,7 @@ function Page() {
       setUploadingFor(modId);
       setUploadPct(0);
       const cred = await createBunny({ data: { title: nombre } });
+      const tus = await import("tus-js-client");
       await new Promise<void>((resolve, reject) => {
         const upload = new tus.Upload(file, {
           endpoint: "https://video.bunnycdn.com/tusupload",
@@ -134,8 +134,8 @@ function Page() {
             LibraryId: String(cred.libraryId),
           },
           metadata: { filetype: file.type, title: nombre },
-          onError: (err) => reject(err),
-          onProgress: (sent, total) => setUploadPct(Math.round((sent / total) * 100)),
+          onError: (err: Error) => reject(err),
+          onProgress: (sent: number, total: number) => setUploadPct(Math.round((sent / total) * 100)),
           onSuccess: () => resolve(),
         });
         upload.start();
