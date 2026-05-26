@@ -107,6 +107,36 @@ function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> 
   );
 }
 
+function PasswordField({ label, value, onChange, autoComplete }: { label: string; value: string; onChange: (val: string) => void; autoComplete?: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="mb-4">
+      <label className="block text-[11.5px] font-bold tracking-[0.08em] uppercase mb-2" style={{ color: "var(--foreground)" }}>
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={show ? "text" : "password"}
+          required
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete={autoComplete}
+          className="w-full px-3.5 py-3 pr-10 text-[14.5px] rounded-lg border bg-card outline-none transition focus:ring-2"
+          style={{ borderColor: "var(--border)" }}
+        />
+        <button
+          type="button"
+          onClick={() => setShow(!show)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+          tabIndex={-1}
+        >
+          {show ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PrimaryBtn({ children, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
