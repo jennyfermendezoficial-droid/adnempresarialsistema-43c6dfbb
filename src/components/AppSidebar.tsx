@@ -76,7 +76,7 @@ export function AppSidebar() {
         <SectionLabel className="mt-3">Comunidad</SectionLabel>
         <Nav items={comunidadItems} isActive={isActive} />
 
-        {role === "admin" && (
+        {(role === "admin" || role === "soporte") && (
           <>
             <SectionLabel className="mt-3">Admin</SectionLabel>
             <Nav items={adminItems} isActive={isActive} />

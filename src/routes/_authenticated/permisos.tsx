@@ -33,7 +33,9 @@ function Page() {
   };
   useEffect(() => { load(); }, []);
 
-  if (role !== "admin") return <div className="p-8 text-center text-muted-foreground">Solo administradores.</div>;
+  const isAdmin = role === "admin";
+  const isStaff = isAdmin || role === "soporte";
+  if (!isStaff) return <div className="p-8 text-center text-muted-foreground">Solo administradores o soporte.</div>;
 
   const setEstado = async (id: string, estado: "activo" | "pendiente_aprobacion" | "inactivo") => {
     const { error } = await supabase.from("profiles").update({ estado }).eq("id", id);
@@ -74,7 +76,7 @@ function Page() {
             <tr>
               <th className="text-left px-3 py-2">Usuario</th>
               <th className="text-left px-3 py-2">Estado</th>
-              <th className="text-left px-3 py-2">Rol</th>
+              {isAdmin && <th className="text-left px-3 py-2">Rol</th>}
               {cursos.map((c) => <th key={c.id} className="text-center px-3 py-2 text-xs">{c.nombre}</th>)}
             </tr>
           </thead>
@@ -92,13 +94,15 @@ function Page() {
                     <option value="inactivo">inactivo</option>
                   </select>
                 </td>
-                <td className="px-3 py-2">
-                  <select value={userRole(p.id)} onChange={(e) => setRole(p.id, e.target.value as "admin" | "soporte" | "usuario")} className="px-2 py-1 rounded border bg-background text-xs">
-                    <option value="usuario">usuario</option>
-                    <option value="soporte">soporte</option>
-                    <option value="admin">admin</option>
-                  </select>
-                </td>
+                {isAdmin && (
+                  <td className="px-3 py-2">
+                    <select value={userRole(p.id)} onChange={(e) => setRole(p.id, e.target.value as "admin" | "soporte" | "usuario")} className="px-2 py-1 rounded border bg-background text-xs">
+                      <option value="usuario">usuario</option>
+                      <option value="soporte">soporte</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </td>
+                )}
                 {cursos.map((c) => {
                   const ok = perms.some((x) => x.usuario_id === p.id && x.curso_id === c.id);
                   return (
