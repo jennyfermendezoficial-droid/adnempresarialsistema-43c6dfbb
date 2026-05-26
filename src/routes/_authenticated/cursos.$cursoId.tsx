@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo } from "@/lib/bunny.functions";
@@ -12,7 +12,8 @@ export const Route = createFileRoute("/_authenticated/cursos/$cursoId")({ compon
 
 interface Curso { id: string; nombre: string; descripcion: string | null; image_url: string | null; color_cover: string | null }
 interface Modulo { id: string; curso_id: string; nombre: string; descripcion: string | null; orden: number }
-interface Leccion { id: string; modulo_id: string; nombre: string; descripcion: string | null; bunny_video_id: string | null; orden: number; duracion_min: number | null }
+interface Recurso { tipo: "link" | "archivo"; nombre: string; url: string }
+interface Leccion { id: string; modulo_id: string; nombre: string; descripcion: string | null; bunny_video_id: string | null; orden: number; duracion_min: number | null; recursos_adjuntos: Recurso[] | null }
 
 function Page() {
   const { cursoId } = Route.useParams();
@@ -32,6 +33,9 @@ function Page() {
   const [bunnyCfg, setBunnyCfg] = useState<{ libraryId: string; cdnHostname: string } | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [uploadPct, setUploadPct] = useState(0);
+  const [editLec, setEditLec] = useState<{ descripcion: string } | null>(null);
+  const [savingLec, setSavingLec] = useState(false);
+  const [uploadingRecurso, setUploadingRecurso] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingModId = useRef<string | null>(null);
@@ -170,6 +174,68 @@ function Page() {
     });
   };
 
+  const updateActive = (patch: Partial<Leccion>) => {
+    if (!active) return;
+    const next = { ...active, ...patch } as Leccion;
+    setActive(next);
+    setLecciones((arr) => arr.map((l) => (l.id === next.id ? next : l)));
+  };
+
+  const guardarDescripcion = async () => {
+    if (!active || !editLec) return;
+    setSavingLec(true);
+    const { error } = await supabase.from("lecciones").update({ descripcion: editLec.descripcion }).eq("id", active.id);
+    setSavingLec(false);
+    if (error) return toast.error(error.message);
+    updateActive({ descripcion: editLec.descripcion });
+    setEditLec(null);
+    toast.success("Descripción guardada");
+  };
+
+  const addRecurso = async (r: Recurso) => {
+    if (!active) return;
+    const recursos = [...(active.recursos_adjuntos ?? []), r];
+    const { error } = await supabase.from("lecciones").update({ recursos_adjuntos: recursos }).eq("id", active.id);
+    if (error) return toast.error(error.message);
+    updateActive({ recursos_adjuntos: recursos });
+  };
+
+  const removeRecurso = async (idx: number) => {
+    if (!active) return;
+    const recursos = (active.recursos_adjuntos ?? []).filter((_, i) => i !== idx);
+    const { error } = await supabase.from("lecciones").update({ recursos_adjuntos: recursos }).eq("id", active.id);
+    if (error) return toast.error(error.message);
+    updateActive({ recursos_adjuntos: recursos });
+  };
+
+  const agregarLink = async () => {
+    const url = prompt("URL del enlace (https://…)");
+    if (!url) return;
+    const nombre = prompt("Nombre del enlace", url) || url;
+    await addRecurso({ tipo: "link", nombre, url });
+  };
+
+  const recursoFileRef = useRef<HTMLInputElement>(null);
+  const onRecursoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !active) return;
+    try {
+      setUploadingRecurso(true);
+      const path = `${cursoId}/${active.id}/${Date.now()}-${file.name}`;
+      const { error: upErr } = await supabase.storage.from("course-media").upload(path, file, { upsert: false });
+      if (upErr) throw upErr;
+      const { data: signed, error: signErr } = await supabase.storage.from("course-media").createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signErr) throw signErr;
+      await addRecurso({ tipo: "archivo", nombre: file.name, url: signed.signedUrl });
+      toast.success("Archivo subido");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setUploadingRecurso(false);
+    }
+  };
+
   const totalLec = lecciones.length;
   const hechas = completadas.size;
   const pct = totalLec ? Math.round((hechas / totalLec) * 100) : 0;
@@ -177,6 +243,7 @@ function Page() {
   return (
     <div className="min-h-screen">
       <input ref={fileInputRef} type="file" accept="video/*" hidden onChange={onFileChosen} />
+      <input ref={recursoFileRef} type="file" hidden onChange={onRecursoFile} />
 
       {/* Header con portada */}
       <div className="relative h-56 overflow-hidden">
@@ -234,7 +301,17 @@ function Page() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold">{active.nombre}</h2>
-                  {active.descripcion && <p className="text-sm text-muted-foreground mt-1">{active.descripcion}</p>}
+                  {editLec ? (
+                    <textarea
+                      value={editLec.descripcion}
+                      onChange={(e) => setEditLec({ descripcion: e.target.value })}
+                      rows={4}
+                      className="mt-2 w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none"
+                      placeholder="Descripción de la clase…"
+                    />
+                  ) : (
+                    active.descripcion && <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{active.descripcion}</p>
+                  )}
                 </div>
                 <button
                   onClick={() => marcarCompletada(active)}
@@ -244,6 +321,46 @@ function Page() {
                   {completadas.has(active.id) ? "Completada" : "Marcar completada"}
                 </button>
               </div>
+
+              {isStaff && (
+                <div className="mt-3 flex gap-2">
+                  {editLec ? (
+                    <>
+                      <button onClick={guardarDescripcion} disabled={savingLec} className="text-xs px-3 py-1.5 rounded-lg bg-violet-gradient text-white flex items-center gap-1">
+                        {savingLec ? <Loader2 className="w-3 h-3 animate-spin"/> : <Save className="w-3 h-3"/>} Guardar
+                      </button>
+                      <button onClick={() => setEditLec(null)} className="text-xs px-3 py-1.5 rounded-lg border">Cancelar</button>
+                    </>
+                  ) : (
+                    <button onClick={() => setEditLec({ descripcion: active.descripcion ?? "" })} className="text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1">
+                      <Pencil className="w-3 h-3"/> Editar descripción
+                    </button>
+                  )}
+                  <button onClick={agregarLink} className="text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1">
+                    <LinkIcon className="w-3 h-3"/> Añadir link
+                  </button>
+                  <button onClick={() => recursoFileRef.current?.click()} disabled={uploadingRecurso} className="text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1">
+                    {uploadingRecurso ? <Loader2 className="w-3 h-3 animate-spin"/> : <Paperclip className="w-3 h-3"/>} Subir archivo
+                  </button>
+                </div>
+              )}
+
+              {(active.recursos_adjuntos?.length ?? 0) > 0 && (
+                <div className="mt-4 space-y-1.5">
+                  <div className="text-xs uppercase tracking-wider opacity-60">Recursos</div>
+                  {(active.recursos_adjuntos ?? []).map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/30 text-sm">
+                      {r.tipo === "link" ? <LinkIcon className="w-3.5 h-3.5 opacity-60"/> : <FileText className="w-3.5 h-3.5 opacity-60"/>}
+                      <a href={r.url} target="_blank" rel="noreferrer" className="flex-1 truncate hover:underline">{r.nombre}</a>
+                      {isStaff && (
+                        <button onClick={() => removeRecurso(i)} className="opacity-40 hover:opacity-100">
+                          <Trash2 className="w-3 h-3"/>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
