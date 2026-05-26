@@ -105,6 +105,26 @@ export function useGlobalNotifications() {
           });
         }
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "sesiones_1a1" }, async (payload) => {
+        const row = payload.new as { id: string; profesor_id: string; alumna_id: string; fecha: string; hora_inicio: string };
+        if (seenRef.current.has(`new-${row.id}`)) return;
+        seenRef.current.add(`new-${row.id}`);
+        // Notifica al profesor y a los admins
+        const isProfesor = row.profesor_id === uid;
+        const isAdmin = role === "admin";
+        if (!isProfesor && !isAdmin) return;
+        const { data: alumna } = await supabase
+          .from("profiles").select("nombre_completo, email").eq("id", row.alumna_id).maybeSingle();
+        const nombre = alumna?.nombre_completo || alumna?.email || "Una alumna";
+        const fechaTxt = new Date(row.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "short", day: "numeric", month: "short" });
+        notify({
+          title: "Nueva reserva 1 a 1",
+          body: `${nombre} agendó para ${fechaTxt} · ${String(row.hora_inicio).slice(0,5)}`,
+          tag: `new-${row.id}`,
+          url: "/agenda-1a1",
+          sound: "ring",
+        });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [uid]);
