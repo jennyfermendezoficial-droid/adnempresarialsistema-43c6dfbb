@@ -26,6 +26,7 @@ import { Route as AuthenticatedChatProfesoresRouteImport } from './routes/_authe
 import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
 import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
 import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
+import { Route as AuthenticatedCursosCursoIdRouteImport } from './routes/_authenticated/cursos.$cursoId'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -113,6 +114,12 @@ const AuthenticatedAgenda1a1Route = AuthenticatedAgenda1a1RouteImport.update({
   path: '/agenda-1a1',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCursosCursoIdRoute =
+  AuthenticatedCursosCursoIdRouteImport.update({
+    id: '/$cursoId',
+    path: '/$cursoId',
+    getParentRoute: () => AuthenticatedCursosRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,13 +131,14 @@ export interface FileRoutesByFullPath {
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/chats': typeof AuthenticatedChatsRoute
-  '/cursos': typeof AuthenticatedCursosRoute
+  '/cursos': typeof AuthenticatedCursosRouteWithChildren
   '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
+  '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -142,13 +150,14 @@ export interface FileRoutesByTo {
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/chats': typeof AuthenticatedChatsRoute
-  '/cursos': typeof AuthenticatedCursosRoute
+  '/cursos': typeof AuthenticatedCursosRouteWithChildren
   '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
+  '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -162,13 +171,14 @@ export interface FileRoutesById {
   '/_authenticated/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
   '/_authenticated/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
-  '/_authenticated/cursos': typeof AuthenticatedCursosRoute
+  '/_authenticated/cursos': typeof AuthenticatedCursosRouteWithChildren
   '/_authenticated/general': typeof AuthenticatedGeneralRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
   '/_authenticated/miembros': typeof AuthenticatedMiembrosRoute
   '/_authenticated/pagos': typeof AuthenticatedPagosRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/permisos': typeof AuthenticatedPermisosRoute
+  '/_authenticated/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/pagos'
     | '/perfil'
     | '/permisos'
+    | '/cursos/$cursoId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -207,6 +218,7 @@ export interface FileRouteTypes {
     | '/pagos'
     | '/perfil'
     | '/permisos'
+    | '/cursos/$cursoId'
   id:
     | '__root__'
     | '/'
@@ -226,6 +238,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pagos'
     | '/_authenticated/perfil'
     | '/_authenticated/permisos'
+    | '/_authenticated/cursos/$cursoId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -357,8 +370,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgenda1a1RouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/cursos/$cursoId': {
+      id: '/_authenticated/cursos/$cursoId'
+      path: '/$cursoId'
+      fullPath: '/cursos/$cursoId'
+      preLoaderRoute: typeof AuthenticatedCursosCursoIdRouteImport
+      parentRoute: typeof AuthenticatedCursosRoute
+    }
   }
 }
+
+interface AuthenticatedCursosRouteChildren {
+  AuthenticatedCursosCursoIdRoute: typeof AuthenticatedCursosCursoIdRoute
+}
+
+const AuthenticatedCursosRouteChildren: AuthenticatedCursosRouteChildren = {
+  AuthenticatedCursosCursoIdRoute: AuthenticatedCursosCursoIdRoute,
+}
+
+const AuthenticatedCursosRouteWithChildren =
+  AuthenticatedCursosRoute._addFileChildren(AuthenticatedCursosRouteChildren)
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAgenda1a1Route: typeof AuthenticatedAgenda1a1Route
@@ -366,7 +397,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCalendarioClasesRoute: typeof AuthenticatedCalendarioClasesRoute
   AuthenticatedChatProfesoresRoute: typeof AuthenticatedChatProfesoresRoute
   AuthenticatedChatsRoute: typeof AuthenticatedChatsRoute
-  AuthenticatedCursosRoute: typeof AuthenticatedCursosRoute
+  AuthenticatedCursosRoute: typeof AuthenticatedCursosRouteWithChildren
   AuthenticatedGeneralRoute: typeof AuthenticatedGeneralRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
   AuthenticatedMiembrosRoute: typeof AuthenticatedMiembrosRoute
@@ -381,7 +412,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCalendarioClasesRoute: AuthenticatedCalendarioClasesRoute,
   AuthenticatedChatProfesoresRoute: AuthenticatedChatProfesoresRoute,
   AuthenticatedChatsRoute: AuthenticatedChatsRoute,
-  AuthenticatedCursosRoute: AuthenticatedCursosRoute,
+  AuthenticatedCursosRoute: AuthenticatedCursosRouteWithChildren,
   AuthenticatedGeneralRoute: AuthenticatedGeneralRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
   AuthenticatedMiembrosRoute: AuthenticatedMiembrosRoute,
