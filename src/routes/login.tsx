@@ -170,7 +170,7 @@ function LoginForm() {
       <h2 className="text-2xl font-semibold mb-1">Hola de nuevo</h2>
       <p className="text-sm text-muted-foreground mb-7">Ingresa para continuar tu mentoría.</p>
       <Field label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-      <Field label="Contraseña" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+      <PasswordField label="Contraseña" value={password} onChange={setPassword} autoComplete="current-password" />
       <div className="flex items-center justify-between mb-6 text-[13px]">
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="accent-[var(--violet)]" />
