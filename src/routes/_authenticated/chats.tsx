@@ -32,7 +32,14 @@ function Page() {
       setProfiles(m);
 
       if (isStaff) {
-        setAllUsers(list.filter((p) => p.id !== uid));
+        // Profesores (admin/soporte) SOLO pueden abrir chats con estudiantes (rol "usuario").
+        // Entre staff usamos WhatsApp / chat-profesores.
+        const { data: staffRoles } = await supabase
+          .from("user_roles")
+          .select("user_id, role")
+          .in("role", ["admin", "soporte"]);
+        const staffIds = new Set(((staffRoles ?? []) as { user_id: string }[]).map((r) => r.user_id));
+        setAllUsers(list.filter((p) => p.id !== uid && !staffIds.has(p.id)));
       } else {
         // Estudiantes solo pueden chatear con admin o soporte (profesores).
         const { data: roles } = await supabase
