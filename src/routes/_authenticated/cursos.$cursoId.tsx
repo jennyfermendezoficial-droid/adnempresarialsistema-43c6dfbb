@@ -40,8 +40,40 @@ function Page() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingModId = useRef<string | null>(null);
+  const playerIframeRef = useRef<HTMLIFrameElement>(null);
+  const autoCompletedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => { getBunnyCfg().then(setBunnyCfg).catch(() => {}); }, []); // eslint-disable-line
+
+  // Player.js: escucha timeupdate del iframe de Bunny y marca completada al 90%
+  useEffect(() => {
+    if (!active?.bunny_video_id) return;
+    if (!/^[0-9a-f-]{20,}$/i.test(active.bunny_video_id)) return;
+    if (!playerIframeRef.current) return;
+    if (!videoStatus?.ready) return;
+    let cancelled = false;
+    let detach: (() => void) | null = null;
+    (async () => {
+      try {
+        const mod = await import("player.js");
+        if (cancelled || !playerIframeRef.current) return;
+        const PlayerCtor = (mod as unknown as { Player: new (el: HTMLIFrameElement) => { on: (ev: string, cb: (d: { seconds: number; duration: number }) => void) => void; off: (ev: string) => void } }).Player;
+        const p = new PlayerCtor(playerIframeRef.current);
+        const lecId = active.id;
+        const onTime = (data: { seconds: number; duration: number }) => {
+          if (!data?.duration || !data?.seconds) return;
+          const pct = data.seconds / data.duration;
+          if (pct >= 0.9 && !autoCompletedRef.current.has(lecId) && !completadas.has(lecId)) {
+            autoCompletedRef.current.add(lecId);
+            marcarCompletada(active);
+          }
+        };
+        p.on("timeupdate", onTime);
+        detach = () => p.off("timeupdate");
+      } catch { /* noop */ }
+    })();
+    return () => { cancelled = true; if (detach) detach(); };
+  }, [active?.id, videoStatus?.ready]); // eslint-disable-line
 
   // Poll Bunny encoding status for the active lesson
   useEffect(() => {
