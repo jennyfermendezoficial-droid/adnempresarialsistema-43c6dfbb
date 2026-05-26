@@ -119,7 +119,11 @@ export function PostClassRatingModal() {
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("¡Gracias por tu calificación!");
-    setDismissed((s) => new Set(s).add(pending.id));
+    setDismissed((s) => {
+      const next = new Set(s).add(pending.id);
+      persistDismissed(next);
+      return next;
+    });
     setPending(null);
     setVals({ claridad: 0, didactica: 0, desenvolvimiento: 0, practico: 0 });
     setComentario("");
