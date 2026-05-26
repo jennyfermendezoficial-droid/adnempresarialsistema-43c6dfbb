@@ -71,6 +71,23 @@ function Page() {
   const reservar = async () => {
     if (!booking || !uid || !profesorId) return;
     const { fecha, hora } = booking;
+
+    // Límites: máx 3 reservas por día (con cualquier profesor), máx 1 por profesor/día
+    const { data: misDelDia } = await supabase
+      .from("sesiones_1a1")
+      .select("id, profesor_id")
+      .eq("alumna_id", uid)
+      .eq("fecha", fecha);
+    const total = misDelDia?.length ?? 0;
+    if (total >= 3) {
+      toast.error("Máximo 3 reservas por día.");
+      return;
+    }
+    if (misDelDia?.some((s) => s.profesor_id === profesorId)) {
+      toast.error("Ya reservaste con este profesor hoy. Solo 1 por profesor al día.");
+      return;
+    }
+
     const [h] = hora.split(":").map(Number);
     const fin = `${String(h).padStart(2, "0")}:30`;
     const start_time = `${fecha}T${hora}:00`;

@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Home, BookOpen, CalendarDays, Users, MessageSquare,
-  ShieldCheck, Wallet, Gift, LogOut, Hash, Headphones, Calendar,
+  ShieldCheck, Wallet, Gift, LogOut, Hash, Headphones, Calendar, Star,
 } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
@@ -25,6 +25,9 @@ const academiaItems: Item[] = [
 ];
 const comunidadItems: Item[] = [
   { to: "/miembros", label: "Miembros", icon: Users },
+];
+const alumnaItems: Item[] = [
+  { to: "/calificar", label: "Calificar profesores", icon: Star },
 ];
 const adminItems: Item[] = [
   { to: "/permisos", label: "Permisos",         icon: ShieldCheck },
@@ -75,6 +78,10 @@ export function AppSidebar() {
 
         <SectionLabel className="mt-3">Comunidad</SectionLabel>
         <Nav items={comunidadItems} isActive={isActive} />
+
+        {role === "usuario" && (
+          <Nav items={alumnaItems} isActive={isActive} />
+        )}
 
         {(role === "admin" || role === "soporte") && (
           <>

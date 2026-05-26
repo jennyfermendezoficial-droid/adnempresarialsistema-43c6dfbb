@@ -20,8 +20,21 @@ function Page() {
   useEffect(() => {
     supabase.from("bonos").select("*").order("anio", { ascending: false }).order("mes", { ascending: false })
       .then(({ data }) => setBonos((data as Bono[]) ?? []));
-    if (role === "admin") supabase.from("profiles").select("id,nombre_completo,email")
-      .then(({ data }) => setProfs((data as Profile[]) ?? []));
+    if (role === "admin") {
+      (async () => {
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .in("role", ["admin", "soporte"]);
+        const ids = Array.from(new Set((roles ?? []).map((r: { user_id: string }) => r.user_id)));
+        if (!ids.length) return;
+        const { data: ps } = await supabase
+          .from("profiles")
+          .select("id,nombre_completo,email")
+          .in("id", ids);
+        setProfs((ps as Profile[]) ?? []);
+      })();
+    }
   }, [role]);
 
   const total = bonos.reduce((a, b) => a + Number(b.monto), 0);
