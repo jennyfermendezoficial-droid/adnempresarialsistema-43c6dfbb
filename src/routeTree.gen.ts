@@ -17,17 +17,22 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticated/permisos'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/pagos'
+import { Route as AuthenticatedMisReportesRouteImport } from './routes/_authenticated/mis-reportes'
 import { Route as AuthenticatedMiembrosRouteImport } from './routes/_authenticated/miembros'
+import { Route as AuthenticatedMiNegocioRouteImport } from './routes/_authenticated/mi-negocio'
+import { Route as AuthenticatedMiCasaRouteImport } from './routes/_authenticated/mi-casa'
+import { Route as AuthenticatedMiCalendarioRouteImport } from './routes/_authenticated/mi-calendario'
+import { Route as AuthenticatedMiAgendaRouteImport } from './routes/_authenticated/mi-agenda'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
 import { Route as AuthenticatedGeneralRouteImport } from './routes/_authenticated/general'
 import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
 import { Route as AuthenticatedChatProfesoresRouteImport } from './routes/_authenticated/chat-profesores'
-import { Route as AuthenticatedCalificarRouteImport } from './routes/_authenticated/calificar'
 import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
 import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
 import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
 import { Route as AuthenticatedAccesoCursosRouteImport } from './routes/_authenticated/acceso-cursos'
 import { Route as AuthenticatedCursosIndexRouteImport } from './routes/_authenticated/cursos.index'
+import { Route as ApiPublicZoomWebhookRouteImport } from './routes/api/public/zoom-webhook'
 import { Route as AuthenticatedCursosCursoIdRouteImport } from './routes/_authenticated/cursos.$cursoId'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -69,9 +74,36 @@ const AuthenticatedPagosRoute = AuthenticatedPagosRouteImport.update({
   path: '/pagos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMisReportesRoute =
+  AuthenticatedMisReportesRouteImport.update({
+    id: '/mis-reportes',
+    path: '/mis-reportes',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMiembrosRoute = AuthenticatedMiembrosRouteImport.update({
   id: '/miembros',
   path: '/miembros',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMiNegocioRoute = AuthenticatedMiNegocioRouteImport.update({
+  id: '/mi-negocio',
+  path: '/mi-negocio',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMiCasaRoute = AuthenticatedMiCasaRouteImport.update({
+  id: '/mi-casa',
+  path: '/mi-casa',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMiCalendarioRoute =
+  AuthenticatedMiCalendarioRouteImport.update({
+    id: '/mi-calendario',
+    path: '/mi-calendario',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMiAgendaRoute = AuthenticatedMiAgendaRouteImport.update({
+  id: '/mi-agenda',
+  path: '/mi-agenda',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
@@ -95,11 +127,6 @@ const AuthenticatedChatProfesoresRoute =
     path: '/chat-profesores',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedCalificarRoute = AuthenticatedCalificarRouteImport.update({
-  id: '/calificar',
-  path: '/calificar',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedCalendarioClasesRoute =
   AuthenticatedCalendarioClasesRouteImport.update({
     id: '/calendario-clases',
@@ -128,6 +155,11 @@ const AuthenticatedCursosIndexRoute =
     path: '/cursos/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicZoomWebhookRoute = ApiPublicZoomWebhookRouteImport.update({
+  id: '/api/public/zoom-webhook',
+  path: '/api/public/zoom-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedCursosCursoIdRoute =
   AuthenticatedCursosCursoIdRouteImport.update({
     id: '/cursos/$cursoId',
@@ -144,16 +176,21 @@ export interface FileRoutesByFullPath {
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
-  '/calificar': typeof AuthenticatedCalificarRoute
   '/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/mi-agenda': typeof AuthenticatedMiAgendaRoute
+  '/mi-calendario': typeof AuthenticatedMiCalendarioRoute
+  '/mi-casa': typeof AuthenticatedMiCasaRoute
+  '/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
+  '/mis-reportes': typeof AuthenticatedMisReportesRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
+  '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
   '/cursos/': typeof AuthenticatedCursosIndexRoute
 }
 export interface FileRoutesByTo {
@@ -165,16 +202,21 @@ export interface FileRoutesByTo {
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
-  '/calificar': typeof AuthenticatedCalificarRoute
   '/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/chats': typeof AuthenticatedChatsRoute
   '/general': typeof AuthenticatedGeneralRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/mi-agenda': typeof AuthenticatedMiAgendaRoute
+  '/mi-calendario': typeof AuthenticatedMiCalendarioRoute
+  '/mi-casa': typeof AuthenticatedMiCasaRoute
+  '/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
+  '/mis-reportes': typeof AuthenticatedMisReportesRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
+  '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
   '/cursos': typeof AuthenticatedCursosIndexRoute
 }
 export interface FileRoutesById {
@@ -188,16 +230,21 @@ export interface FileRoutesById {
   '/_authenticated/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/_authenticated/bonos': typeof AuthenticatedBonosRoute
   '/_authenticated/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
-  '/_authenticated/calificar': typeof AuthenticatedCalificarRoute
   '/_authenticated/chat-profesores': typeof AuthenticatedChatProfesoresRoute
   '/_authenticated/chats': typeof AuthenticatedChatsRoute
   '/_authenticated/general': typeof AuthenticatedGeneralRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
+  '/_authenticated/mi-agenda': typeof AuthenticatedMiAgendaRoute
+  '/_authenticated/mi-calendario': typeof AuthenticatedMiCalendarioRoute
+  '/_authenticated/mi-casa': typeof AuthenticatedMiCasaRoute
+  '/_authenticated/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/_authenticated/miembros': typeof AuthenticatedMiembrosRoute
+  '/_authenticated/mis-reportes': typeof AuthenticatedMisReportesRoute
   '/_authenticated/pagos': typeof AuthenticatedPagosRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/permisos': typeof AuthenticatedPermisosRoute
   '/_authenticated/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
+  '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
   '/_authenticated/cursos/': typeof AuthenticatedCursosIndexRoute
 }
 export interface FileRouteTypes {
@@ -211,16 +258,21 @@ export interface FileRouteTypes {
     | '/agenda-1a1'
     | '/bonos'
     | '/calendario-clases'
-    | '/calificar'
     | '/chat-profesores'
     | '/chats'
     | '/general'
     | '/inicio'
+    | '/mi-agenda'
+    | '/mi-calendario'
+    | '/mi-casa'
+    | '/mi-negocio'
     | '/miembros'
+    | '/mis-reportes'
     | '/pagos'
     | '/perfil'
     | '/permisos'
     | '/cursos/$cursoId'
+    | '/api/public/zoom-webhook'
     | '/cursos/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -232,16 +284,21 @@ export interface FileRouteTypes {
     | '/agenda-1a1'
     | '/bonos'
     | '/calendario-clases'
-    | '/calificar'
     | '/chat-profesores'
     | '/chats'
     | '/general'
     | '/inicio'
+    | '/mi-agenda'
+    | '/mi-calendario'
+    | '/mi-casa'
+    | '/mi-negocio'
     | '/miembros'
+    | '/mis-reportes'
     | '/pagos'
     | '/perfil'
     | '/permisos'
     | '/cursos/$cursoId'
+    | '/api/public/zoom-webhook'
     | '/cursos'
   id:
     | '__root__'
@@ -254,16 +311,21 @@ export interface FileRouteTypes {
     | '/_authenticated/agenda-1a1'
     | '/_authenticated/bonos'
     | '/_authenticated/calendario-clases'
-    | '/_authenticated/calificar'
     | '/_authenticated/chat-profesores'
     | '/_authenticated/chats'
     | '/_authenticated/general'
     | '/_authenticated/inicio'
+    | '/_authenticated/mi-agenda'
+    | '/_authenticated/mi-calendario'
+    | '/_authenticated/mi-casa'
+    | '/_authenticated/mi-negocio'
     | '/_authenticated/miembros'
+    | '/_authenticated/mis-reportes'
     | '/_authenticated/pagos'
     | '/_authenticated/perfil'
     | '/_authenticated/permisos'
     | '/_authenticated/cursos/$cursoId'
+    | '/api/public/zoom-webhook'
     | '/_authenticated/cursos/'
   fileRoutesById: FileRoutesById
 }
@@ -273,6 +335,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiPublicZoomWebhookRoute: typeof ApiPublicZoomWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -333,11 +396,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPagosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/mis-reportes': {
+      id: '/_authenticated/mis-reportes'
+      path: '/mis-reportes'
+      fullPath: '/mis-reportes'
+      preLoaderRoute: typeof AuthenticatedMisReportesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/miembros': {
       id: '/_authenticated/miembros'
       path: '/miembros'
       fullPath: '/miembros'
       preLoaderRoute: typeof AuthenticatedMiembrosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-negocio': {
+      id: '/_authenticated/mi-negocio'
+      path: '/mi-negocio'
+      fullPath: '/mi-negocio'
+      preLoaderRoute: typeof AuthenticatedMiNegocioRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-casa': {
+      id: '/_authenticated/mi-casa'
+      path: '/mi-casa'
+      fullPath: '/mi-casa'
+      preLoaderRoute: typeof AuthenticatedMiCasaRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-calendario': {
+      id: '/_authenticated/mi-calendario'
+      path: '/mi-calendario'
+      fullPath: '/mi-calendario'
+      preLoaderRoute: typeof AuthenticatedMiCalendarioRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-agenda': {
+      id: '/_authenticated/mi-agenda'
+      path: '/mi-agenda'
+      fullPath: '/mi-agenda'
+      preLoaderRoute: typeof AuthenticatedMiAgendaRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/inicio': {
@@ -366,13 +464,6 @@ declare module '@tanstack/react-router' {
       path: '/chat-profesores'
       fullPath: '/chat-profesores'
       preLoaderRoute: typeof AuthenticatedChatProfesoresRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/calificar': {
-      id: '/_authenticated/calificar'
-      path: '/calificar'
-      fullPath: '/calificar'
-      preLoaderRoute: typeof AuthenticatedCalificarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/calendario-clases': {
@@ -410,6 +501,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCursosIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/zoom-webhook': {
+      id: '/api/public/zoom-webhook'
+      path: '/api/public/zoom-webhook'
+      fullPath: '/api/public/zoom-webhook'
+      preLoaderRoute: typeof ApiPublicZoomWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/cursos/$cursoId': {
       id: '/_authenticated/cursos/$cursoId'
       path: '/cursos/$cursoId'
@@ -425,12 +523,16 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgenda1a1Route: typeof AuthenticatedAgenda1a1Route
   AuthenticatedBonosRoute: typeof AuthenticatedBonosRoute
   AuthenticatedCalendarioClasesRoute: typeof AuthenticatedCalendarioClasesRoute
-  AuthenticatedCalificarRoute: typeof AuthenticatedCalificarRoute
   AuthenticatedChatProfesoresRoute: typeof AuthenticatedChatProfesoresRoute
   AuthenticatedChatsRoute: typeof AuthenticatedChatsRoute
   AuthenticatedGeneralRoute: typeof AuthenticatedGeneralRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
+  AuthenticatedMiAgendaRoute: typeof AuthenticatedMiAgendaRoute
+  AuthenticatedMiCalendarioRoute: typeof AuthenticatedMiCalendarioRoute
+  AuthenticatedMiCasaRoute: typeof AuthenticatedMiCasaRoute
+  AuthenticatedMiNegocioRoute: typeof AuthenticatedMiNegocioRoute
   AuthenticatedMiembrosRoute: typeof AuthenticatedMiembrosRoute
+  AuthenticatedMisReportesRoute: typeof AuthenticatedMisReportesRoute
   AuthenticatedPagosRoute: typeof AuthenticatedPagosRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPermisosRoute: typeof AuthenticatedPermisosRoute
@@ -443,12 +545,16 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgenda1a1Route: AuthenticatedAgenda1a1Route,
   AuthenticatedBonosRoute: AuthenticatedBonosRoute,
   AuthenticatedCalendarioClasesRoute: AuthenticatedCalendarioClasesRoute,
-  AuthenticatedCalificarRoute: AuthenticatedCalificarRoute,
   AuthenticatedChatProfesoresRoute: AuthenticatedChatProfesoresRoute,
   AuthenticatedChatsRoute: AuthenticatedChatsRoute,
   AuthenticatedGeneralRoute: AuthenticatedGeneralRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
+  AuthenticatedMiAgendaRoute: AuthenticatedMiAgendaRoute,
+  AuthenticatedMiCalendarioRoute: AuthenticatedMiCalendarioRoute,
+  AuthenticatedMiCasaRoute: AuthenticatedMiCasaRoute,
+  AuthenticatedMiNegocioRoute: AuthenticatedMiNegocioRoute,
   AuthenticatedMiembrosRoute: AuthenticatedMiembrosRoute,
+  AuthenticatedMisReportesRoute: AuthenticatedMisReportesRoute,
   AuthenticatedPagosRoute: AuthenticatedPagosRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPermisosRoute: AuthenticatedPermisosRoute,
@@ -466,6 +572,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApiPublicZoomWebhookRoute: ApiPublicZoomWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

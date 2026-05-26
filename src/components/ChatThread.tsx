@@ -52,6 +52,27 @@ export function ChatThread({
   const recRef = useRef<MediaRecorder | null>(null);
   const recChunks = useRef<Blob[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const firstLoadRef = useRef(true);
+
+  // Sonido tipo notificación (web audio, sin assets)
+  const playPing = () => {
+    try {
+      const Ctx: typeof AudioContext | undefined = window.AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(880, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.12);
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime + 0.4);
+      setTimeout(() => ctx.close(), 600);
+    } catch { /* noop */ }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -59,7 +80,10 @@ export function ChatThread({
       let q = supabase.from(table).select("*").order("created_at", { ascending: true }).limit(200);
       if (filter) q = q.eq(filter.column, filter.value);
       const { data } = await q;
-      if (mounted) setMessages((data as ChatMessageRow[]) ?? []);
+      if (mounted) {
+        setMessages((data as ChatMessageRow[]) ?? []);
+        firstLoadRef.current = false;
+      }
     })();
     const channel = supabase
       .channel(`rt-${table}-${filter?.value ?? "all"}`)
@@ -70,7 +94,10 @@ export function ChatThread({
           const row = payload.new as ChatMessageRow;
           const old = payload.old as ChatMessageRow;
           if (filter && row && (row as unknown as Record<string, unknown>)[filter.column] !== filter.value) return;
-          if (payload.eventType === "INSERT") setMessages((m) => [...m, row]);
+          if (payload.eventType === "INSERT") {
+            setMessages((m) => [...m, row]);
+            if (!firstLoadRef.current && row.autor_id !== uid) playPing();
+          }
           if (payload.eventType === "UPDATE") setMessages((m) => m.map((x) => (x.id === row.id ? row : x)));
           if (payload.eventType === "DELETE") setMessages((m) => m.filter((x) => x.id !== old.id));
         }

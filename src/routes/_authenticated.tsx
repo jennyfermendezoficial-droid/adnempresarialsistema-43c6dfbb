@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Logo, BrandName } from "@/components/Logo";
+import { PostClassRatingModal } from "@/components/PostClassRatingModal";
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthedLayout });
 
@@ -45,6 +46,7 @@ function AuthedLayout() {
       <main className="flex-1 overflow-y-auto" style={{ background: "var(--bg-2)" }}>
         <Outlet />
       </main>
+      <PostClassRatingModal />
     </div>
   );
 }
