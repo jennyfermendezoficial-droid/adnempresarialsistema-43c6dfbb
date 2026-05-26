@@ -90,3 +90,34 @@ export const deleteBunnyVideo = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+// Estado de un video de Bunny.
+// status: 0=Created 1=Uploaded 2=Processing 3=Transcoding 4=Finished
+//         5=Error 6=UploadFailed 7=JitSegmenting 8=JitPlaylistsCreated
+export const getBunnyVideoStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { videoId: string }) =>
+    z.object({ videoId: z.string().min(1).max(64) }).parse(d)
+  )
+  .handler(async ({ data }) => {
+    const { libraryId, apiKey } = getConfig();
+    const res = await fetch(
+      `https://video.bunnycdn.com/library/${libraryId}/videos/${data.videoId}`,
+      { headers: { AccessKey: apiKey, accept: "application/json" } }
+    );
+    if (!res.ok) {
+      throw new Error(`Bunny status ${res.status}`);
+    }
+    const v = (await res.json()) as {
+      status: number;
+      encodeProgress: number;
+      availableResolutions: string | null;
+      length: number;
+    };
+    return {
+      status: v.status,
+      encodeProgress: v.encodeProgress ?? 0,
+      ready: v.status === 4 || v.status === 3 || v.status === 8,
+      failed: v.status === 5 || v.status === 6,
+    };
+  });
