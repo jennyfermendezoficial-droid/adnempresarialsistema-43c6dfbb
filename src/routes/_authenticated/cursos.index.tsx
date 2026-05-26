@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { BookOpen, Plus, Trash2, ImagePlus, Loader2, Pencil, X, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/cursos")({ component: Page });
+export const Route = createFileRoute("/_authenticated/cursos/")({ component: Page });
 
 interface Curso { id: string; nombre: string; descripcion: string | null; color_cover: string | null; image_url: string | null; orden: number }
 
