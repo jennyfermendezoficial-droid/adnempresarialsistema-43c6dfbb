@@ -16,7 +16,6 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticated/permisos'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
-import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/pagos'
 import { Route as AuthenticatedMisReportesRouteImport } from './routes/_authenticated/mis-reportes'
 import { Route as AuthenticatedMiembrosRouteImport } from './routes/_authenticated/miembros'
 import { Route as AuthenticatedMiNegocioRouteImport } from './routes/_authenticated/mi-negocio'
@@ -67,11 +66,6 @@ const AuthenticatedPermisosRoute = AuthenticatedPermisosRouteImport.update({
 const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedPagosRoute = AuthenticatedPagosRouteImport.update({
-  id: '/pagos',
-  path: '/pagos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedMisReportesRoute =
@@ -186,7 +180,6 @@ export interface FileRoutesByFullPath {
   '/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
   '/mis-reportes': typeof AuthenticatedMisReportesRoute
-  '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
@@ -212,7 +205,6 @@ export interface FileRoutesByTo {
   '/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
   '/mis-reportes': typeof AuthenticatedMisReportesRoute
-  '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
@@ -240,7 +232,6 @@ export interface FileRoutesById {
   '/_authenticated/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/_authenticated/miembros': typeof AuthenticatedMiembrosRoute
   '/_authenticated/mis-reportes': typeof AuthenticatedMisReportesRoute
-  '/_authenticated/pagos': typeof AuthenticatedPagosRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/permisos': typeof AuthenticatedPermisosRoute
   '/_authenticated/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
@@ -268,7 +259,6 @@ export interface FileRouteTypes {
     | '/mi-negocio'
     | '/miembros'
     | '/mis-reportes'
-    | '/pagos'
     | '/perfil'
     | '/permisos'
     | '/cursos/$cursoId'
@@ -294,7 +284,6 @@ export interface FileRouteTypes {
     | '/mi-negocio'
     | '/miembros'
     | '/mis-reportes'
-    | '/pagos'
     | '/perfil'
     | '/permisos'
     | '/cursos/$cursoId'
@@ -321,7 +310,6 @@ export interface FileRouteTypes {
     | '/_authenticated/mi-negocio'
     | '/_authenticated/miembros'
     | '/_authenticated/mis-reportes'
-    | '/_authenticated/pagos'
     | '/_authenticated/perfil'
     | '/_authenticated/permisos'
     | '/_authenticated/cursos/$cursoId'
@@ -387,13 +375,6 @@ declare module '@tanstack/react-router' {
       path: '/perfil'
       fullPath: '/perfil'
       preLoaderRoute: typeof AuthenticatedPerfilRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/pagos': {
-      id: '/_authenticated/pagos'
-      path: '/pagos'
-      fullPath: '/pagos'
-      preLoaderRoute: typeof AuthenticatedPagosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/mis-reportes': {
@@ -533,7 +514,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMiNegocioRoute: typeof AuthenticatedMiNegocioRoute
   AuthenticatedMiembrosRoute: typeof AuthenticatedMiembrosRoute
   AuthenticatedMisReportesRoute: typeof AuthenticatedMisReportesRoute
-  AuthenticatedPagosRoute: typeof AuthenticatedPagosRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPermisosRoute: typeof AuthenticatedPermisosRoute
   AuthenticatedCursosCursoIdRoute: typeof AuthenticatedCursosCursoIdRoute
@@ -555,7 +535,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMiNegocioRoute: AuthenticatedMiNegocioRoute,
   AuthenticatedMiembrosRoute: AuthenticatedMiembrosRoute,
   AuthenticatedMisReportesRoute: AuthenticatedMisReportesRoute,
-  AuthenticatedPagosRoute: AuthenticatedPagosRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPermisosRoute: AuthenticatedPermisosRoute,
   AuthenticatedCursosCursoIdRoute: AuthenticatedCursosCursoIdRoute,
