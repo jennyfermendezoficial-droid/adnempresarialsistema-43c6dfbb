@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo, BrandName } from "@/components/Logo";
 import { toast } from "sonner";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, MessageSquare, Video, Users2 } from "lucide-react";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -30,29 +30,34 @@ function LoginPage() {
             background: "radial-gradient(circle, rgba(124,107,255,.25), transparent 60%)" }}
         />
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-12">
+          <div className="flex items-center gap-3 mb-10">
             <Logo /> <BrandName className="text-lg" />
           </div>
           <div
-            className="inline-flex items-center gap-2 text-[11.5px] tracking-[0.18em] uppercase font-semibold px-3.5 py-1.5 rounded-full mb-7"
+            className="inline-flex items-center gap-2 text-[11.5px] tracking-[0.22em] uppercase font-semibold px-3.5 py-1.5 rounded-full mb-7"
             style={{
-              color: "var(--gold-soft)",
-              border: "1px solid rgba(212,175,55,.35)",
-              background: "rgba(212,175,55,.08)",
+              color: "var(--violet-light)",
+              border: "1px solid rgba(124,107,255,.35)",
+              background: "rgba(124,107,255,.10)",
             }}
           >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--gold)", boxShadow: "0 0 12px var(--gold)" }} />
-            Mentoría Jennyfer Méndez
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--violet)", boxShadow: "0 0 12px var(--violet)" }} />
+            Soporte privado · Agenda 1:1
           </div>
           <h1 className="text-white text-5xl font-medium leading-[1.05] mb-5" style={{ fontFamily: "var(--font-display)" }}>
-            Construye el <em className="not-italic text-gold-gradient">ADN</em> de tu empresa.
+            Tu plataforma de <em className="not-italic text-violet-gradient">soporte personalizada</em>
           </h1>
-          <p className="max-w-md text-[15px]" style={{ color: "var(--violet-light)" }}>
-            Mentoría privada, cursos, agenda 1 a 1 y comunidad. Todo en un solo lugar.
+          <p className="max-w-md text-[15px] mb-8" style={{ color: "var(--violet-light)" }}>
+            Cada cuenta es privada. Nunca compartas tus links con tu sesión iniciada.
           </p>
+          <div className="space-y-3 max-w-md">
+            <HeroCard n="01" Icon={MessageSquare} title="Chat directo con el equipo" desc="Respuestas durante el programa" />
+            <HeroCard n="02" Icon={Video} title="Sesiones 1:1 vía Zoom" desc="Agenda con el especialista" />
+            <HeroCard n="03" Icon={Users2} title="Equipo experto multidisciplinario" desc="Atención privada y agenda uno a uno" />
+          </div>
         </div>
-        <div className="relative z-10 text-xs uppercase tracking-[0.12em] font-semibold" style={{ color: "var(--violet-soft)" }}>
-          Acceso exclusivo de alumnas
+        <div className="relative z-10 text-xs uppercase tracking-[0.18em] font-semibold" style={{ color: "var(--violet-soft)" }}>
+          Jennyfer Méndez · Ecuador
         </div>
       </aside>
 
