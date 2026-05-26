@@ -41,19 +41,22 @@ const adminItems: Item[] = [
   { to: "/bonos",    label: "Bonos",            icon: Gift },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps { onNavigate?: () => void }
+
+export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
   const { profile, role, signOut } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
   return (
     <aside
-      className="h-screen flex flex-col px-4 py-5 relative overflow-y-auto border-r"
+      className="h-full md:h-screen flex flex-col px-4 py-5 relative overflow-y-auto border-r"
       style={{
         background: "var(--deep-2)",
         color: "var(--violet-light)",
         borderColor: "var(--line-dark)",
-        width: 280,
+        width: "100%",
+        maxWidth: 320,
       }}
     >
       <div
@@ -62,46 +65,47 @@ export function AppSidebar() {
         style={{ background: "radial-gradient(circle at top right, rgba(124,107,255,.15), transparent 60%)" }}
       />
       <div className="relative z-10 flex flex-col h-full">
-        <Link to="/inicio" className="flex items-center gap-3 px-1.5 mb-6">
+        <Link to="/inicio" onClick={onNavigate} className="flex items-center gap-3 px-1.5 mb-6">
           <Logo size={32} />
           <BrandName className="text-[15px]" />
         </Link>
 
         <SectionLabel>Inicio</SectionLabel>
-        <Nav items={inicioItems} isActive={isActive} />
+        <Nav items={inicioItems} isActive={isActive} onClick={onNavigate} />
 
         <SectionLabel className="mt-3">Canales</SectionLabel>
-        <Nav items={canalesItems} isActive={isActive} />
+        <Nav items={canalesItems} isActive={isActive} onClick={onNavigate} />
         {(role === "admin" || role === "soporte") && (
-          <Nav items={staffCanalesItems} isActive={isActive} />
+          <Nav items={staffCanalesItems} isActive={isActive} onClick={onNavigate} />
         )}
 
         <SectionLabel className="mt-3">Soporte</SectionLabel>
-        <Nav items={soporteItems} isActive={isActive} />
+        <Nav items={soporteItems} isActive={isActive} onClick={onNavigate} />
 
         <SectionLabel className="mt-3">Academia</SectionLabel>
-        <Nav items={academiaItems} isActive={isActive} />
+        <Nav items={academiaItems} isActive={isActive} onClick={onNavigate} />
 
         <SectionLabel className="mt-3">Comunidad</SectionLabel>
-        <Nav items={comunidadItems} isActive={isActive} />
+        <Nav items={comunidadItems} isActive={isActive} onClick={onNavigate} />
 
         {role === "usuario" && (
           <>
             <SectionLabel className="mt-3">Mi Agenda Emprendedora</SectionLabel>
-            <Nav items={miAgendaItems} isActive={isActive} />
+            <Nav items={miAgendaItems} isActive={isActive} onClick={onNavigate} />
           </>
         )}
 
         {(role === "admin" || role === "soporte") && (
           <>
             <SectionLabel className="mt-3">Admin</SectionLabel>
-            <Nav items={adminItems} isActive={isActive} />
+            <Nav items={adminItems} isActive={isActive} onClick={onNavigate} />
           </>
         )}
 
         <div className="mt-auto pt-4 border-t" style={{ borderColor: "var(--line-dark)" }}>
           <Link
             to="/perfil"
+            onClick={onNavigate}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-white/5"
           >
             <div
@@ -120,7 +124,7 @@ export function AppSidebar() {
             </div>
           </Link>
           <button
-            onClick={signOut}
+            onClick={() => { onNavigate?.(); signOut(); }}
             className="mt-2 w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm opacity-75 hover:opacity-100 hover:bg-white/5 transition"
           >
             <LogOut className="w-4 h-4" />
@@ -143,7 +147,7 @@ function SectionLabel({ children, className = "" }: { children: React.ReactNode;
   );
 }
 
-function Nav({ items, isActive }: { items: Item[]; isActive: (p: string) => boolean }) {
+function Nav({ items, isActive, onClick }: { items: Item[]; isActive: (p: string) => boolean; onClick?: () => void }) {
   return (
     <nav className="flex flex-col gap-0.5">
       {items.map(({ to, label, icon: Icon }) => {
@@ -152,6 +156,7 @@ function Nav({ items, isActive }: { items: Item[]; isActive: (p: string) => bool
           <Link
             key={to}
             to={to}
+            onClick={onClick}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-colors border border-transparent"
             style={
               active
