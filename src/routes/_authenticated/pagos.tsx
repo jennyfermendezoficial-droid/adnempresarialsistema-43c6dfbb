@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Lock, Star, ChevronLeft, FileText, Calendar as CalIcon, MessageSquare, CheckCircle2 } from "lucide-react";
+import { Lock, Star, ChevronLeft, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/pagos")({ component: Page });
