@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { BookOpen, Plus, Trash2, ImagePlus, Loader2, Pencil, X } from "lucide-react";
+import { BookOpen, Plus, Trash2, ImagePlus, Loader2, Pencil, X, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/cursos")({ component: Page });
@@ -210,6 +210,12 @@ function Page() {
             </div>
             <div className="px-5 py-3 border-t flex justify-end gap-2">
               <button onClick={() => setEditing(null)} className="px-3 py-2 rounded-lg border text-sm">Cancelar</button>
+              <button
+                onClick={() => { const id = editing.id; setEditing(null); navigate({ to: "/cursos/$cursoId", params: { cursoId: id } }); }}
+                className="px-3 py-2 rounded-lg border text-sm flex items-center gap-1"
+              >
+                <ArrowRight className="w-3 h-3"/> Entrar al curso
+              </button>
               <button
                 onClick={guardarEdicion}
                 disabled={savingEdit}
