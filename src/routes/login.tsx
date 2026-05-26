@@ -97,6 +97,28 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
   );
 }
 
+function HeroCard({ n, Icon, title, desc }: { n: string; Icon: typeof MessageSquare; title: string; desc: string }) {
+  return (
+    <div
+      className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border backdrop-blur-sm"
+      style={{ background: "rgba(124,107,255,.06)", borderColor: "rgba(124,107,255,.18)" }}
+    >
+      <div
+        className="w-11 h-11 rounded-xl grid place-items-center text-white text-xs font-bold flex-shrink-0"
+        style={{ background: "linear-gradient(135deg,var(--violet),var(--violet-2))" }}
+      >
+        {n}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-white text-[14.5px] font-semibold leading-tight flex items-center gap-2">
+          <Icon className="w-4 h-4 opacity-70" /> {title}
+        </div>
+        <div className="text-[12.5px] mt-0.5" style={{ color: "var(--violet-soft)" }}>{desc}</div>
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
     <div className="mb-4">
