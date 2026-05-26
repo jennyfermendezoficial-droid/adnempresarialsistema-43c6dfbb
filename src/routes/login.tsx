@@ -219,8 +219,8 @@ function SignupForm({ onDone }: { onDone: () => void }) {
       <p className="text-sm text-muted-foreground mb-7">Tu acceso será activado por el administrador.</p>
       <Field label="Nombre completo" required value={nombre} onChange={(e) => setNombre(e.target.value)} autoComplete="name" />
       <Field label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-      <Field label="Contraseña" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
-      <Field label="Confirmar contraseña" type="password" required value={pass2} onChange={(e) => setPass2(e.target.value)} autoComplete="new-password" />
+      <PasswordField label="Contraseña" value={password} onChange={setPassword} autoComplete="new-password" />
+      <PasswordField label="Confirmar contraseña" value={pass2} onChange={setPass2} autoComplete="new-password" />
       <label className="flex items-start gap-2 mb-6 text-[13px] text-muted-foreground cursor-pointer">
         <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5 accent-[var(--violet)]" />
         Acepto los términos y la política de privacidad.
