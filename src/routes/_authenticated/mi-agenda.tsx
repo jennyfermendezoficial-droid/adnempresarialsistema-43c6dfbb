@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Plus, Trash2, Clock, MapPin, Link as LinkIcon, X } from "lucide-react";
 import { toast } from "sonner";
+import { AeHeader } from "@/components/AeHeader";
+import { Bell } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/mi-agenda")({ component: Page });
 
@@ -23,7 +25,7 @@ const COLORES = [
 ];
 
 function Page() {
-  const { session, profile } = useAuth();
+  const { session } = useAuth();
   const uid = session?.user.id;
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
   const [acts, setActs] = useState<Actividad[]>([]);
@@ -38,15 +40,30 @@ function Page() {
   };
   useEffect(() => { cargar(); }, [uid, fecha]); // eslint-disable-line
 
+  // Semana actual: LUN..DOM que contiene "hoy"
   const dias = useMemo(() => {
     const out: { d: Date; dow: string; num: number }[] = [];
     const base = new Date(); base.setHours(0, 0, 0, 0);
-    for (let i = -3; i <= 10; i++) {
-      const d = new Date(base); d.setDate(d.getDate() + i);
+    const dow = (base.getDay() + 6) % 7; // 0 = Lun
+    const lunes = new Date(base); lunes.setDate(base.getDate() - dow);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(lunes); d.setDate(lunes.getDate() + i);
       out.push({ d, dow: d.toLocaleDateString("es-EC", { weekday: "short" }).replace(".", "").slice(0, 3), num: d.getDate() });
     }
     return out;
   }, []);
+
+  // Próxima notificación = primera actividad futura del día
+  const proxima = useMemo(() => {
+    const ahora = new Date();
+    const hoy = ahora.toISOString().slice(0, 10);
+    if (fecha !== hoy) return acts[0] ?? null;
+    const nowMin = ahora.getHours() * 60 + ahora.getMinutes();
+    return acts.find(a => {
+      const [h, m] = a.hora_inicio.split(":").map(Number);
+      return h * 60 + m >= nowMin;
+    }) ?? null;
+  }, [acts, fecha]);
 
   const crear = async () => {
     if (saving) return;
@@ -69,15 +86,27 @@ function Page() {
     cargar();
   };
 
-  const nombre = (profile?.nombre_completo || "").split(" ")[0] || "amiga";
-
   return (
     <div className="ae-app">
       <div className="max-w-[480px] mx-auto px-5 pt-8 pb-24">
-        <div className="ae-eyebrow mb-1">Mi Agenda Emprendedora</div>
-        <h1 className="ae-h1 mb-1">Hola, <em>{nombre}</em></h1>
-        <p className="ae-sub mb-5">Tu día, tu negocio y tu casa en un solo lugar.</p>
+        <AeHeader />
 
+        {proxima && (
+          <div className="mb-5">
+            <div className="ae-eyebrow mb-2">Próximas notificaciones</div>
+            <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: "var(--ae-ink)", color: "var(--ae-cream)" }}>
+              <div className="w-9 h-9 rounded-full grid place-items-center flex-shrink-0" style={{ background: "rgba(184,137,74,0.25)" }}>
+                <Bell className="w-4 h-4" style={{ color: "var(--ae-gold)" }} />
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-sm">{proxima.titulo} a las {proxima.hora_inicio.slice(0,5)}</div>
+                <div className="text-[11px] opacity-70 mt-0.5">Te avisaré 10 min antes · {proxima.duracion_min} min</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="ae-eyebrow mb-2">Mi día</div>
         <div className="flex gap-2 overflow-x-auto pb-2 mb-5 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
           {dias.map(({ d, dow, num }) => {
             const v = d.toISOString().slice(0, 10);
