@@ -521,6 +521,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          curso_id: string | null
           descripcion: string | null
           fecha: string
           hora_fin: string
@@ -535,6 +536,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          curso_id?: string | null
           descripcion?: string | null
           fecha: string
           hora_fin: string
@@ -549,6 +551,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          curso_id?: string | null
           descripcion?: string | null
           fecha?: string
           hora_fin?: string
@@ -1154,6 +1157,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_my_tarifas: {
+        Args: never
+        Returns: {
+          tarifa_hora_clase: number
+          tarifa_sesion_1a1: number
+        }[]
+      }
+      get_profesor_tarifas: {
+        Args: { _profesor_id: string }
+        Returns: {
+          tarifa_hora_clase: number
+          tarifa_sesion_1a1: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
