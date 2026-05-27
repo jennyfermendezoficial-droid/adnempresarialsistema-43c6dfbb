@@ -136,6 +136,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ae_cuentas_bancarias: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          nombre: string
+          numero_cuenta: string
+          tipo: string
+          updated_at: string
+          usuario_id: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+          numero_cuenta: string
+          tipo?: string
+          updated_at?: string
+          usuario_id: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+          numero_cuenta?: string
+          tipo?: string
+          updated_at?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       ae_cuotas: {
         Row: {
           estado: string
