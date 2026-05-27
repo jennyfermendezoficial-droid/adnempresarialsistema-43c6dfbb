@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { ChevronLeft, ChevronRight, X, Clock, MapPin } from "lucide-react";
+import { AeHeader } from "@/components/AeHeader";
 
 export const Route = createFileRoute("/_authenticated/mi-calendario")({ component: Page });
 
@@ -49,12 +50,26 @@ function Page() {
   const cambiar = (n: number) => { const d = new Date(cursor); d.setMonth(d.getMonth() + n); setCursor(d); };
   const actsDia = diaSel ? (mapActs[diaSel] ?? []) : [];
 
+  // Esta semana en números
+  const stats = useMemo(() => {
+    const base = new Date(); base.setHours(0, 0, 0, 0);
+    const dow = (base.getDay() + 6) % 7;
+    const lunes = new Date(base); lunes.setDate(base.getDate() - dow);
+    const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6);
+    const ini = lunes.toISOString().slice(0, 10);
+    const fin = domingo.toISOString().slice(0, 10);
+    const arr: ActMini[] = [];
+    Object.entries(mapActs).forEach(([f, list]) => { if (f >= ini && f <= fin) arr.push(...list); });
+    const horas = arr.reduce((s, a) => s + a.duracion_min, 0) / 60;
+    const reuniones = arr.filter(a => /reuni|meet|zoom/i.test(a.titulo)).length;
+    const descanso = Math.max(0, (7 * 8) - horas); // 8 h diarias de referencia
+    return { horas, reuniones, total: arr.length, descanso };
+  }, [mapActs]);
+
   return (
     <div className="ae-app">
       <div className="max-w-[480px] mx-auto px-5 pt-8 pb-24">
-        <div className="ae-eyebrow mb-1">Mi Agenda Emprendedora</div>
-        <h1 className="ae-h1 mb-1">Calendario <em>mensual</em></h1>
-        <p className="ae-sub mb-5">Toca un día para ver tus pendientes.</p>
+        <AeHeader />
 
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => cambiar(-1)} className="ae-btn-ghost !p-2 !px-3"><ChevronLeft className="w-4 h-4"/></button>
@@ -81,6 +96,14 @@ function Page() {
               </button>
             );
           })}
+        </div>
+
+        <div className="ae-eyebrow mt-6 mb-3">Esta semana en números</div>
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard label="Horas productivas" value={`${stats.horas.toFixed(0)} h`} />
+          <StatCard label="Actividades" value={String(stats.total)} hint={`${stats.reuniones} reuniones`} />
+          <StatCard label="Tiempo libre" value={`${stats.descanso.toFixed(0)} h`} />
+          <StatCard label="Días con plan" value={String(Object.keys(mapActs).length)} />
         </div>
 
         {diaSel && (
@@ -119,6 +142,16 @@ function Page() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="ae-card p-4">
+      <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--ae-ink-soft)" }}>{label}</div>
+      <div className="text-2xl mt-1 tabular-nums" style={{ fontFamily: "Fraunces, serif", fontWeight: 600 }}>{value}</div>
+      {hint && <div className="text-[11px] mt-0.5" style={{ color: "var(--ae-ink-soft)" }}>{hint}</div>}
     </div>
   );
 }

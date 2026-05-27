@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Plus, Trash2, X, ChevronRight, ChevronLeft, Pencil, Check } from "lucide-react";
 import { toast } from "sonner";
+import { AeHeader } from "@/components/AeHeader";
 
 type Tipo = "fijo" | "variable" | "prestamo" | "ingreso";
 interface Categoria { id: string; nombre: string; tipo: Tipo; color: string; icono: string | null; orden: number; ambito: string }
@@ -65,19 +66,22 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
   return (
     <div className="ae-app">
       <div className="max-w-[480px] mx-auto px-5 pt-8 pb-24">
-        <div className="ae-eyebrow mb-1">Mi Agenda Emprendedora</div>
-        <h1 className="ae-h1 mb-1">{titulo}</h1>
-        <p className="ae-sub mb-4">{subtitulo}</p>
+        <AeHeader />
 
-        {/* Selector de mes */}
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={() => setMesAncla(addMonths(mesAncla, -1))} className="w-9 h-9 rounded-full grid place-items-center bg-white border" style={{ borderColor: "var(--ae-line)" }}>
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <div className="font-semibold capitalize text-base" style={{ fontFamily: "Fraunces, serif" }}>{mesLabel}</div>
-          <button onClick={() => setMesAncla(addMonths(mesAncla, 1))} className="w-9 h-9 rounded-full grid place-items-center bg-white border" style={{ borderColor: "var(--ae-line)" }}>
-            <ChevronRight className="w-4 h-4" />
-          </button>
+        <div className="flex items-end justify-between gap-3 mb-4">
+          <div className="min-w-0">
+            <p className="ae-sub mb-1">{subtitulo}</p>
+            <h2 className="ae-h1" style={{ fontSize: 28 }}>{titulo}</h2>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button onClick={() => setMesAncla(addMonths(mesAncla, -1))} className="w-8 h-8 rounded-full grid place-items-center bg-white border" style={{ borderColor: "var(--ae-line)" }} aria-label="Mes anterior">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="ae-pill capitalize">📅 {mesLabel}</div>
+            <button onClick={() => setMesAncla(addMonths(mesAncla, 1))} className="w-8 h-8 rounded-full grid place-items-center bg-white border" style={{ borderColor: "var(--ae-line)" }} aria-label="Mes siguiente">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <button onClick={() => setModalCat(true)} className="ae-btn-ink w-full flex items-center justify-center gap-2 mb-5">
