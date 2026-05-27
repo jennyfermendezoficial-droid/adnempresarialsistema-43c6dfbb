@@ -187,6 +187,7 @@ export type Database = {
         Row: {
           categoria_id: string
           created_at: string
+          cuenta_pago: string | null
           descripcion: string | null
           fecha: string
           id: string
@@ -198,6 +199,7 @@ export type Database = {
         Insert: {
           categoria_id: string
           created_at?: string
+          cuenta_pago?: string | null
           descripcion?: string | null
           fecha?: string
           id?: string
@@ -209,6 +211,7 @@ export type Database = {
         Update: {
           categoria_id?: string
           created_at?: string
+          cuenta_pago?: string | null
           descripcion?: string | null
           fecha?: string
           id?: string
