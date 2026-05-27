@@ -157,18 +157,19 @@
 
 /* ===== Mi Agenda Emprendedora (scoped) — boceto cream/gold/sage ===== */
 .ae-app {
-  --ae-cream: #FAF6F0;
-  --ae-paper: #F3ECE0;
-  --ae-ink: #1F1B16;
-  --ae-ink-soft: #5A5048;
-  --ae-gold: #B8894A;
-  --ae-gold-deep: #8B5E2B;
-  --ae-rose: #C2756B;
-  --ae-sage: #7A8B6F;
-  --ae-sky: #6B8AA8;
-  --ae-plum: #8B6B8B;
-  --ae-line: rgba(31,27,22,0.12);
-  --ae-shadow: 0 1px 2px rgba(31,27,22,0.04), 0 8px 24px rgba(31,27,22,0.06);
+  /* Re-mapped to the ADN Empresarial system palette (deep navy + violet + gold) */
+  --ae-cream: oklch(0.985 0.005 285);        /* background */
+  --ae-paper: oklch(0.96 0.012 285);         /* secondary surface */
+  --ae-ink: oklch(0.21 0.06 285);            /* deep navy = foreground/dark */
+  --ae-ink-soft: oklch(0.45 0.04 285);       /* muted foreground */
+  --ae-gold: oklch(0.78 0.13 85);            /* system gold */
+  --ae-gold-deep: oklch(0.56 0.20 285);      /* violet accent (replaces dark gold) */
+  --ae-rose: oklch(0.62 0.22 27);            /* destructive */
+  --ae-sage: oklch(0.65 0.14 155);           /* success / positive */
+  --ae-sky: oklch(0.65 0.18 285);            /* violet (primary) */
+  --ae-plum: oklch(0.56 0.20 285);           /* violet-2 */
+  --ae-line: oklch(0.21 0.06 285 / 0.12);
+  --ae-shadow: 0 1px 2px oklch(0.21 0.06 285 / 0.05), 0 8px 24px oklch(0.21 0.06 285 / 0.08);
   background: var(--ae-cream);
   color: var(--ae-ink);
   font-family: 'Manrope', sans-serif;
@@ -206,7 +207,7 @@
 .ae-cal-day.muted { color: rgba(31,27,22,0.25); }
 .ae-cal-dots { display: flex; gap: 2px; margin-top: 2px; flex-wrap: wrap; justify-content: center; max-width: 90%; }
 .ae-cal-dot { width: 5px; height: 5px; border-radius: 50%; }
-.ae-balance { background: linear-gradient(135deg, #1F1B16 0%, #3A2F22 100%); color: var(--ae-cream); padding: 24px; border-radius: 20px; position: relative; overflow: hidden; }
+.ae-balance { background: linear-gradient(135deg, oklch(0.18 0.05 285) 0%, oklch(0.26 0.08 285) 100%); color: var(--ae-cream); padding: 24px; border-radius: 20px; position: relative; overflow: hidden; }
 .ae-balance::before { content: ''; position: absolute; top: -40px; right: -40px; width: 180px; height: 180px; background: radial-gradient(circle, var(--ae-gold) 0%, transparent 70%); opacity: 0.45; }
 .ae-balance-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; opacity: 0.7; position: relative; }
 .ae-balance-value { font-family: 'Fraunces', serif; font-size: 38px; font-weight: 600; margin-top: 8px; letter-spacing: -0.02em; position: relative; }
