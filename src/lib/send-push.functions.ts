@@ -15,16 +15,7 @@ const Input = z.object({
 export const sendPushToUsers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => Input.parse(d))
-  .handler(async ({ data, context }) => {
-    // Only admin/soporte staff can broadcast push notifications.
-    const { data: roles } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId);
-    const isStaff = (roles ?? []).some((r: { role: string }) => r.role === "admin" || r.role === "soporte");
-    if (!isStaff) {
-      return { sent: 0, error: "forbidden" };
-    }
+  .handler(async ({ data }) => {
     const publicKey = process.env.VAPID_PUBLIC_KEY;
     const privateKey = process.env.VAPID_PRIVATE_KEY;
     const subject = process.env.VAPID_SUBJECT || "mailto:admin@adnempresarial.com";
