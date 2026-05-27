@@ -7,7 +7,7 @@ import {
   FileText, Plus, Upload, Trash2, Download, Loader2, X,
   CheckCircle2, Clock, ChevronDown, ChevronUp, Users, Pencil,
   Search, AlertCircle, Award, ClipboardList, TrendingUp,
-  Calendar, Filter, Star, UserCircle2,
+  Calendar, Star, UserCircle2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/tareas")({ component: Page });
