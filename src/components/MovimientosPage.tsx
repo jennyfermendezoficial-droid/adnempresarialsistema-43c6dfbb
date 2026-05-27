@@ -286,27 +286,30 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
   );
 }
 
-function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string; categoria: Categoria; mesAncla: string; onClose: () => void; onSaved: () => void }) {
+function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }: { uid: string; categoria: Categoria; item?: Item; cuentas: CuentaBancaria[]; mesAncla: string; onClose: () => void; onSaved: () => void }) {
+  const editing = Boolean(item);
   const fechaDefault = mesAncla;
-  const [nombre, setNombre] = useState("");
-  const [desc, setDesc] = useState("");
-  const [valor, setValor] = useState("");
-  const [fecha, setFecha] = useState(fechaDefault);
-  const [cuenta, setCuenta] = useState("");
-  const [recur, setRecur] = useState<"ninguna" | "mismo_valor" | "mismo_concepto">(categoria.tipo === "fijo" ? "mismo_valor" : "ninguna");
+  const [nombre, setNombre] = useState(item?.nombre ?? "");
+  const [desc, setDesc] = useState(item?.descripcion ?? "");
+  const [valor, setValor] = useState(item ? String(item.valor) : "");
+  const [fecha, setFecha] = useState(item?.fecha ?? fechaDefault);
+  const [cuenta, setCuenta] = useState(item?.cuenta_pago ?? "");
+  const [recur, setRecur] = useState<"ninguna" | "mismo_valor" | "mismo_concepto">((item?.recurrencia as "ninguna" | "mismo_valor" | "mismo_concepto" | undefined) ?? (categoria.tipo === "fijo" ? "mismo_valor" : "ninguna"));
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState(false);
 
   const guardar = async (continuar: boolean) => {
     if (!nombre.trim() || !valor) return toast.error("Nombre y valor son obligatorios");
     setSaving(true);
-    const { error } = await supabase.from("ae_items_cat").insert({
-      usuario_id: uid, categoria_id: categoria.id, nombre, descripcion: desc || null, valor: Number(valor), fecha, recurrencia: recur, cuenta_pago: cuenta.trim() || null,
-    });
+    const payload = { usuario_id: uid, categoria_id: categoria.id, nombre, descripcion: desc || null, valor: Number(valor), fecha, recurrencia: recur, cuenta_pago: cuenta.trim() || null };
+    const { error } = editing && item
+      ? await supabase.from("ae_items_cat").update(payload).eq("id", item.id)
+      : await supabase.from("ae_items_cat").insert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
+    toast.success(editing ? "Ítem actualizado" : "Ítem guardado");
     onSaved();
-    if (continuar) {
+    if (continuar && !editing) {
       setFlash(true); setTimeout(() => setFlash(false), 600);
       setNombre(""); setDesc(""); setValor(""); setCuenta("");
     } else {
@@ -315,10 +318,10 @@ function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string
   };
 
   return (
-    <ModalShell title={`Añadir en ${categoria.nombre}`} onClose={onClose}>
-      <div className="rounded-xl p-2.5 mb-3 text-[11px] font-semibold flex items-center gap-2" style={{ background: "#E8F4E1", color: "#3D6B2F" }}>
+    <ModalShell title={`${editing ? "Editar" : "Añadir"} en ${categoria.nombre}`} onClose={onClose}>
+      {!editing && <div className="rounded-xl p-2.5 mb-3 text-[11px] font-semibold flex items-center gap-2" style={{ background: "#E8F4E1", color: "#3D6B2F" }}>
         <Check className="w-3.5 h-3.5"/> Captura rápida: al guardar y añadir otro, el formulario se limpia para el siguiente.
-      </div>
+      </div>}
       {flash && <div className="rounded-xl p-2 mb-2 text-xs font-semibold text-center" style={{ background: "#A8D547", color: "#1F1B16" }}>✓ Guardado</div>}
       <div className="space-y-3">
         <div><label className="ae-label">Nombre del ítem</label><input className="ae-input" placeholder="Ej. Pago de luz" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus/></div>
@@ -327,7 +330,7 @@ function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string
           <div><label className="ae-label">Valor (USD)</label><input type="number" step="0.01" className="ae-input" placeholder="0.00" value={valor} onChange={(e) => setValor(e.target.value)}/></div>
           <div><label className="ae-label">Fecha</label><input type="date" className="ae-input" value={fecha} onChange={(e) => setFecha(e.target.value)}/></div>
         </div>
-        <div><label className="ae-label">Cuenta / método de pago (opcional)</label><input className="ae-input" placeholder="Ej. Banco Pichincha – Cta. 2100123456" value={cuenta} onChange={(e) => setCuenta(e.target.value)}/></div>
+        <div><label className="ae-label">Cuenta bancaria / método de pago</label><select className="ae-input" value={cuenta} onChange={(e) => setCuenta(e.target.value)}><option value="">{cuentas.length ? "Sin cuenta específica" : "Primero crea una cuenta en Mis cuentas bancarias"}</option>{cuentas.map(c => <option key={c.id} value={`${c.nombre} – ${c.numero_cuenta}`}>{c.nombre} – {c.numero_cuenta}</option>)}</select></div>
         <div>
           <label className="ae-label">¿Se repite cada mes?</label>
           <div className="grid grid-cols-3 gap-1.5">
@@ -337,11 +340,11 @@ function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string
           </div>
         </div>
       </div>
-      <button onClick={() => guardar(true)} disabled={saving} className="ae-btn-ink w-full mt-4 disabled:opacity-60">
+      {!editing && <button onClick={() => guardar(true)} disabled={saving} className="ae-btn-ink w-full mt-4 disabled:opacity-60">
         {saving ? "Guardando…" : "Guardar y añadir otro ↓"}
-      </button>
+      </button>}
       <button onClick={() => guardar(false)} disabled={saving} className="w-full mt-2 py-2.5 text-sm font-semibold" style={{ color: "var(--ae-ink-soft)" }}>
-        Guardar y cerrar
+        {editing ? "Guardar cambios" : "Guardar y cerrar"}
       </button>
     </ModalShell>
   );
