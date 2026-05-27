@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Home, BookOpen, CalendarDays, Users, MessageSquare,
   ShieldCheck, Wallet, Gift, LogOut, Hash, Headphones, Calendar,
-  Clock3, CalendarRange, Briefcase, Home as HomeIcon, BarChart3,
+  Clock3, CalendarRange, Briefcase, Home as HomeIcon, BarChart3, FileText,
 } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
@@ -24,6 +24,7 @@ const soporteItems: Item[] = [
 const academiaItems: Item[] = [
   { to: "/cursos",            label: "Cursos",               icon: BookOpen },
   { to: "/calendario-clases", label: "Calendario de clases", icon: Calendar },
+  { to: "/tareas",            label: "Tareas",               icon: FileText },
 ];
 const comunidadItems: Item[] = [
   { to: "/miembros", label: "Miembros", icon: Users },

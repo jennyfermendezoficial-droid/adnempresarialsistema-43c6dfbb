@@ -1040,6 +1040,91 @@ export type Database = {
         }
         Relationships: []
       }
+      tareas: {
+        Row: {
+          created_at: string
+          created_by: string
+          curso_id: string | null
+          descripcion: string | null
+          fecha_limite: string | null
+          id: string
+          titulo: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          curso_id?: string | null
+          descripcion?: string | null
+          fecha_limite?: string | null
+          id?: string
+          titulo: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          curso_id?: string | null
+          descripcion?: string | null
+          fecha_limite?: string | null
+          id?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tareas_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tareas_entregas: {
+        Row: {
+          alumna_id: string
+          archivo_nombre: string
+          archivo_tipo: string | null
+          archivo_url: string
+          calificacion: number | null
+          comentario: string | null
+          created_at: string
+          feedback: string | null
+          id: string
+          tarea_id: string
+        }
+        Insert: {
+          alumna_id: string
+          archivo_nombre: string
+          archivo_tipo?: string | null
+          archivo_url: string
+          calificacion?: number | null
+          comentario?: string | null
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          tarea_id: string
+        }
+        Update: {
+          alumna_id?: string
+          archivo_nombre?: string
+          archivo_tipo?: string | null
+          archivo_url?: string
+          calificacion?: number | null
+          comentario?: string | null
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          tarea_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tareas_entregas_tarea_id_fkey"
+            columns: ["tarea_id"]
+            isOneToOne: false
+            referencedRelation: "tareas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
