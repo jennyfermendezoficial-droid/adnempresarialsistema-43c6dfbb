@@ -73,6 +73,42 @@ export type Database = {
           },
         ]
       }
+      ae_cat_gastos: {
+        Row: {
+          ambito: string
+          color: string
+          created_at: string
+          icono: string | null
+          id: string
+          nombre: string
+          orden: number
+          tipo: string
+          usuario_id: string
+        }
+        Insert: {
+          ambito: string
+          color?: string
+          created_at?: string
+          icono?: string | null
+          id?: string
+          nombre: string
+          orden?: number
+          tipo?: string
+          usuario_id: string
+        }
+        Update: {
+          ambito?: string
+          color?: string
+          created_at?: string
+          icono?: string | null
+          id?: string
+          nombre?: string
+          orden?: number
+          tipo?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       ae_categorias: {
         Row: {
           color: string
@@ -99,6 +135,97 @@ export type Database = {
           usuario_id?: string
         }
         Relationships: []
+      }
+      ae_cuotas: {
+        Row: {
+          estado: string
+          fecha_pago: string | null
+          fecha_programada: string
+          id: string
+          modificada: boolean
+          numero: number
+          observacion: string | null
+          prestamo_id: string
+          usuario_id: string
+          valor: number
+        }
+        Insert: {
+          estado?: string
+          fecha_pago?: string | null
+          fecha_programada: string
+          id?: string
+          modificada?: boolean
+          numero: number
+          observacion?: string | null
+          prestamo_id: string
+          usuario_id: string
+          valor: number
+        }
+        Update: {
+          estado?: string
+          fecha_pago?: string | null
+          fecha_programada?: string
+          id?: string
+          modificada?: boolean
+          numero?: number
+          observacion?: string | null
+          prestamo_id?: string
+          usuario_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ae_cuotas_prestamo_id_fkey"
+            columns: ["prestamo_id"]
+            isOneToOne: false
+            referencedRelation: "ae_prestamos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ae_items_cat: {
+        Row: {
+          categoria_id: string
+          created_at: string
+          descripcion: string | null
+          fecha: string
+          id: string
+          nombre: string
+          recurrencia: string
+          usuario_id: string
+          valor: number
+        }
+        Insert: {
+          categoria_id: string
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          id?: string
+          nombre: string
+          recurrencia?: string
+          usuario_id: string
+          valor: number
+        }
+        Update: {
+          categoria_id?: string
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          id?: string
+          nombre?: string
+          recurrencia?: string
+          usuario_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ae_items_cat_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "ae_cat_gastos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ae_movimientos: {
         Row: {
@@ -135,6 +262,62 @@ export type Database = {
           usuario_id?: string
         }
         Relationships: []
+      }
+      ae_prestamos: {
+        Row: {
+          ambito: string
+          categoria_id: string | null
+          created_at: string
+          deuda_total: number
+          fecha_primera_cuota: string
+          id: string
+          motivo: string | null
+          nombre: string
+          num_cuotas: number
+          observaciones: string | null
+          tipo: string
+          usuario_id: string
+          valor_cuota: number
+        }
+        Insert: {
+          ambito: string
+          categoria_id?: string | null
+          created_at?: string
+          deuda_total: number
+          fecha_primera_cuota: string
+          id?: string
+          motivo?: string | null
+          nombre: string
+          num_cuotas: number
+          observaciones?: string | null
+          tipo?: string
+          usuario_id: string
+          valor_cuota: number
+        }
+        Update: {
+          ambito?: string
+          categoria_id?: string | null
+          created_at?: string
+          deuda_total?: number
+          fecha_primera_cuota?: string
+          id?: string
+          motivo?: string | null
+          nombre?: string
+          num_cuotas?: number
+          observaciones?: string | null
+          tipo?: string
+          usuario_id?: string
+          valor_cuota?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ae_prestamos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "ae_cat_gastos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       app_config: {
         Row: {
