@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { buildPushPayload, type PushSubscription as WPSubscription } from "@block65/webcrypto-web-push";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const Input = z.object({
   userIds: z.array(z.string().uuid()).min(1).max(500),
@@ -12,6 +13,7 @@ const Input = z.object({
 });
 
 export const sendPushToUsers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d) => Input.parse(d))
   .handler(async ({ data }) => {
     const publicKey = process.env.VAPID_PUBLIC_KEY;
