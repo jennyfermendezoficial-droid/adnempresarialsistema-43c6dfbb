@@ -7,9 +7,10 @@ import { AeHeader } from "@/components/AeHeader";
 
 type Tipo = "fijo" | "variable" | "prestamo" | "ingreso";
 interface Categoria { id: string; nombre: string; tipo: Tipo; color: string; icono: string | null; orden: number; ambito: string }
-interface Item { id: string; categoria_id: string; nombre: string; descripcion: string | null; valor: number; fecha: string; recurrencia: string }
+interface Item { id: string; categoria_id: string; nombre: string; descripcion: string | null; valor: number; fecha: string; recurrencia: string; cuenta_pago: string | null }
 interface Prestamo { id: string; categoria_id: string | null; tipo: "banco" | "tarjeta" | "personal"; nombre: string; motivo: string | null; deuda_total: number; num_cuotas: number; valor_cuota: number; fecha_primera_cuota: string; observaciones: string | null }
 interface Cuota { id: string; prestamo_id: string; numero: number; valor: number; fecha_programada: string; fecha_pago: string | null; estado: "pendiente" | "cancelado" | "atrasado"; observacion: string | null; modificada: boolean }
+interface CuentaBancaria { id: string; nombre: string; numero_cuenta: string; tipo: string; activo: boolean }
 
 const PALETA = ["#E94B8C", "#A8D547", "#7C9FE0", "#B47ED4", "#D4A847", "#D87060", "#7CC9B8", "#E0A06B", "#9B8FE0", "#5FAA8E"];
 const EMOJIS = ["💰", "🏠", "💡", "👥", "🏦", "📱", "🚗", "🍽️", "📚", "⚕️", "🐾", "✈️", "🎨", "🛠️", "📦"];
@@ -31,6 +32,7 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
   const [items, setItems] = useState<Item[]>([]);
   const [prestamos, setPrestamos] = useState<Prestamo[]>([]);
   const [cuotasMes, setCuotasMes] = useState<Cuota[]>([]);
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
 
   const cargar = async () => {
     if (!uid) return;
@@ -42,12 +44,14 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
     setPrestamos((p as Prestamo[]) ?? []);
     const { data: cu } = await supabase.from("ae_cuotas").select("*").eq("usuario_id", uid).gte("fecha_programada", mesAncla).lt("fecha_programada", mesFin);
     setCuotasMes((cu as Cuota[]) ?? []);
+    const { data: cb } = await supabase.from("ae_cuentas_bancarias").select("*").eq("usuario_id", uid).eq("activo", true).order("created_at", { ascending: false });
+    setCuentas((cb as CuentaBancaria[]) ?? []);
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [uid, ambito, mesAncla]);
 
   // ----- Modales -----
   const [modalCat, setModalCat] = useState(false);
-  const [modalItem, setModalItem] = useState<Categoria | null>(null);
+  const [modalItem, setModalItem] = useState<{ categoria: Categoria; item?: Item } | null>(null);
   const [modalPrestamo, setModalPrestamo] = useState<Categoria | null>(null);
   const [detallePrestamo, setDetallePrestamo] = useState<Prestamo | null>(null);
 
@@ -104,7 +108,8 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
               prestamos={prestamos.filter(p => p.categoria_id === cat.id)}
               cuotasMes={cuotasMes}
               total={totalCategoria(cat)}
-              onAdd={() => cat.tipo === "prestamo" ? setModalPrestamo(cat) : setModalItem(cat)}
+              onAdd={() => cat.tipo === "prestamo" ? setModalPrestamo(cat) : setModalItem({ categoria: cat })}
+              onEditItem={(item) => setModalItem({ categoria: cat, item })}
               onOpenPrestamo={(p) => setDetallePrestamo(p)}
               onDeleteItem={async (id) => { await supabase.from("ae_items_cat").delete().eq("id", id); cargar(); }}
               onDeleteCat={async () => { if (!confirm(`¿Borrar la categoría "${cat.nombre}" y todos sus ítems?`)) return; await supabase.from("ae_cat_gastos").delete().eq("id", cat.id); cargar(); }}
@@ -126,7 +131,7 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
       </div>
 
       {modalCat && uid && <ModalCategoria ambito={ambito} uid={uid} ordenInicial={cats.length} onClose={() => setModalCat(false)} onCreated={(cat, abrirItem) => { setModalCat(false); cargar(); if (abrirItem) { if (cat.tipo === "prestamo") setModalPrestamo(cat); else setModalItem(cat); } }} />}
-      {modalItem && uid && <ModalItem uid={uid} categoria={modalItem} mesAncla={mesAncla} onClose={() => { setModalItem(null); cargar(); }} onSaved={() => cargar()} />}
+      {modalItem && uid && <ModalItem uid={uid} categoria={modalItem.categoria} item={modalItem.item} cuentas={cuentas} mesAncla={mesAncla} onClose={() => { setModalItem(null); cargar(); }} onSaved={() => cargar()} />}
       {modalPrestamo && uid && <ModalPrestamo uid={uid} ambito={ambito} categoria={modalPrestamo} onClose={() => { setModalPrestamo(null); cargar(); }} />}
       {detallePrestamo && uid && <ModalDetallePrestamo uid={uid} prestamo={detallePrestamo} onClose={() => { setDetallePrestamo(null); cargar(); }} />}
     </div>
