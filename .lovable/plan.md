@@ -1,35 +1,41 @@
-Voy a implementar 4 cambios:
+## Problem
 
-## 1. Agenda 1 a 1 — Límites por día
-En `src/routes/_authenticated/agenda-1a1.tsx`, antes de reservar:
-- Consultar las sesiones del alumno (`alumna_id = uid`) para la fecha seleccionada
-- **Bloquear si:**
-  - Ya tiene 1 reserva con ese mismo profesor ese día → "Ya reservaste con este profesor hoy"
-  - Ya tiene 3 reservas en total ese día (con cualquier profesor) → "Máximo 3 reservas por día"
-- Permitir hasta 3 al día, máximo 1 por profesor.
+1. The inicio welcome message currently hardcodes "¡Bienvenida, {nombre}!". It needs to be inclusive: **"Bienvenid@, {nombre}"**.
+2. The admin inicio editor only accepts a pasted video URL (YouTube/MP4). It needs a **direct file upload to Bunny Stream** using the existing Bunny infrastructure, with encoding progress tracking and iframe playback.
 
-## 2. Pagos e Informes — Incluir admin y soporte como profesores
-En `src/routes/_authenticated/pagos.tsx`:
-- Cargar todos los perfiles con rol `admin` o `soporte` (vía `user_roles`).
-- Para cada uno mostrar fila con:
-  - Nombre
-  - Reservas 1a1 del mes actual (count en `sesiones_1a1` donde `profesor_id = x`)
-  - Mensajes enviados (count en `canal_general_mensajes` + `mensajes_chat_1a1` + `soporte_privado_mensajes` donde `autor_id = x`)
-  - Bonos del mes (sum `bonos.monto`)
-- Mantener tabla actual de `pagos_mensuales` debajo.
+## Technical Plan
 
-## 3. Bonos — Permitir bonos a admin también
-En `src/routes/_authenticated/bonos.tsx`:
-- En el selector "Profesor" mostrar a los usuarios con rol `admin` o `soporte` (no a todos los profiles).
+### 1. Inclusive Welcome Message (tiny fix)
+- In `src/routes/_authenticated/inicio.tsx`, replace the hardcoded greeting:
+  - Change `¡Bienvenida{nombrePila ? \`, \${nombrePila}\` : ""}!` → `Bienvenid@ {nombrePila}`
+- The `@` is part of the inclusive word, not a template placeholder.
 
-## 4. Nueva página: Calificar profesores (solo alumnos/usuarios)
-Crear `src/routes/_authenticated/calificar.tsx`:
-- Lista de profesores (admin + soporte).
-- Por cada uno: 4 sliders 1–5 (claridad, didáctica, desenvolvimiento, práctico) + comentario.
-- Botón "Enviar calificación" → inserta en `calificaciones_mensuales` con mes/año actual.
-- Si el rol del usuario es admin/soporte, mostrar mensaje "Esta sección es solo para alumnos".
-- Agregar entrada en `AppSidebar` visible solo para rol `usuario`.
+### 2. Bunny Stream Video Upload for Inicio
+We reuse the exact same pattern already working for course lessons:
 
-⚠️ **Nota sobre la política RLS de calificaciones**: la actual exige que el alumno tenga al menos una sesión 1a1 con el profesor. Si quieres que cualquier alumno pueda calificar sin haber tenido sesión, dímelo y ajusto la política. Por ahora mantengo la regla actual.
+**Server layer** — use existing `src/lib/bunny.functions.ts`:
+- `createBunnyVideoForUpload` — creates a Bunny video record + TUS signature.
+- `getBunnyVideoStatus` — polls encoding progress.
+- `deleteBunnyVideo` — cleans up if replaced.
 
-¿Procedo?
+**Client layer** — adapt the cursos upload UI into the `/inicio` admin editor:
+- Add state: `bunnyCfg` (public config from `getBunnyPublicConfig`), `uploadProgress`, `videoStatus`.
+- Replace the plain `<input>` for video URL with a file `<input type="file" accept="video/*">`.
+- On file select:
+  1. Call `createBunnyVideoForUpload({ data: { title: 'Video de bienvenida' } })`.
+  2. Use `tus-js-client` (already installed for cursos) to upload directly to `https://video.bunnycdn.com/tusupload`.
+  3. Track progress via tus `onProgress`.
+  4. On success, save the Bunny `videoId` (GUID) into `app_config.inicio_video_url` via Supabase update.
+- On load:
+  - Detect if `inicio_video_url` is a Bunny GUID (`/^[0-9a-f-]{20,}$/i`).
+  - Show `iframe.mediadelivery.net/embed/{libraryId}/{videoId}` using `bunnyCfg`.
+  - Poll `getBunnyVideoStatus` if encoding is in progress and show a progress bar.
+- Keep backwards compatibility: if the stored URL is a YouTube link or plain MP4 URL, render it as before.
+- Allow admin to delete/replace the video (calls `deleteBunnyVideo` and clears the field).
+
+**Schema** — no migration needed: `app_config.inicio_video_url` already stores strings (URL or Bunny GUID). The detection happens in the frontend via regex.
+
+## No-Go / Already Done
+- No new database tables or columns required.
+- No new Bunny secrets required — they are already configured.
+- The `sendPushToUsers` and Zoom webhook fixes from the previous round are already done and verified.

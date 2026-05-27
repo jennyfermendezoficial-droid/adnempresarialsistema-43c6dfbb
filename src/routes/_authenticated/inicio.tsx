@@ -1,9 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Pencil, Save, X, Play, TrendingUp, CalendarClock, MessageSquare, Radio } from "lucide-react";
+import { Pencil, Save, X, Play, TrendingUp, CalendarClock, MessageSquare, Radio, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  createBunnyVideoForUpload,
+  getBunnyPublicConfig,
+  deleteBunnyVideo,
+  getBunnyVideoStatus,
+} from "@/lib/bunny.functions";
 
 export const Route = createFileRoute("/_authenticated/inicio")({ component: Page });
 
@@ -19,6 +26,38 @@ function Page() {
   const [proxSesion, setProxSesion] = useState<{ fecha: string; hora_inicio: string; zoom_link: string | null; otroNombre: string } | null>(null);
   const [sinLeer, setSinLeer] = useState<number>(0);
   const [clasesSemana, setClasesSemana] = useState<number>(0);
+
+  // Bunny upload state
+  const createBunny = useServerFn(createBunnyVideoForUpload);
+  const getBunnyCfg = useServerFn(getBunnyPublicConfig);
+  const removeBunny = useServerFn(deleteBunnyVideo);
+  const getBunnyStatus = useServerFn(getBunnyVideoStatus);
+  const [bunnyCfg, setBunnyCfg] = useState<{ libraryId: string; cdnHostname: string } | null>(null);
+  const [uploadPct, setUploadPct] = useState<number>(0);
+  const [uploading, setUploading] = useState(false);
+  const [videoStatus, setVideoStatus] = useState<{ ready: boolean; failed: boolean; encodeProgress: number } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const isBunnyId = (u?: string | null) => !!u && /^[0-9a-f-]{20,}$/i.test(u);
+
+  useEffect(() => { getBunnyCfg().then(setBunnyCfg).catch(() => {}); }, []); // eslint-disable-line
+
+  // Poll Bunny encoding while the saved video is processing
+  useEffect(() => {
+    setVideoStatus(null);
+    if (!isBunnyId(cfg?.inicio_video_url)) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const s = await getBunnyStatus({ data: { videoId: cfg!.inicio_video_url! } });
+        if (cancelled) return;
+        setVideoStatus(s);
+        if (!s.ready && !s.failed) setTimeout(tick, 4000);
+      } catch { /* noop */ }
+    };
+    tick();
+    return () => { cancelled = true; };
+  }, [cfg?.inicio_video_url]); // eslint-disable-line
 
   useEffect(() => {
     supabase.from("app_config").select("inicio_video_url,inicio_titulo,inicio_mensaje").eq("id", true).maybeSingle()
@@ -104,6 +143,75 @@ function Page() {
     setCfg(draft); setEditing(false); toast.success("Guardado");
   };
 
+  const onFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      setUploading(true);
+      setUploadPct(0);
+      const cred = await createBunny({ data: { title: "Video de bienvenida" } });
+      const tus = await import("tus-js-client");
+      await new Promise<void>((resolve, reject) => {
+        const upload = new tus.Upload(file, {
+          endpoint: "https://video.bunnycdn.com/tusupload",
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          headers: {
+            AuthorizationSignature: cred.authorizationSignature,
+            AuthorizationExpire: String(cred.authorizationExpire),
+            VideoId: cred.videoId,
+            LibraryId: String(cred.libraryId),
+          },
+          metadata: { filetype: file.type, title: "Video de bienvenida" },
+          onError: (err: Error) => reject(err),
+          onProgress: (sent: number, total: number) => setUploadPct(Math.round((sent / total) * 100)),
+          onSuccess: () => resolve(),
+        });
+        upload.start();
+      });
+      // Si había un video Bunny previo, intentar borrarlo
+      const prev = draft.inicio_video_url;
+      if (isBunnyId(prev) && prev !== cred.videoId) {
+        removeBunny({ data: { videoId: prev! } }).catch(() => {});
+      }
+      // Persistir nuevo videoId
+      const { error } = await supabase.from("app_config")
+        .update({ inicio_video_url: cred.videoId })
+        .eq("id", true);
+      if (error) throw error;
+      const next = { ...draft, inicio_video_url: cred.videoId };
+      setDraft(next);
+      setCfg(next);
+      toast.success("Video subido. Procesando…");
+    } catch (err) {
+      toast.error((err as Error).message || "Error subiendo el video");
+    } finally {
+      setUploading(false);
+      setUploadPct(0);
+    }
+  };
+
+  const removeVideo = async () => {
+    const cur = draft.inicio_video_url;
+    if (!cur) return;
+    if (!confirm("¿Eliminar el video de bienvenida?")) return;
+    try {
+      if (isBunnyId(cur)) {
+        await removeBunny({ data: { videoId: cur } }).catch(() => {});
+      }
+      const { error } = await supabase.from("app_config")
+        .update({ inicio_video_url: null })
+        .eq("id", true);
+      if (error) throw error;
+      const next = { ...draft, inicio_video_url: "" };
+      setDraft(next);
+      setCfg(next);
+      toast.success("Video eliminado");
+    } catch (err) {
+      toast.error((err as Error).message || "Error eliminando");
+    }
+  };
+
   const isYoutube = (u?: string | null) => !!u && /youtube\.com|youtu\.be/.test(u);
   const ytEmbed = (u: string) => {
     const m = u.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/);
@@ -118,7 +226,7 @@ function Page() {
         <div>
           <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-60 mb-1">Inicio</div>
           <h1 className="text-3xl md:text-4xl font-semibold mb-1">
-            ¡Bienvenida{nombrePila ? `, ${nombrePila}` : ""}! <span aria-hidden>👋</span>
+            ¡Bienvenid@{nombrePila ? `, ${nombrePila}` : ""}! <span aria-hidden>👋</span>
           </h1>
           <p className="text-muted-foreground text-sm md:text-base">{cfg?.inicio_mensaje}</p>
         </div>
@@ -131,7 +239,27 @@ function Page() {
 
       <div className="rounded-3xl overflow-hidden border bg-card aspect-video grid place-items-center relative shadow-sm">
         {cfg?.inicio_video_url ? (
-          isYoutube(cfg.inicio_video_url) ? (
+          isBunnyId(cfg.inicio_video_url) && bunnyCfg ? (
+            videoStatus && !videoStatus.ready && !videoStatus.failed ? (
+              <div className="text-center p-8 w-full max-w-md">
+                <p className="font-semibold mb-2">Procesando video… {videoStatus.encodeProgress}%</p>
+                <p className="text-xs text-muted-foreground mb-3">Bunny está transcodificando. Esto puede tardar unos minutos.</p>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-violet-gradient transition-all" style={{ width: `${videoStatus.encodeProgress}%` }} />
+                </div>
+              </div>
+            ) : videoStatus?.failed ? (
+              <div className="text-center p-8 text-destructive">Falló el procesamiento del video. Sube otro.</div>
+            ) : (
+              <iframe
+                key={cfg.inicio_video_url}
+                src={`https://iframe.mediadelivery.net/embed/${bunnyCfg.libraryId}/${cfg.inicio_video_url}?autoplay=false`}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            )
+          ) : isYoutube(cfg.inicio_video_url) ? (
             <iframe src={ytEmbed(cfg.inicio_video_url)} className="w-full h-full" allow="autoplay; encrypted-media" allowFullScreen />
           ) : (
             <video src={cfg.inicio_video_url} controls className="w-full h-full" />
@@ -140,7 +268,7 @@ function Page() {
           <div className="text-center text-muted-foreground p-8">
             <Play className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p>Aún no hay video de bienvenida.</p>
-            {role === "admin" && <p className="text-xs mt-1">Edita para agregar uno (YouTube o URL directa).</p>}
+            {role === "admin" && <p className="text-xs mt-1">Edita para subir uno desde tu computadora.</p>}
           </div>
         )}
       </div>
@@ -201,8 +329,48 @@ function Page() {
           <input className="w-full px-3 py-2 rounded-lg border bg-background" value={draft.inicio_titulo ?? ""} onChange={e=>setDraft({...draft,inicio_titulo:e.target.value})}/>
           <label className="block text-xs font-medium">Mensaje</label>
           <textarea rows={3} className="w-full px-3 py-2 rounded-lg border bg-background" value={draft.inicio_mensaje ?? ""} onChange={e=>setDraft({...draft,inicio_mensaje:e.target.value})}/>
-          <label className="block text-xs font-medium">URL del video (YouTube o MP4)</label>
-          <input className="w-full px-3 py-2 rounded-lg border bg-background" placeholder="https://youtube.com/watch?v=..." value={draft.inicio_video_url ?? ""} onChange={e=>setDraft({...draft,inicio_video_url:e.target.value})}/>
+
+          <div className="border-t pt-3 mt-3">
+            <label className="block text-xs font-medium mb-2">Video de bienvenida</label>
+            {draft.inicio_video_url ? (
+              <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-muted/50">
+                <Play className="w-4 h-4 text-violet shrink-0" />
+                <span className="text-xs truncate flex-1">
+                  {isBunnyId(draft.inicio_video_url) ? `Bunny · ${draft.inicio_video_url.slice(0,8)}…` : draft.inicio_video_url}
+                </span>
+                <button type="button" onClick={removeVideo} className="p-1.5 rounded hover:bg-destructive/10 text-destructive" title="Eliminar video">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : null}
+
+            <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={onFileChosen} />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="w-full px-3 py-2.5 rounded-lg border-2 border-dashed flex items-center justify-center gap-2 text-sm hover:bg-muted disabled:opacity-60"
+            >
+              <Upload className="w-4 h-4" />
+              {uploading ? `Subiendo… ${uploadPct}%` : (draft.inicio_video_url ? "Reemplazar video" : "Subir video desde mi computadora")}
+            </button>
+            {uploading && (
+              <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-violet-gradient transition-all" style={{ width: `${uploadPct}%` }} />
+              </div>
+            )}
+
+            <div className="text-[11px] text-muted-foreground mt-2">
+              También podés pegar una URL de YouTube o MP4:
+            </div>
+            <input
+              className="w-full px-3 py-2 rounded-lg border bg-background mt-1 text-sm"
+              placeholder="https://youtube.com/watch?v=..."
+              value={isBunnyId(draft.inicio_video_url) ? "" : (draft.inicio_video_url ?? "")}
+              onChange={e=>setDraft({...draft,inicio_video_url:e.target.value})}
+            />
+          </div>
+
           <div className="flex gap-2 pt-2">
             <button onClick={save} className="px-4 py-2 rounded-lg bg-violet-gradient text-white flex items-center gap-2 text-sm"><Save className="w-4 h-4"/>Guardar</button>
             <button onClick={()=>{setEditing(false);setDraft(cfg!);}} className="px-4 py-2 rounded-lg border flex items-center gap-2 text-sm"><X className="w-4 h-4"/>Cancelar</button>
