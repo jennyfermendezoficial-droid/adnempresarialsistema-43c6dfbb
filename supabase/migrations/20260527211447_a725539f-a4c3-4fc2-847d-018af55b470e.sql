@@ -1,0 +1,1 @@
+ALTER TABLE public.ae_items_cat ADD COLUMN IF NOT EXISTS cuenta_pago text;

@@ -286,6 +286,7 @@ function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string
   const [desc, setDesc] = useState("");
   const [valor, setValor] = useState("");
   const [fecha, setFecha] = useState(fechaDefault);
+  const [cuenta, setCuenta] = useState("");
   const [recur, setRecur] = useState<"ninguna" | "mismo_valor" | "mismo_concepto">(categoria.tipo === "fijo" ? "mismo_valor" : "ninguna");
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState(false);
@@ -294,14 +295,14 @@ function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string
     if (!nombre.trim() || !valor) return toast.error("Nombre y valor son obligatorios");
     setSaving(true);
     const { error } = await supabase.from("ae_items_cat").insert({
-      usuario_id: uid, categoria_id: categoria.id, nombre, descripcion: desc || null, valor: Number(valor), fecha, recurrencia: recur,
+      usuario_id: uid, categoria_id: categoria.id, nombre, descripcion: desc || null, valor: Number(valor), fecha, recurrencia: recur, cuenta_pago: cuenta.trim() || null,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
     onSaved();
     if (continuar) {
       setFlash(true); setTimeout(() => setFlash(false), 600);
-      setNombre(""); setDesc(""); setValor("");
+      setNombre(""); setDesc(""); setValor(""); setCuenta("");
     } else {
       onClose();
     }
@@ -320,6 +321,7 @@ function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string
           <div><label className="ae-label">Valor (USD)</label><input type="number" step="0.01" className="ae-input" placeholder="0.00" value={valor} onChange={(e) => setValor(e.target.value)}/></div>
           <div><label className="ae-label">Fecha</label><input type="date" className="ae-input" value={fecha} onChange={(e) => setFecha(e.target.value)}/></div>
         </div>
+        <div><label className="ae-label">Cuenta / método de pago (opcional)</label><input className="ae-input" placeholder="Ej. Banco Pichincha – Cta. 2100123456" value={cuenta} onChange={(e) => setCuenta(e.target.value)}/></div>
         <div>
           <label className="ae-label">¿Se repite cada mes?</label>
           <div className="grid grid-cols-3 gap-1.5">
