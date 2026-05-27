@@ -7,9 +7,10 @@ import { AeHeader } from "@/components/AeHeader";
 
 type Tipo = "fijo" | "variable" | "prestamo" | "ingreso";
 interface Categoria { id: string; nombre: string; tipo: Tipo; color: string; icono: string | null; orden: number; ambito: string }
-interface Item { id: string; categoria_id: string; nombre: string; descripcion: string | null; valor: number; fecha: string; recurrencia: string }
+interface Item { id: string; categoria_id: string; nombre: string; descripcion: string | null; valor: number; fecha: string; recurrencia: string; cuenta_pago: string | null }
 interface Prestamo { id: string; categoria_id: string | null; tipo: "banco" | "tarjeta" | "personal"; nombre: string; motivo: string | null; deuda_total: number; num_cuotas: number; valor_cuota: number; fecha_primera_cuota: string; observaciones: string | null }
 interface Cuota { id: string; prestamo_id: string; numero: number; valor: number; fecha_programada: string; fecha_pago: string | null; estado: "pendiente" | "cancelado" | "atrasado"; observacion: string | null; modificada: boolean }
+interface CuentaBancaria { id: string; nombre: string; numero_cuenta: string; tipo: string; activo: boolean }
 
 const PALETA = ["#E94B8C", "#A8D547", "#7C9FE0", "#B47ED4", "#D4A847", "#D87060", "#7CC9B8", "#E0A06B", "#9B8FE0", "#5FAA8E"];
 const EMOJIS = ["💰", "🏠", "💡", "👥", "🏦", "📱", "🚗", "🍽️", "📚", "⚕️", "🐾", "✈️", "🎨", "🛠️", "📦"];
@@ -31,6 +32,7 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
   const [items, setItems] = useState<Item[]>([]);
   const [prestamos, setPrestamos] = useState<Prestamo[]>([]);
   const [cuotasMes, setCuotasMes] = useState<Cuota[]>([]);
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
 
   const cargar = async () => {
     if (!uid) return;
@@ -42,12 +44,14 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
     setPrestamos((p as Prestamo[]) ?? []);
     const { data: cu } = await supabase.from("ae_cuotas").select("*").eq("usuario_id", uid).gte("fecha_programada", mesAncla).lt("fecha_programada", mesFin);
     setCuotasMes((cu as Cuota[]) ?? []);
+    const { data: cb } = await supabase.from("ae_cuentas_bancarias").select("*").eq("usuario_id", uid).eq("activo", true).order("created_at", { ascending: false });
+    setCuentas((cb as CuentaBancaria[]) ?? []);
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [uid, ambito, mesAncla]);
 
   // ----- Modales -----
   const [modalCat, setModalCat] = useState(false);
-  const [modalItem, setModalItem] = useState<Categoria | null>(null);
+  const [modalItem, setModalItem] = useState<{ categoria: Categoria; item?: Item } | null>(null);
   const [modalPrestamo, setModalPrestamo] = useState<Categoria | null>(null);
   const [detallePrestamo, setDetallePrestamo] = useState<Prestamo | null>(null);
 
@@ -104,7 +108,8 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
               prestamos={prestamos.filter(p => p.categoria_id === cat.id)}
               cuotasMes={cuotasMes}
               total={totalCategoria(cat)}
-              onAdd={() => cat.tipo === "prestamo" ? setModalPrestamo(cat) : setModalItem(cat)}
+              onAdd={() => cat.tipo === "prestamo" ? setModalPrestamo(cat) : setModalItem({ categoria: cat })}
+              onEditItem={(item) => setModalItem({ categoria: cat, item })}
               onOpenPrestamo={(p) => setDetallePrestamo(p)}
               onDeleteItem={async (id) => { await supabase.from("ae_items_cat").delete().eq("id", id); cargar(); }}
               onDeleteCat={async () => { if (!confirm(`¿Borrar la categoría "${cat.nombre}" y todos sus ítems?`)) return; await supabase.from("ae_cat_gastos").delete().eq("id", cat.id); cargar(); }}
@@ -125,8 +130,8 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
         </div>
       </div>
 
-      {modalCat && uid && <ModalCategoria ambito={ambito} uid={uid} ordenInicial={cats.length} onClose={() => setModalCat(false)} onCreated={(cat, abrirItem) => { setModalCat(false); cargar(); if (abrirItem) { if (cat.tipo === "prestamo") setModalPrestamo(cat); else setModalItem(cat); } }} />}
-      {modalItem && uid && <ModalItem uid={uid} categoria={modalItem} mesAncla={mesAncla} onClose={() => { setModalItem(null); cargar(); }} onSaved={() => cargar()} />}
+      {modalCat && uid && <ModalCategoria ambito={ambito} uid={uid} ordenInicial={cats.length} onClose={() => setModalCat(false)} onCreated={(cat, abrirItem) => { setModalCat(false); cargar(); if (abrirItem) { if (cat.tipo === "prestamo") setModalPrestamo(cat); else setModalItem({ categoria: cat }); } }} />}
+      {modalItem && uid && <ModalItem uid={uid} categoria={modalItem.categoria} item={modalItem.item} cuentas={cuentas} mesAncla={mesAncla} onClose={() => { setModalItem(null); cargar(); }} onSaved={() => cargar()} />}
       {modalPrestamo && uid && <ModalPrestamo uid={uid} ambito={ambito} categoria={modalPrestamo} onClose={() => { setModalPrestamo(null); cargar(); }} />}
       {detallePrestamo && uid && <ModalDetallePrestamo uid={uid} prestamo={detallePrestamo} onClose={() => { setDetallePrestamo(null); cargar(); }} />}
     </div>
@@ -135,9 +140,9 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
 
 // ============== Componentes ==============
 
-function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onOpenPrestamo, onDeleteItem, onDeleteCat }: {
+function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditItem, onOpenPrestamo, onDeleteItem, onDeleteCat }: {
   cat: Categoria; items: Item[]; prestamos: Prestamo[]; cuotasMes: Cuota[]; total: number;
-  onAdd: () => void; onOpenPrestamo: (p: Prestamo) => void; onDeleteItem: (id: string) => void; onDeleteCat: () => void;
+  onAdd: () => void; onEditItem: (item: Item) => void; onOpenPrestamo: (p: Prestamo) => void; onDeleteItem: (id: string) => void; onDeleteCat: () => void;
 }) {
   const esPrestamo = cat.tipo === "prestamo";
   const tipoLabel = cat.tipo === "ingreso" ? "Ingreso" : cat.tipo === "fijo" ? "Fijo" : cat.tipo === "prestamo" ? "Préstamos" : "Variable";
@@ -186,11 +191,12 @@ function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onOpenP
                   <div className="font-semibold text-sm truncate">{it.nombre}</div>
                   <div className="text-[11px]" style={{ color: "var(--ae-ink-soft)" }}>
                     {it.descripcion && <span>{it.descripcion} · </span>}
-                    {new Date(it.fecha + "T00:00").toLocaleDateString("es-EC", { day: "numeric", month: "short" })}
+                    {new Date(it.fecha + "T00:00").toLocaleDateString("es-EC", { day: "numeric", month: "short" })}{it.cuenta_pago ? ` · ${it.cuenta_pago}` : ""}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold tabular-nums text-sm">${Number(it.valor).toFixed(2)}</span>
+                  <button onClick={() => onEditItem(it)} className="opacity-50 hover:opacity-100 p-1" aria-label="Editar ítem"><Pencil className="w-3.5 h-3.5"/></button>
                   <button onClick={() => onDeleteItem(it.id)} className="opacity-40 hover:opacity-90 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
                 </div>
               </div>
@@ -280,27 +286,30 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
   );
 }
 
-function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string; categoria: Categoria; mesAncla: string; onClose: () => void; onSaved: () => void }) {
+function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }: { uid: string; categoria: Categoria; item?: Item; cuentas: CuentaBancaria[]; mesAncla: string; onClose: () => void; onSaved: () => void }) {
+  const editing = Boolean(item);
   const fechaDefault = mesAncla;
-  const [nombre, setNombre] = useState("");
-  const [desc, setDesc] = useState("");
-  const [valor, setValor] = useState("");
-  const [fecha, setFecha] = useState(fechaDefault);
-  const [cuenta, setCuenta] = useState("");
-  const [recur, setRecur] = useState<"ninguna" | "mismo_valor" | "mismo_concepto">(categoria.tipo === "fijo" ? "mismo_valor" : "ninguna");
+  const [nombre, setNombre] = useState(item?.nombre ?? "");
+  const [desc, setDesc] = useState(item?.descripcion ?? "");
+  const [valor, setValor] = useState(item ? String(item.valor) : "");
+  const [fecha, setFecha] = useState(item?.fecha ?? fechaDefault);
+  const [cuenta, setCuenta] = useState(item?.cuenta_pago ?? "");
+  const [recur, setRecur] = useState<"ninguna" | "mismo_valor" | "mismo_concepto">((item?.recurrencia as "ninguna" | "mismo_valor" | "mismo_concepto" | undefined) ?? (categoria.tipo === "fijo" ? "mismo_valor" : "ninguna"));
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState(false);
 
   const guardar = async (continuar: boolean) => {
     if (!nombre.trim() || !valor) return toast.error("Nombre y valor son obligatorios");
     setSaving(true);
-    const { error } = await supabase.from("ae_items_cat").insert({
-      usuario_id: uid, categoria_id: categoria.id, nombre, descripcion: desc || null, valor: Number(valor), fecha, recurrencia: recur, cuenta_pago: cuenta.trim() || null,
-    });
+    const payload = { usuario_id: uid, categoria_id: categoria.id, nombre, descripcion: desc || null, valor: Number(valor), fecha, recurrencia: recur, cuenta_pago: cuenta.trim() || null };
+    const { error } = editing && item
+      ? await supabase.from("ae_items_cat").update(payload).eq("id", item.id)
+      : await supabase.from("ae_items_cat").insert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
+    toast.success(editing ? "Ítem actualizado" : "Ítem guardado");
     onSaved();
-    if (continuar) {
+    if (continuar && !editing) {
       setFlash(true); setTimeout(() => setFlash(false), 600);
       setNombre(""); setDesc(""); setValor(""); setCuenta("");
     } else {
@@ -309,10 +318,10 @@ function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string
   };
 
   return (
-    <ModalShell title={`Añadir en ${categoria.nombre}`} onClose={onClose}>
-      <div className="rounded-xl p-2.5 mb-3 text-[11px] font-semibold flex items-center gap-2" style={{ background: "#E8F4E1", color: "#3D6B2F" }}>
+    <ModalShell title={`${editing ? "Editar" : "Añadir"} en ${categoria.nombre}`} onClose={onClose}>
+      {!editing && <div className="rounded-xl p-2.5 mb-3 text-[11px] font-semibold flex items-center gap-2" style={{ background: "#E8F4E1", color: "#3D6B2F" }}>
         <Check className="w-3.5 h-3.5"/> Captura rápida: al guardar y añadir otro, el formulario se limpia para el siguiente.
-      </div>
+      </div>}
       {flash && <div className="rounded-xl p-2 mb-2 text-xs font-semibold text-center" style={{ background: "#A8D547", color: "#1F1B16" }}>✓ Guardado</div>}
       <div className="space-y-3">
         <div><label className="ae-label">Nombre del ítem</label><input className="ae-input" placeholder="Ej. Pago de luz" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus/></div>
@@ -321,7 +330,7 @@ function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string
           <div><label className="ae-label">Valor (USD)</label><input type="number" step="0.01" className="ae-input" placeholder="0.00" value={valor} onChange={(e) => setValor(e.target.value)}/></div>
           <div><label className="ae-label">Fecha</label><input type="date" className="ae-input" value={fecha} onChange={(e) => setFecha(e.target.value)}/></div>
         </div>
-        <div><label className="ae-label">Cuenta / método de pago (opcional)</label><input className="ae-input" placeholder="Ej. Banco Pichincha – Cta. 2100123456" value={cuenta} onChange={(e) => setCuenta(e.target.value)}/></div>
+        <div><label className="ae-label">Cuenta bancaria / método de pago</label><select className="ae-input" value={cuenta} onChange={(e) => setCuenta(e.target.value)}><option value="">{cuentas.length ? "Sin cuenta específica" : "Primero crea una cuenta en Mis cuentas bancarias"}</option>{cuentas.map(c => <option key={c.id} value={`${c.nombre} – ${c.numero_cuenta}`}>{c.nombre} – {c.numero_cuenta}</option>)}</select></div>
         <div>
           <label className="ae-label">¿Se repite cada mes?</label>
           <div className="grid grid-cols-3 gap-1.5">
@@ -331,11 +340,11 @@ function ModalItem({ uid, categoria, mesAncla, onClose, onSaved }: { uid: string
           </div>
         </div>
       </div>
-      <button onClick={() => guardar(true)} disabled={saving} className="ae-btn-ink w-full mt-4 disabled:opacity-60">
+      {!editing && <button onClick={() => guardar(true)} disabled={saving} className="ae-btn-ink w-full mt-4 disabled:opacity-60">
         {saving ? "Guardando…" : "Guardar y añadir otro ↓"}
-      </button>
+      </button>}
       <button onClick={() => guardar(false)} disabled={saving} className="w-full mt-2 py-2.5 text-sm font-semibold" style={{ color: "var(--ae-ink-soft)" }}>
-        Guardar y cerrar
+        {editing ? "Guardar cambios" : "Guardar y cerrar"}
       </button>
     </ModalShell>
   );

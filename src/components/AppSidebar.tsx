@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Home, BookOpen, CalendarDays, Users, MessageSquare,
   ShieldCheck, Wallet, Gift, LogOut, Hash, Headphones, Calendar,
-  Clock3, CalendarRange, Briefcase, Home as HomeIcon, BarChart3, FileText,
+  Clock3, CalendarRange, Briefcase, Home as HomeIcon, BarChart3, FileText, Landmark,
 } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
@@ -34,6 +34,7 @@ const miAgendaItems: Item[] = [
   { to: "/mi-calendario", label: "Calendario",     icon: CalendarRange },
   { to: "/mi-negocio",    label: "Negocio",        icon: Briefcase },
   { to: "/mi-casa",       label: "Casa",           icon: HomeIcon },
+  { to: "/mis-cuentas-bancarias", label: "Cuentas bancarias", icon: Landmark },
   { to: "/mis-reportes",  label: "Reportes",       icon: BarChart3 },
 ];
 const adminItems: Item[] = [

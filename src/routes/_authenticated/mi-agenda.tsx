@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Plus, Trash2, Clock, MapPin, Link as LinkIcon, X } from "lucide-react";
+import { Plus, Trash2, Clock, MapPin, Link as LinkIcon, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { AeHeader } from "@/components/AeHeader";
 import { Bell } from "lucide-react";
@@ -31,7 +31,9 @@ function Page() {
   const [acts, setActs] = useState<Actividad[]>([]);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ titulo: "", hora_inicio: "09:00", duracion_min: 60, descripcion: "", ubicacion: "", link: "", color: "#7A8B6F" });
+  const [editing, setEditing] = useState<Actividad | null>(null);
+  const emptyForm = { titulo: "", fecha, hora_inicio: "09:00", duracion_min: 60, descripcion: "", ubicacion: "", link: "", color: "#7A8B6F" };
+  const [form, setForm] = useState(emptyForm);
 
   const cargar = async () => {
     if (!uid) return;
@@ -65,18 +67,43 @@ function Page() {
     }) ?? null;
   }, [acts, fecha]);
 
-  const crear = async () => {
+  const abrirNueva = () => {
+    setEditing(null);
+    setForm({ ...emptyForm, fecha });
+    setOpen(true);
+  };
+
+  const abrirEditar = (actividad: Actividad) => {
+    setEditing(actividad);
+    setForm({
+      titulo: actividad.titulo,
+      fecha: actividad.fecha,
+      hora_inicio: actividad.hora_inicio.slice(0, 5),
+      duracion_min: actividad.duracion_min,
+      descripcion: actividad.descripcion || "",
+      ubicacion: actividad.ubicacion || "",
+      link: actividad.link || "",
+      color: actividad.color || "#7A8B6F",
+    });
+    setOpen(true);
+  };
+
+  const guardar = async () => {
     if (saving) return;
     if (!uid || !form.titulo.trim()) return toast.error("Pon un título");
     setSaving(true);
-    const { error } = await supabase.from("ae_actividades").insert({
+    const payload = {
       usuario_id: uid, titulo: form.titulo, descripcion: form.descripcion || null,
-      fecha, hora_inicio: form.hora_inicio, duracion_min: form.duracion_min,
+      fecha: form.fecha, hora_inicio: form.hora_inicio, duracion_min: form.duracion_min,
       color: form.color, ubicacion: form.ubicacion || null, link: form.link || null,
-    });
+    };
+    const { error } = editing
+      ? await supabase.from("ae_actividades").update(payload).eq("id", editing.id)
+      : await supabase.from("ae_actividades").insert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
-    setOpen(false); setForm({ ...form, titulo: "", descripcion: "", ubicacion: "", link: "" });
+    toast.success(editing ? "Actividad actualizada" : "Actividad guardada");
+    setOpen(false); setEditing(null); setFecha(form.fecha); setForm({ ...emptyForm, fecha: form.fecha });
     cargar();
   };
 
@@ -127,7 +154,7 @@ function Page() {
               {new Date(fecha + "T00:00").toLocaleDateString("es-EC", { weekday: "long", day: "numeric", month: "long" })}
             </div>
           </div>
-          <button onClick={() => setOpen(true)} className="ae-btn-ink flex items-center gap-2"><Plus className="w-4 h-4"/> Actividad</button>
+          <button onClick={abrirNueva} className="ae-btn-ink flex items-center gap-2"><Plus className="w-4 h-4"/> Actividad</button>
         </div>
 
         <div className="space-y-0">
@@ -152,7 +179,10 @@ function Page() {
                           </div>
                           {a.descripcion && <div className="text-[12px] mt-1.5 opacity-80">{a.descripcion}</div>}
                         </div>
-                        <button onClick={() => borrar(a.id)} className="opacity-40 hover:opacity-90 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => abrirEditar(a)} className="opacity-50 hover:opacity-100 p-1" aria-label="Editar actividad"><Pencil className="w-3.5 h-3.5"/></button>
+                          <button onClick={() => borrar(a.id)} className="opacity-40 hover:opacity-90 p-1" aria-label="Borrar actividad"><Trash2 className="w-3.5 h-3.5"/></button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -166,7 +196,7 @@ function Page() {
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-end sm:place-items-center z-50 p-0 sm:p-4" onClick={() => setOpen(false)}>
             <div className="ae-modal" style={{ borderRadius: "24px 24px 0 0" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-xl font-semibold" style={{ fontFamily: "Fraunces, serif" }}>Nueva actividad</h3>
+                 <h3 className="text-xl font-semibold" style={{ fontFamily: "Fraunces, serif" }}>{editing ? "Editar actividad" : "Nueva actividad"}</h3>
                 <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full grid place-items-center" style={{ background: "var(--ae-paper)", color: "var(--ae-ink-soft)" }}><X className="w-4 h-4"/></button>
               </div>
               <div className="space-y-3">
@@ -176,9 +206,15 @@ function Page() {
                 </div>
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
+                    <label className="ae-label">Fecha</label>
+                    <input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className="ae-input"/>
+                  </div>
+                  <div>
                     <label className="ae-label">Hora</label>
                     <input type="time" value={form.hora_inicio} onChange={(e) => setForm({ ...form, hora_inicio: e.target.value })} className="ae-input"/>
                   </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2.5">
                   <div>
                     <label className="ae-label">Duración (min)</label>
                     <input type="number" min="15" step="15" value={form.duracion_min} onChange={(e) => setForm({ ...form, duracion_min: +e.target.value })} className="ae-input"/>
@@ -209,8 +245,8 @@ function Page() {
                   <textarea rows={2} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="ae-input"/>
                 </div>
               </div>
-              <button onClick={crear} disabled={saving} className="ae-btn-ink w-full mt-5 disabled:opacity-60">
-                {saving ? "Guardando…" : "Guardar actividad"}
+              <button onClick={guardar} disabled={saving} className="ae-btn-ink w-full mt-5 disabled:opacity-60">
+                {saving ? "Guardando…" : editing ? "Guardar cambios" : "Guardar actividad"}
               </button>
             </div>
           </div>

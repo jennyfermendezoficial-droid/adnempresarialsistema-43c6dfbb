@@ -19,6 +19,7 @@ import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/pagos'
 import { Route as AuthenticatedMisReportesRouteImport } from './routes/_authenticated/mis-reportes'
+import { Route as AuthenticatedMisCuentasBancariasRouteImport } from './routes/_authenticated/mis-cuentas-bancarias'
 import { Route as AuthenticatedMiembrosRouteImport } from './routes/_authenticated/miembros'
 import { Route as AuthenticatedMiNegocioRouteImport } from './routes/_authenticated/mi-negocio'
 import { Route as AuthenticatedMiCasaRouteImport } from './routes/_authenticated/mi-casa'
@@ -84,6 +85,12 @@ const AuthenticatedMisReportesRoute =
   AuthenticatedMisReportesRouteImport.update({
     id: '/mis-reportes',
     path: '/mis-reportes',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMisCuentasBancariasRoute =
+  AuthenticatedMisCuentasBancariasRouteImport.update({
+    id: '/mis-cuentas-bancarias',
+    path: '/mis-cuentas-bancarias',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedMiembrosRoute = AuthenticatedMiembrosRouteImport.update({
@@ -191,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/mi-casa': typeof AuthenticatedMiCasaRoute
   '/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
+  '/mis-cuentas-bancarias': typeof AuthenticatedMisCuentasBancariasRoute
   '/mis-reportes': typeof AuthenticatedMisReportesRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
@@ -218,6 +226,7 @@ export interface FileRoutesByTo {
   '/mi-casa': typeof AuthenticatedMiCasaRoute
   '/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
+  '/mis-cuentas-bancarias': typeof AuthenticatedMisCuentasBancariasRoute
   '/mis-reportes': typeof AuthenticatedMisReportesRoute
   '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
@@ -247,6 +256,7 @@ export interface FileRoutesById {
   '/_authenticated/mi-casa': typeof AuthenticatedMiCasaRoute
   '/_authenticated/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/_authenticated/miembros': typeof AuthenticatedMiembrosRoute
+  '/_authenticated/mis-cuentas-bancarias': typeof AuthenticatedMisCuentasBancariasRoute
   '/_authenticated/mis-reportes': typeof AuthenticatedMisReportesRoute
   '/_authenticated/pagos': typeof AuthenticatedPagosRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
@@ -276,6 +286,7 @@ export interface FileRouteTypes {
     | '/mi-casa'
     | '/mi-negocio'
     | '/miembros'
+    | '/mis-cuentas-bancarias'
     | '/mis-reportes'
     | '/pagos'
     | '/perfil'
@@ -303,6 +314,7 @@ export interface FileRouteTypes {
     | '/mi-casa'
     | '/mi-negocio'
     | '/miembros'
+    | '/mis-cuentas-bancarias'
     | '/mis-reportes'
     | '/pagos'
     | '/perfil'
@@ -331,6 +343,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mi-casa'
     | '/_authenticated/mi-negocio'
     | '/_authenticated/miembros'
+    | '/_authenticated/mis-cuentas-bancarias'
     | '/_authenticated/mis-reportes'
     | '/_authenticated/pagos'
     | '/_authenticated/perfil'
@@ -420,6 +433,13 @@ declare module '@tanstack/react-router' {
       path: '/mis-reportes'
       fullPath: '/mis-reportes'
       preLoaderRoute: typeof AuthenticatedMisReportesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mis-cuentas-bancarias': {
+      id: '/_authenticated/mis-cuentas-bancarias'
+      path: '/mis-cuentas-bancarias'
+      fullPath: '/mis-cuentas-bancarias'
+      preLoaderRoute: typeof AuthenticatedMisCuentasBancariasRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/miembros': {
@@ -551,6 +571,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMiCasaRoute: typeof AuthenticatedMiCasaRoute
   AuthenticatedMiNegocioRoute: typeof AuthenticatedMiNegocioRoute
   AuthenticatedMiembrosRoute: typeof AuthenticatedMiembrosRoute
+  AuthenticatedMisCuentasBancariasRoute: typeof AuthenticatedMisCuentasBancariasRoute
   AuthenticatedMisReportesRoute: typeof AuthenticatedMisReportesRoute
   AuthenticatedPagosRoute: typeof AuthenticatedPagosRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
@@ -574,6 +595,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMiCasaRoute: AuthenticatedMiCasaRoute,
   AuthenticatedMiNegocioRoute: AuthenticatedMiNegocioRoute,
   AuthenticatedMiembrosRoute: AuthenticatedMiembrosRoute,
+  AuthenticatedMisCuentasBancariasRoute: AuthenticatedMisCuentasBancariasRoute,
   AuthenticatedMisReportesRoute: AuthenticatedMisReportesRoute,
   AuthenticatedPagosRoute: AuthenticatedPagosRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
