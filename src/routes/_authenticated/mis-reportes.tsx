@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Download, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { generarReporteMensualPDF, downloadBlob, type MovRow, type ActRow } from "@/lib/pdf-reports";
+import { AeHeader } from "@/components/AeHeader";
 
 export const Route = createFileRoute("/_authenticated/mis-reportes")({ component: Page });
 
@@ -16,7 +17,7 @@ function Page() {
   const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const [movs, setMovs] = useState<MovRow[]>([]);
   const [acts, setActs] = useState<ActRow[]>([]);
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ negocio_nombre: string | null; negocio_foto_url: string | null }>({ negocio_nombre: null, negocio_foto_url: null });
 
   const anio = cursor.getFullYear();
@@ -46,25 +47,60 @@ function Page() {
     };
   }, [movs, acts]);
 
-  const descargar = async () => {
+  // Horas por semana del mes (S1..S4/S5)
+  const semanas = useMemo(() => {
+    const buckets: number[] = [0, 0, 0, 0, 0];
+    acts.forEach(a => {
+      const dia = new Date(a.fecha + "T00:00").getDate();
+      const idx = Math.min(4, Math.floor((dia - 1) / 7));
+      buckets[idx] += a.duracion_min / 60;
+    });
+    const ultima = new Date(anio, mes + 1, 0).getDate();
+    const n = ultima > 28 ? 5 : 4;
+    return buckets.slice(0, n);
+  }, [acts, anio, mes]);
+  const maxSem = Math.max(1, ...semanas);
+  const horasTotal = tot.horas;
+  const horasMaxMes = new Date(anio, mes + 1, 0).getDate() * 8; // 8h/día referencia
+  const sinRegistrar = Math.max(0, horasMaxMes - horasTotal);
+
+  const utilMes = (tot.negIng - tot.negGas) + (tot.casaIng - tot.casaGas);
+
+  const descargar = async (rango: "diario" | "semanal" | "mensual") => {
     if (downloading) return;
-    setDownloading(true);
+    setDownloading(rango);
     try {
+      let movsF = movs, actsF = acts, sufijo = `${MESES[mes]}_${anio}`;
+      const hoy = new Date();
+      if (rango === "diario") {
+        const iso = hoy.toISOString().slice(0, 10);
+        movsF = movs.filter(m => m.fecha === iso);
+        actsF = acts.filter(a => a.fecha === iso);
+        sufijo = `Diario_${iso}`;
+      } else if (rango === "semanal") {
+        const dow = (hoy.getDay() + 6) % 7;
+        const lun = new Date(hoy); lun.setDate(hoy.getDate() - dow); lun.setHours(0,0,0,0);
+        const dom = new Date(lun); dom.setDate(lun.getDate() + 6);
+        const i = lun.toISOString().slice(0,10), f = dom.toISOString().slice(0,10);
+        movsF = movs.filter(m => m.fecha >= i && m.fecha <= f);
+        actsF = acts.filter(a => a.fecha >= i && a.fecha <= f);
+        sufijo = `Semanal_${i}_${f}`;
+      }
       const blob = await generarReporteMensualPDF({
         anio, mes,
         nombreUsuario: profile?.nombre_completo || profile?.email || "Usuaria",
         nombreNegocio: meta.negocio_nombre,
         fotoNegocioUrl: meta.negocio_foto_url,
         avatarUrl: profile?.avatar_url || null,
-        movimientos: movs, actividades: acts,
+        movimientos: movsF, actividades: actsF,
       });
-      downloadBlob(blob, `Reporte_ADN_${MESES[mes]}_${anio}.pdf`);
+      downloadBlob(blob, `Reporte_ADN_${sufijo}.pdf`);
       toast.success("PDF descargado");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Error generando PDF";
       toast.error(msg);
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
   };
 
@@ -73,9 +109,7 @@ function Page() {
   return (
     <div className="ae-app">
       <div className="max-w-[480px] mx-auto px-5 pt-8 pb-24">
-      <div className="ae-eyebrow mb-1">Mi Agenda Emprendedora</div>
-      <h1 className="ae-h1 mb-1">Reportes <em>mensuales</em></h1>
-      <p className="ae-sub mb-5">Descarga tu reporte profesional, mes por mes.</p>
+      <AeHeader />
 
       {/* Selector de mes */}
       <div className="ae-card p-4 mb-5 flex items-center justify-between">
@@ -100,25 +134,61 @@ function Page() {
         </Block>
       </div>
 
-      <div className="ae-card p-5 mb-6">
-        <div className="ae-eyebrow mb-1">Tu tiempo este mes</div>
-        <div className="text-3xl tabular-nums" style={{ fontFamily: "Fraunces, serif", color: "var(--ae-gold-deep)", fontWeight: 600 }}>{tot.horas.toFixed(1)} h</div>
-        <div className="text-xs mt-0.5" style={{ color: "var(--ae-ink-soft)" }}>en {acts.length} actividades agendadas</div>
+      {/* Tiempo del mes */}
+      <div className="ae-card p-5 mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--ae-ink)" }}/>
+          <div className="text-sm font-semibold">Tiempo sin registrar</div>
+        </div>
+        <div className="text-lg tabular-nums" style={{ fontFamily: "Fraunces, serif", fontWeight: 600 }}>{sinRegistrar.toFixed(0)} h</div>
       </div>
 
+      {/* Barras semanales */}
+      <div className="ae-card p-4 mb-3">
+        <div className="flex items-end justify-around h-32 gap-2">
+          {semanas.map((h, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center justify-end h-full">
+              <div className="w-full rounded-t-lg" style={{ background: "var(--ae-gold)", height: `${Math.max(8, (h / maxSem) * 100)}%`, minHeight: 8 }}/>
+              <div className="text-[10px] mt-1 font-semibold" style={{ color: "var(--ae-ink-soft)" }}>S{i+1}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tres descargas */}
+      <div className="ae-card mb-5 overflow-hidden">
+        {([
+          { k: "diario" as const, label: "Reporte diario", sub: "PDF · hoy" },
+          { k: "semanal" as const, label: "Reporte semanal", sub: "PDF · esta semana" },
+          { k: "mensual" as const, label: "Reporte mensual", sub: `PDF · ${MESES[mes].toLowerCase()} ${anio}` },
+        ]).map((r, i) => (
+          <button key={r.k} onClick={() => descargar(r.k)} disabled={downloading !== null}
+            className={`w-full flex items-center justify-between p-4 text-left hover:bg-[var(--ae-paper)] disabled:opacity-60 ${i > 0 ? "border-t" : ""}`}
+            style={{ borderColor: "var(--ae-line)" }}>
+            <div className="flex items-center gap-3 min-w-0">
+              <FileText className="w-4 h-4 flex-shrink-0" style={{ color: "var(--ae-gold-deep)" }} />
+              <div className="min-w-0">
+                <div className="font-semibold text-sm truncate">{r.label}</div>
+                <div className="text-[11px]" style={{ color: "var(--ae-ink-soft)" }}>{r.sub}</div>
+              </div>
+            </div>
+            <span className="text-sm font-semibold flex items-center gap-1" style={{ color: "var(--ae-gold-deep)" }}>
+              <Download className="w-3.5 h-3.5"/> {downloading === r.k ? "Generando…" : "Descargar"}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Resultado del mes */}
+      <div className="ae-eyebrow mb-2">💼 Negocio + Casa — {MESES[mes].toLowerCase()} {anio}</div>
       <div className="ae-balance">
-        <div className="flex items-start gap-4 relative">
-          <FileText className="w-10 h-10 opacity-90 flex-shrink-0" style={{ color: "var(--ae-gold)" }} />
-          <div className="flex-1">
-            <div className="text-lg font-semibold mb-1" style={{ fontFamily: "Fraunces, serif" }}>Reporte completo {MESES[mes]} {anio}</div>
-            <div className="text-sm opacity-90 mb-4">Portada con tu marca, foto de tu negocio, resumen ejecutivo, KPIs y tablas detalladas.</div>
-            <button onClick={descargar} disabled={downloading}
-              className="px-4 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-60"
-              style={{ background: "var(--ae-gold)", color: "var(--ae-ink)" }}>
-              <Download className="w-4 h-4" />
-              {downloading ? "Generando PDF…" : "Descargar PDF"}
-            </button>
-          </div>
+        <div className="ae-balance-label">Resultado del mes</div>
+        <div className="ae-balance-value" style={{ color: utilMes >= 0 ? "#A8D547" : "#E94B8C" }}>
+          {utilMes >= 0 ? "+" : "−"} ${Math.abs(utilMes).toFixed(2)}
+        </div>
+        <div className="ae-balance-grid">
+          <div><small>Negocio</small><strong>${(tot.negIng - tot.negGas).toFixed(2)}</strong></div>
+          <div><small>Casa</small><strong>${(tot.casaIng - tot.casaGas).toFixed(2)}</strong></div>
         </div>
       </div>
 
