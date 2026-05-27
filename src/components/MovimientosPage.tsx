@@ -130,7 +130,7 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
         </div>
       </div>
 
-      {modalCat && uid && <ModalCategoria ambito={ambito} uid={uid} ordenInicial={cats.length} onClose={() => setModalCat(false)} onCreated={(cat, abrirItem) => { setModalCat(false); cargar(); if (abrirItem) { if (cat.tipo === "prestamo") setModalPrestamo(cat); else setModalItem(cat); } }} />}
+      {modalCat && uid && <ModalCategoria ambito={ambito} uid={uid} ordenInicial={cats.length} onClose={() => setModalCat(false)} onCreated={(cat, abrirItem) => { setModalCat(false); cargar(); if (abrirItem) { if (cat.tipo === "prestamo") setModalPrestamo(cat); else setModalItem({ categoria: cat }); } }} />}
       {modalItem && uid && <ModalItem uid={uid} categoria={modalItem.categoria} item={modalItem.item} cuentas={cuentas} mesAncla={mesAncla} onClose={() => { setModalItem(null); cargar(); }} onSaved={() => cargar()} />}
       {modalPrestamo && uid && <ModalPrestamo uid={uid} ambito={ambito} categoria={modalPrestamo} onClose={() => { setModalPrestamo(null); cargar(); }} />}
       {detallePrestamo && uid && <ModalDetallePrestamo uid={uid} prestamo={detallePrestamo} onClose={() => { setDetallePrestamo(null); cargar(); }} />}
@@ -140,9 +140,9 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
 
 // ============== Componentes ==============
 
-function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onOpenPrestamo, onDeleteItem, onDeleteCat }: {
+function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditItem, onOpenPrestamo, onDeleteItem, onDeleteCat }: {
   cat: Categoria; items: Item[]; prestamos: Prestamo[]; cuotasMes: Cuota[]; total: number;
-  onAdd: () => void; onOpenPrestamo: (p: Prestamo) => void; onDeleteItem: (id: string) => void; onDeleteCat: () => void;
+  onAdd: () => void; onEditItem: (item: Item) => void; onOpenPrestamo: (p: Prestamo) => void; onDeleteItem: (id: string) => void; onDeleteCat: () => void;
 }) {
   const esPrestamo = cat.tipo === "prestamo";
   const tipoLabel = cat.tipo === "ingreso" ? "Ingreso" : cat.tipo === "fijo" ? "Fijo" : cat.tipo === "prestamo" ? "Préstamos" : "Variable";
@@ -191,11 +191,12 @@ function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onOpenP
                   <div className="font-semibold text-sm truncate">{it.nombre}</div>
                   <div className="text-[11px]" style={{ color: "var(--ae-ink-soft)" }}>
                     {it.descripcion && <span>{it.descripcion} · </span>}
-                    {new Date(it.fecha + "T00:00").toLocaleDateString("es-EC", { day: "numeric", month: "short" })}
+                    {new Date(it.fecha + "T00:00").toLocaleDateString("es-EC", { day: "numeric", month: "short" })}{it.cuenta_pago ? ` · ${it.cuenta_pago}` : ""}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold tabular-nums text-sm">${Number(it.valor).toFixed(2)}</span>
+                  <button onClick={() => onEditItem(it)} className="opacity-50 hover:opacity-100 p-1" aria-label="Editar ítem"><Pencil className="w-3.5 h-3.5"/></button>
                   <button onClick={() => onDeleteItem(it.id)} className="opacity-40 hover:opacity-90 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
                 </div>
               </div>
