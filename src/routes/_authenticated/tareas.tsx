@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import {
-  FileText, Plus, Upload, Trash2, Download, Loader2, Calendar, X,
+  FileText, Plus, Upload, Trash2, Download, Loader2, X,
   CheckCircle2, Clock, ChevronDown, ChevronUp, Users, Pencil,
 } from "lucide-react";
 
