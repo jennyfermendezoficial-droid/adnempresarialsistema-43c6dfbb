@@ -5,7 +5,7 @@ import { Plus, Trash2, X, ChevronRight, ChevronLeft, Pencil, Check } from "lucid
 import { toast } from "sonner";
 import { AeHeader } from "@/components/AeHeader";
 
-type Tipo = "fijo" | "variable" | "gasto" | "prestamo" | "ingreso";
+type Tipo = "gasto fijo" | "variable" | "gasto" | "prestamo" | "ingreso";
 interface Categoria { id: string; nombre: string; tipo: Tipo; color: string; icono: string | null; orden: number; ambito: string }
 interface Item { id: string; categoria_id: string; nombre: string; descripcion: string | null; valor: number; fecha: string; recurrencia: string; cuenta_pago: string | null }
 interface Prestamo { id: string; categoria_id: string | null; tipo: "banco" | "tarjeta" | "personal"; nombre: string; motivo: string | null; deuda_total: number; num_cuotas: number; valor_cuota: number; fecha_primera_cuota: string; observaciones: string | null }
