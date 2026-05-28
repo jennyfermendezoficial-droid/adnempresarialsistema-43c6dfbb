@@ -54,6 +54,7 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
   const [modalItem, setModalItem] = useState<{ categoria: Categoria; item?: Item } | null>(null);
   const [modalPrestamo, setModalPrestamo] = useState<Categoria | null>(null);
   const [detallePrestamo, setDetallePrestamo] = useState<Prestamo | null>(null);
+  const [editCat, setEditCat] = useState<Categoria | null>(null);
 
   // ----- Totales -----
   const totalCategoria = (cat: Categoria) => {
@@ -113,6 +114,7 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
               onEditItem={(item) => setModalItem({ categoria: cat, item })}
               onOpenPrestamo={(p) => setDetallePrestamo(p)}
               onDeleteItem={async (id) => { await supabase.from("ae_items_cat").delete().eq("id", id); cargar(); }}
+              onEditCat={() => setEditCat(cat)}
               onDeleteCat={async () => { if (!confirm(`¿Borrar la categoría "${cat.nombre}" y todos sus ítems?`)) return; await supabase.from("ae_cat_gastos").delete().eq("id", cat.id); cargar(); }}
             />
           ))}
@@ -135,15 +137,16 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
       {modalItem && uid && <ModalItem uid={uid} categoria={modalItem.categoria} item={modalItem.item} cuentas={cuentas} mesAncla={mesAncla} onClose={() => { setModalItem(null); cargar(); }} onSaved={() => cargar()} />}
       {modalPrestamo && uid && <ModalPrestamo uid={uid} ambito={ambito} categoria={modalPrestamo} onClose={() => { setModalPrestamo(null); cargar(); }} />}
       {detallePrestamo && uid && <ModalDetallePrestamo uid={uid} prestamo={detallePrestamo} onClose={() => { setDetallePrestamo(null); cargar(); }} />}
+      {editCat && uid && <ModalEditarCategoria uid={uid} categoria={editCat} onClose={() => setEditCat(null)} onSaved={() => { setEditCat(null); cargar(); }} />}
     </div>
   );
 }
 
 // ============== Componentes ==============
 
-function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditItem, onOpenPrestamo, onDeleteItem, onDeleteCat }: {
+function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditItem, onOpenPrestamo, onDeleteItem, onEditCat, onDeleteCat }: {
   cat: Categoria; items: Item[]; prestamos: Prestamo[]; cuotasMes: Cuota[]; total: number;
-  onAdd: () => void; onEditItem: (item: Item) => void; onOpenPrestamo: (p: Prestamo) => void; onDeleteItem: (id: string) => void; onDeleteCat: () => void;
+  onAdd: () => void; onEditItem: (item: Item) => void; onOpenPrestamo: (p: Prestamo) => void; onDeleteItem: (id: string) => void; onEditCat: () => void; onDeleteCat: () => void;
 }) {
   const esPrestamo = cat.tipo === "prestamo";
   const tipoLabel =
@@ -165,7 +168,10 @@ function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditI
         </div>
         <div className="text-right">
           <div className="text-lg font-bold tabular-nums" style={{ fontFamily: "Fraunces, serif" }}>${total.toFixed(2)}</div>
-          <button onClick={onDeleteCat} className="text-[10px] opacity-80 hover:opacity-100 underline">borrar</button>
+          <div className="flex items-center gap-2 justify-end">
+            <button onClick={onEditCat} className="text-[10px] opacity-80 hover:opacity-100 underline">editar</button>
+            <button onClick={onDeleteCat} className="text-[10px] opacity-80 hover:opacity-100 underline">borrar</button>
+          </div>
         </div>
       </div>
       <div className="p-3">
