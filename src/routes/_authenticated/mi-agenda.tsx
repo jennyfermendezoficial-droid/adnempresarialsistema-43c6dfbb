@@ -160,32 +160,55 @@ function Page() {
         <div className="space-y-0">
           {HORAS.map((h) => {
             const hh = String(h).padStart(2, "0") + ":00";
-            const enHora = acts.filter((a) => parseInt(a.hora_inicio.slice(0, 2)) === h);
+            const hStart = h * 60;
+            const hEnd = (h + 1) * 60;
+            const enHora = acts
+              .map((a) => {
+                const [ah, am] = a.hora_inicio.split(":").map(Number);
+                const start = ah * 60 + am;
+                const end = start + a.duracion_min;
+                if (end <= hStart || start >= hEnd) return null;
+                const minsEnHora = Math.min(end, hEnd) - Math.max(start, hStart);
+                return { a, start, end, minsEnHora, esInicio: start >= hStart && start < hEnd };
+              })
+              .filter((x): x is { a: Actividad; start: number; end: number; minsEnHora: number; esInicio: boolean } => x !== null);
             return (
               <div key={h} className="flex gap-3 py-3" style={{ borderTop: h === 5 ? "none" : "1px solid var(--ae-line)" }}>
                 <div className="ae-time">{hh}</div>
                 <div className="flex-1 space-y-2">
                   {enHora.length === 0 ? (
                     <div className="text-xs text-center py-2.5 rounded-xl border border-dashed" style={{ color: "var(--ae-ink-soft)", borderColor: "var(--ae-line)" }}>—</div>
-                  ) : enHora.map((a) => (
-                    <div key={a.id} className="ae-activity" style={{ borderLeftColor: a.color ?? "var(--ae-sage)" }}>
+                  ) : enHora.map(({ a, minsEnHora, esInicio }) => {
+                    const totH = Math.floor(a.duracion_min / 60);
+                    const totM = a.duracion_min % 60;
+                    const durTxt = totH ? `${totH}h${totM ? ` ${totM}m` : ""}` : `${totM} min`;
+                    return (
+                    <div key={a.id + "-" + h} className="ae-activity" style={{ borderLeftColor: a.color ?? "var(--ae-sage)", opacity: esInicio ? 1 : 0.75 }}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-sm">{a.titulo}</div>
+                          <div className="font-semibold text-sm">
+                            {a.titulo}
+                            {!esInicio && <span className="ml-1 text-[10px] font-normal opacity-70">· continúa</span>}
+                          </div>
                           <div className="text-[11px] mt-1 flex items-center gap-3 flex-wrap" style={{ color: "var(--ae-ink-soft)" }}>
-                            <span className="flex items-center gap-1"><Clock className="w-3 h-3"/>{a.hora_inicio.slice(0,5)} · {a.duracion_min} min</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3"/>
+                              {esInicio ? `${a.hora_inicio.slice(0,5)} · ${durTxt}` : `${minsEnHora} min de ${durTxt}`}
+                            </span>
                             {a.ubicacion && <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{a.ubicacion}</span>}
                             {a.link && <a href={a.link} target="_blank" rel="noreferrer" className="flex items-center gap-1 underline"><LinkIcon className="w-3 h-3"/>link</a>}
                           </div>
-                          {a.descripcion && <div className="text-[12px] mt-1.5 opacity-80">{a.descripcion}</div>}
+                          {esInicio && a.descripcion && <div className="text-[12px] mt-1.5 opacity-80">{a.descripcion}</div>}
                         </div>
+                        {esInicio && (
                         <div className="flex items-center gap-1">
                           <button onClick={() => abrirEditar(a)} className="opacity-50 hover:opacity-100 p-1" aria-label="Editar actividad"><Pencil className="w-3.5 h-3.5"/></button>
                           <button onClick={() => borrar(a.id)} className="opacity-40 hover:opacity-90 p-1" aria-label="Borrar actividad"><Trash2 className="w-3.5 h-3.5"/></button>
                         </div>
+                        )}
                       </div>
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
             );
@@ -214,10 +237,30 @@ function Page() {
                     <input type="time" value={form.hora_inicio} onChange={(e) => setForm({ ...form, hora_inicio: e.target.value })} className="ae-input"/>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 gap-2.5">
-                  <div>
-                    <label className="ae-label">Duración (min)</label>
-                    <input type="number" min="15" step="15" value={form.duracion_min} onChange={(e) => setForm({ ...form, duracion_min: +e.target.value })} className="ae-input"/>
+                <div>
+                  <label className="ae-label">Duración</label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <select
+                      value={Math.floor(form.duracion_min / 60)}
+                      onChange={(e) => setForm({ ...form, duracion_min: +e.target.value * 60 + (form.duracion_min % 60) })}
+                      className="ae-input"
+                    >
+                      {Array.from({ length: 13 }, (_, i) => i).map((h) => (
+                        <option key={h} value={h}>{h} {h === 1 ? "hora" : "horas"}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={form.duracion_min % 60}
+                      onChange={(e) => setForm({ ...form, duracion_min: Math.floor(form.duracion_min / 60) * 60 + +e.target.value })}
+                      className="ae-input"
+                    >
+                      {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                        <option key={m} value={m}>{m} min</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="text-[11px] mt-1" style={{ color: "var(--ae-ink-soft)" }}>
+                    Total: {form.duracion_min} min — la actividad se mostrará en cada hora que ocupe.
                   </div>
                 </div>
                 <div>
