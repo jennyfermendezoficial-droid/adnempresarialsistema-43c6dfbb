@@ -539,3 +539,56 @@ function ModalEditarCuota({ uid: _uid, cuota, valorBase, onClose }: { uid: strin
     </ModalShell>
   );
 }
+
+function ModalEditarCategoria({ uid, categoria, onClose, onSaved }: { uid: string; categoria: Categoria; onClose: () => void; onSaved: () => void }) {
+  const [nombre, setNombre] = useState(categoria.nombre);
+  const [tipo, setTipo] = useState<Tipo>(categoria.tipo);
+  const [color, setColor] = useState(categoria.color);
+  const [icono, setIcono] = useState<string | null>(categoria.icono);
+  const [saving, setSaving] = useState(false);
+
+  const guardar = async () => {
+    if (!nombre.trim()) return toast.error("Ponle un nombre");
+    setSaving(true);
+    const { error } = await supabase.from("ae_cat_gastos").update({ nombre, tipo, color, icono }).eq("id", categoria.id).eq("usuario_id", uid);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Categoría actualizada");
+    onSaved();
+  };
+
+  return (
+    <ModalShell title="Editar categoría" onClose={onClose}>
+      <div className="space-y-3">
+        <div><label className="ae-label">Nombre</label><input className="ae-input" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus/></div>
+        <div>
+          <label className="ae-label">Tipo</label>
+          <div className="grid grid-cols-2 gap-2">
+            {([["gasto","Gasto"],["gasto variable","Gasto variable"],["gasto fijo","Gasto fijo"],["prestamo","Préstamos"],["ingreso","Ingreso fijo"],["ingreso variable","Ingreso variable"]] as [Tipo,string][]).map(([v, l]) => (
+              <button key={v} onClick={() => setTipo(v)} className="py-2 rounded-xl text-xs font-semibold border" style={tipo === v ? { background: "var(--ae-ink)", color: "#fff", borderColor: "var(--ae-ink)" } : { borderColor: "var(--ae-line)" }}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="ae-label">Color</label>
+          <div className="flex gap-2 flex-wrap">
+            {PALETA.map(c => (
+              <button key={c} onClick={() => setColor(c)} className="w-8 h-8 rounded-full border-2" style={{ background: c, borderColor: color === c ? "var(--ae-ink)" : "transparent" }}/>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="ae-label">Ícono (opcional)</label>
+          <div className="flex gap-1.5 flex-wrap">
+            {EMOJIS.map(e => (
+              <button key={e} onClick={() => setIcono(icono === e ? null : e)} className="w-9 h-9 rounded-xl border text-lg grid place-items-center" style={icono === e ? { background: "var(--ae-ink)", borderColor: "var(--ae-ink)" } : { borderColor: "var(--ae-line)", background: "#fff" }}>{e}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <button onClick={guardar} disabled={saving} className="ae-btn-ink w-full mt-5 disabled:opacity-60">
+        {saving ? "Guardando…" : "Guardar cambios"}
+      </button>
+    </ModalShell>
+  );
+}
