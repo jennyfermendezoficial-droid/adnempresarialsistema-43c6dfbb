@@ -45,6 +45,32 @@ function Page() {
 
   useEffect(() => { getBunnyCfg().then(setBunnyCfg).catch(() => {}); }, []); // eslint-disable-line
 
+  // Silencia errores conocidos de player.js cuando el iframe se desmonta
+  // al cambiar de clase (postMessage sobre contentWindow null).
+  useEffect(() => {
+    const onError = (e: ErrorEvent) => {
+      const msg = e.message || "";
+      const src = (e.filename || "") + " " + (e.error?.stack || "");
+      if (msg.includes("postMessage") && /player[._]?js/i.test(src)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    const onRejection = (e: PromiseRejectionEvent) => {
+      const reason = e.reason;
+      const text = typeof reason === "string" ? reason : (reason?.message || "") + " " + (reason?.stack || "");
+      if (text.includes("postMessage") && /player[._]?js/i.test(text)) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("error", onError, true);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError, true);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
+
   // Player.js: escucha timeupdate del iframe de Bunny y marca completada al 90%
   useEffect(() => {
     if (!active?.bunny_video_id) return;
@@ -61,15 +87,17 @@ function Page() {
         const p = new PlayerCtor(playerIframeRef.current);
         const lecId = active.id;
         const onTime = (data: { seconds: number; duration: number }) => {
+          try {
           if (!data?.duration || !data?.seconds) return;
           const pct = data.seconds / data.duration;
           if (pct >= 0.9 && !autoCompletedRef.current.has(lecId) && !completadas.has(lecId)) {
             autoCompletedRef.current.add(lecId);
             marcarCompletada(active);
           }
+          } catch { /* noop */ }
         };
         p.on("timeupdate", onTime);
-        detach = () => p.off("timeupdate");
+        detach = () => { try { p.off("timeupdate"); } catch { /* noop */ } };
       } catch { /* noop */ }
     })();
     return () => { cancelled = true; if (detach) detach(); };
