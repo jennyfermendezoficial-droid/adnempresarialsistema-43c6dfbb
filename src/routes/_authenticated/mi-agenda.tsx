@@ -178,34 +178,51 @@ function Page() {
                 <div className="flex-1 space-y-2">
                   {enHora.length === 0 ? (
                     <div className="text-xs text-center py-2.5 rounded-xl border border-dashed" style={{ color: "var(--ae-ink-soft)", borderColor: "var(--ae-line)" }}>—</div>
-                  ) : enHora.map(({ a, minsEnHora, esInicio }) => {
+                  ) : enHora.map(({ a, esInicio, end }) => {
                     const totH = Math.floor(a.duracion_min / 60);
                     const totM = a.duracion_min % 60;
                     const durTxt = totH ? `${totH}h${totM ? ` ${totM}m` : ""}` : `${totM} min`;
+                    if (!esInicio) {
+                      // Indicador delgado de continuación, sin texto confuso
+                      return (
+                        <div
+                          key={a.id + "-" + h}
+                          className="rounded-full h-1.5"
+                          style={{ background: a.color ?? "var(--ae-sage)", opacity: 0.35 }}
+                          aria-hidden
+                        />
+                      );
+                    }
+                    const endH = Math.floor(end / 60);
+                    const endM = end % 60;
+                    const horaFin = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
                     return (
-                    <div key={a.id + "-" + h} className="ae-activity" style={{ borderLeftColor: a.color ?? "var(--ae-sage)", opacity: esInicio ? 1 : 0.75 }}>
-                      <div className="flex items-start justify-between gap-2">
+                    <div key={a.id + "-" + h} className="ae-activity" style={{ borderLeftColor: a.color ?? "var(--ae-sage)" }}>
+                      <div className="flex items-stretch justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-sm">
-                            {a.titulo}
-                            {!esInicio && <span className="ml-1 text-[10px] font-normal opacity-70">· continúa</span>}
-                          </div>
+                          <div className="font-semibold text-sm">{a.titulo}</div>
                           <div className="text-[11px] mt-1 flex items-center gap-3 flex-wrap" style={{ color: "var(--ae-ink-soft)" }}>
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3"/>
-                              {esInicio ? `${a.hora_inicio.slice(0,5)} · ${durTxt}` : `${minsEnHora} min de ${durTxt}`}
+                              {a.hora_inicio.slice(0,5)} – {horaFin} · {durTxt}
                             </span>
                             {a.ubicacion && <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>{a.ubicacion}</span>}
                             {a.link && <a href={a.link} target="_blank" rel="noreferrer" className="flex items-center gap-1 underline"><LinkIcon className="w-3 h-3"/>link</a>}
                           </div>
-                          {esInicio && a.descripcion && <div className="text-[12px] mt-1.5 opacity-80">{a.descripcion}</div>}
+                          {a.descripcion && <div className="text-[12px] mt-1.5 opacity-80">{a.descripcion}</div>}
+                          <div className="flex items-center gap-1 mt-2">
+                            <button onClick={() => abrirEditar(a)} className="opacity-50 hover:opacity-100 p-1" aria-label="Editar actividad"><Pencil className="w-3.5 h-3.5"/></button>
+                            <button onClick={() => borrar(a.id)} className="opacity-40 hover:opacity-90 p-1" aria-label="Borrar actividad"><Trash2 className="w-3.5 h-3.5"/></button>
+                          </div>
                         </div>
-                        {esInicio && (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => abrirEditar(a)} className="opacity-50 hover:opacity-100 p-1" aria-label="Editar actividad"><Pencil className="w-3.5 h-3.5"/></button>
-                          <button onClick={() => borrar(a.id)} className="opacity-40 hover:opacity-90 p-1" aria-label="Borrar actividad"><Trash2 className="w-3.5 h-3.5"/></button>
+                        <div
+                          className="flex flex-col items-center justify-center px-3 rounded-xl min-w-[78px]"
+                          style={{ background: (a.color ?? "var(--ae-sage)") + "22", color: a.color ?? "var(--ae-sage)" }}
+                        >
+                          <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">Hora</div>
+                          <div className="text-2xl font-bold leading-none" style={{ fontFamily: "Fraunces, serif" }}>{a.hora_inicio.slice(0,5)}</div>
+                          <div className="text-[10px] mt-1 opacity-80">{durTxt}</div>
                         </div>
-                        )}
                       </div>
                     </div>
                   );})}
@@ -217,7 +234,11 @@ function Page() {
 
         {open && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-end sm:place-items-center z-50 p-0 sm:p-4" onClick={() => setOpen(false)}>
-            <div className="ae-modal" style={{ borderRadius: "24px 24px 0 0" }} onClick={(e) => e.stopPropagation()}>
+            <div
+              className="ae-modal overflow-y-auto"
+              style={{ borderRadius: "24px 24px 0 0", maxHeight: "90vh" }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center justify-between mb-5">
                  <h3 className="text-xl font-semibold" style={{ fontFamily: "Fraunces, serif" }}>{editing ? "Editar actividad" : "Nueva actividad"}</h3>
                 <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full grid place-items-center" style={{ background: "var(--ae-paper)", color: "var(--ae-ink-soft)" }}><X className="w-4 h-4"/></button>
