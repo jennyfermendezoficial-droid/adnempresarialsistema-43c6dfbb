@@ -254,7 +254,7 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
           </div>
           <div className="text-[11px] mt-1.5" style={{ color: "var(--ae-ink-soft)" }}>
             {tipo === "gasto" && "Gasto general que se descuenta del balance (compras, pagos varios)."}
-            {tipo === "fijo" && "Mismo valor cada mes (arriendo, sueldos)."}
+            {tipo === "gasto fijo" && "Mismo valor cada mes (arriendo, sueldos)."}
             {tipo === "variable" && "Cambia cada mes (luz, agua, alimentación)."}
             {tipo === "prestamo" && "Préstamos con cuotas — tendrá un flujo especial."}
             {tipo === "ingreso" && "Suma al balance (ventas, sueldo del esposo)."}
@@ -295,7 +295,7 @@ function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }
   const [valor, setValor] = useState(item ? String(item.valor) : "");
   const [fecha, setFecha] = useState(item?.fecha ?? fechaDefault);
   const [cuenta, setCuenta] = useState(item?.cuenta_pago ?? "");
-  const [recur, setRecur] = useState<"ninguna" | "mismo_valor" | "mismo_concepto">((item?.recurrencia as "ninguna" | "mismo_valor" | "mismo_concepto" | undefined) ?? (categoria.tipo === "fijo" ? "mismo_valor" : "ninguna"));
+  const [recur, setRecur] = useState<"ninguna" | "mismo_valor" | "mismo_concepto">((item?.recurrencia as "ninguna" | "mismo_valor" | "mismo_concepto" | undefined) ?? (categoria.tipo === "gasto fijo" ? "mismo_valor" : "ninguna"));
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState(false);
 
