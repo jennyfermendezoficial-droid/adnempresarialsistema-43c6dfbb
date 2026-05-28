@@ -145,7 +145,7 @@ function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditI
   onAdd: () => void; onEditItem: (item: Item) => void; onOpenPrestamo: (p: Prestamo) => void; onDeleteItem: (id: string) => void; onDeleteCat: () => void;
 }) {
   const esPrestamo = cat.tipo === "prestamo";
-  const tipoLabel = cat.tipo === "ingreso" ? "Ingreso · suma" : cat.tipo === "fijo" ? "Gasto fijo · descuenta" : cat.tipo === "prestamo" ? "Préstamo · descuenta" : cat.tipo === "gasto" ? "Gasto general · descuenta" : "Gasto variable · descuenta";
+  const tipoLabel = cat.tipo === "ingreso" ? "Ingreso · suma" : cat.tipo === "gasto fijo" ? "Gasto fijo · descuenta" : cat.tipo === "prestamo" ? "Préstamo · descuenta" : cat.tipo === "gasto" ? "Gasto general · descuenta" : "Gasto variable · descuenta";
   return (
     <div className="rounded-2xl overflow-hidden bg-white" style={{ boxShadow: "var(--ae-shadow)" }}>
       <div className="p-4 flex items-center justify-between" style={{ background: `linear-gradient(135deg, ${cat.color}, ${cat.color}dd)`, color: "#fff" }}>
