@@ -1,0 +1,2 @@
+ALTER TABLE public.ae_cat_gastos DROP CONSTRAINT IF EXISTS ae_cat_gastos_tipo_check;
+ALTER TABLE public.ae_cat_gastos ADD CONSTRAINT ae_cat_gastos_tipo_check CHECK (tipo IN ('fijo','variable','gasto','prestamo','ingreso'));
