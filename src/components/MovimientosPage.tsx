@@ -5,7 +5,7 @@ import { Plus, Trash2, X, ChevronRight, ChevronLeft, Pencil, Check } from "lucid
 import { toast } from "sonner";
 import { AeHeader } from "@/components/AeHeader";
 
-type Tipo = "gasto fijo" | "variable" | "gasto" | "prestamo" | "ingreso";
+type Tipo = "gasto fijo" | "gasto variable" | "gasto" | "prestamo" | "ingreso" | "ingreso variable";
 interface Categoria { id: string; nombre: string; tipo: Tipo; color: string; icono: string | null; orden: number; ambito: string }
 interface Item { id: string; categoria_id: string; nombre: string; descripcion: string | null; valor: number; fecha: string; recurrencia: string; cuenta_pago: string | null }
 interface Prestamo { id: string; categoria_id: string | null; tipo: "banco" | "tarjeta" | "personal"; nombre: string; motivo: string | null; deuda_total: number; num_cuotas: number; valor_cuota: number; fecha_primera_cuota: string; observaciones: string | null }
@@ -63,8 +63,9 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
     }
     return items.filter(i => i.categoria_id === cat.id).reduce((s, i) => s + Number(i.valor), 0);
   };
-  const totalIngresos = cats.filter(c => c.tipo === "ingreso").reduce((s, c) => s + totalCategoria(c), 0);
-  const totalGastos = cats.filter(c => c.tipo !== "ingreso").reduce((s, c) => s + totalCategoria(c), 0);
+  const esIngreso = (t: Tipo) => t === "ingreso" || t === "ingreso variable";
+  const totalIngresos = cats.filter(c => esIngreso(c.tipo)).reduce((s, c) => s + totalCategoria(c), 0);
+  const totalGastos = cats.filter(c => !esIngreso(c.tipo)).reduce((s, c) => s + totalCategoria(c), 0);
   const balance = totalIngresos - totalGastos;
 
   return (
@@ -145,7 +146,13 @@ function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditI
   onAdd: () => void; onEditItem: (item: Item) => void; onOpenPrestamo: (p: Prestamo) => void; onDeleteItem: (id: string) => void; onDeleteCat: () => void;
 }) {
   const esPrestamo = cat.tipo === "prestamo";
-  const tipoLabel = cat.tipo === "ingreso" ? "Ingreso · suma" : cat.tipo === "gasto fijo" ? "Gasto fijo · descuenta" : cat.tipo === "prestamo" ? "Préstamo · descuenta" : cat.tipo === "gasto" ? "Gasto general · descuenta" : "Gasto variable · descuenta";
+  const tipoLabel =
+    cat.tipo === "ingreso" ? "Ingreso fijo · suma" :
+    cat.tipo === "ingreso variable" ? "Ingreso variable · suma" :
+    cat.tipo === "gasto fijo" ? "Gasto fijo · descuenta" :
+    cat.tipo === "gasto variable" ? "Gasto variable · descuenta" :
+    cat.tipo === "prestamo" ? "Préstamo · descuenta" :
+    "Gasto general · descuenta";
   return (
     <div className="rounded-2xl overflow-hidden bg-white" style={{ boxShadow: "var(--ae-shadow)" }}>
       <div className="p-4 flex items-center justify-between" style={{ background: `linear-gradient(135deg, ${cat.color}, ${cat.color}dd)`, color: "#fff" }}>
@@ -227,7 +234,7 @@ function ModalShell({ children, onClose, title }: { children: React.ReactNode; o
 
 function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { ambito: "negocio" | "casa"; uid: string; ordenInicial: number; onClose: () => void; onCreated: (cat: Categoria, abrirItem: boolean) => void }) {
   const [nombre, setNombre] = useState("");
-  const [tipo, setTipo] = useState<Tipo>("variable");
+  const [tipo, setTipo] = useState<Tipo>("gasto variable");
   const [color, setColor] = useState(PALETA[0]);
   const [icono, setIcono] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -248,16 +255,17 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
         <div>
           <label className="ae-label">Tipo</label>
           <div className="grid grid-cols-2 gap-2">
-            {([["gasto","Gasto"],["variable","Variable"],["gasto fijo","Gasto fijo"],["prestamo","Préstamos"],["ingreso","Ingreso"]] as [Tipo,string][]).map(([v, l]) => (
+            {([["gasto","Gasto"],["gasto variable","Gasto variable"],["gasto fijo","Gasto fijo"],["prestamo","Préstamos"],["ingreso","Ingreso fijo"],["ingreso variable","Ingreso variable"]] as [Tipo,string][]).map(([v, l]) => (
               <button key={v} onClick={() => setTipo(v)} className="py-2 rounded-xl text-xs font-semibold border" style={tipo === v ? { background: "var(--ae-ink)", color: "#fff", borderColor: "var(--ae-ink)" } : { borderColor: "var(--ae-line)" }}>{l}</button>
             ))}
           </div>
           <div className="text-[11px] mt-1.5" style={{ color: "var(--ae-ink-soft)" }}>
             {tipo === "gasto" && "Gasto general que se descuenta del balance (compras, pagos varios)."}
             {tipo === "gasto fijo" && "Mismo valor cada mes (arriendo, sueldos)."}
-            {tipo === "variable" && "Cambia cada mes (luz, agua, alimentación)."}
+            {tipo === "gasto variable" && "Gasto que cambia cada mes (luz, agua, alimentación)."}
             {tipo === "prestamo" && "Préstamos con cuotas — tendrá un flujo especial."}
-            {tipo === "ingreso" && "Suma al balance (ventas, sueldo del esposo)."}
+            {tipo === "ingreso" && "Ingreso fijo que suma al balance (sueldo, mesada)."}
+            {tipo === "ingreso variable" && "Ingreso que cambia cada mes (ventas, comisiones, propinas)."}
           </div>
         </div>
         <div>
