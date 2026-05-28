@@ -5,7 +5,7 @@ import { Plus, Trash2, X, ChevronRight, ChevronLeft, Pencil, Check } from "lucid
 import { toast } from "sonner";
 import { AeHeader } from "@/components/AeHeader";
 
-type Tipo = "fijo" | "variable" | "gasto" | "prestamo" | "ingreso";
+type Tipo = "gasto fijo" | "variable" | "gasto" | "prestamo" | "ingreso";
 interface Categoria { id: string; nombre: string; tipo: Tipo; color: string; icono: string | null; orden: number; ambito: string }
 interface Item { id: string; categoria_id: string; nombre: string; descripcion: string | null; valor: number; fecha: string; recurrencia: string; cuenta_pago: string | null }
 interface Prestamo { id: string; categoria_id: string | null; tipo: "banco" | "tarjeta" | "personal"; nombre: string; motivo: string | null; deuda_total: number; num_cuotas: number; valor_cuota: number; fecha_primera_cuota: string; observaciones: string | null }
@@ -145,7 +145,7 @@ function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditI
   onAdd: () => void; onEditItem: (item: Item) => void; onOpenPrestamo: (p: Prestamo) => void; onDeleteItem: (id: string) => void; onDeleteCat: () => void;
 }) {
   const esPrestamo = cat.tipo === "prestamo";
-  const tipoLabel = cat.tipo === "ingreso" ? "Ingreso · suma" : cat.tipo === "fijo" ? "Gasto fijo · descuenta" : cat.tipo === "prestamo" ? "Préstamo · descuenta" : cat.tipo === "gasto" ? "Gasto general · descuenta" : "Gasto variable · descuenta";
+  const tipoLabel = cat.tipo === "ingreso" ? "Ingreso · suma" : cat.tipo === "gasto fijo" ? "Gasto fijo · descuenta" : cat.tipo === "prestamo" ? "Préstamo · descuenta" : cat.tipo === "gasto" ? "Gasto general · descuenta" : "Gasto variable · descuenta";
   return (
     <div className="rounded-2xl overflow-hidden bg-white" style={{ boxShadow: "var(--ae-shadow)" }}>
       <div className="p-4 flex items-center justify-between" style={{ background: `linear-gradient(135deg, ${cat.color}, ${cat.color}dd)`, color: "#fff" }}>
@@ -248,13 +248,13 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
         <div>
           <label className="ae-label">Tipo</label>
           <div className="grid grid-cols-2 gap-2">
-            {([["gasto","Gasto"],["variable","Variable"],["fijo","Fijo"],["prestamo","Préstamos"],["ingreso","Ingreso"]] as [Tipo,string][]).map(([v, l]) => (
+            {([["gasto","Gasto"],["variable","Variable"],["gasto fijo","Gasto fijo"],["prestamo","Préstamos"],["ingreso","Ingreso"]] as [Tipo,string][]).map(([v, l]) => (
               <button key={v} onClick={() => setTipo(v)} className="py-2 rounded-xl text-xs font-semibold border" style={tipo === v ? { background: "var(--ae-ink)", color: "#fff", borderColor: "var(--ae-ink)" } : { borderColor: "var(--ae-line)" }}>{l}</button>
             ))}
           </div>
           <div className="text-[11px] mt-1.5" style={{ color: "var(--ae-ink-soft)" }}>
             {tipo === "gasto" && "Gasto general que se descuenta del balance (compras, pagos varios)."}
-            {tipo === "fijo" && "Mismo valor cada mes (arriendo, sueldos)."}
+            {tipo === "gasto fijo" && "Mismo valor cada mes (arriendo, sueldos)."}
             {tipo === "variable" && "Cambia cada mes (luz, agua, alimentación)."}
             {tipo === "prestamo" && "Préstamos con cuotas — tendrá un flujo especial."}
             {tipo === "ingreso" && "Suma al balance (ventas, sueldo del esposo)."}
@@ -295,7 +295,7 @@ function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }
   const [valor, setValor] = useState(item ? String(item.valor) : "");
   const [fecha, setFecha] = useState(item?.fecha ?? fechaDefault);
   const [cuenta, setCuenta] = useState(item?.cuenta_pago ?? "");
-  const [recur, setRecur] = useState<"ninguna" | "mismo_valor" | "mismo_concepto">((item?.recurrencia as "ninguna" | "mismo_valor" | "mismo_concepto" | undefined) ?? (categoria.tipo === "fijo" ? "mismo_valor" : "ninguna"));
+  const [recur, setRecur] = useState<"ninguna" | "mismo_valor" | "mismo_concepto">((item?.recurrencia as "ninguna" | "mismo_valor" | "mismo_concepto" | undefined) ?? (categoria.tipo === "gasto fijo" ? "mismo_valor" : "ninguna"));
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState(false);
 
