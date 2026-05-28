@@ -248,7 +248,7 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
         <div>
           <label className="ae-label">Tipo</label>
           <div className="grid grid-cols-2 gap-2">
-            {([["gasto","Gasto"],["variable","Variable"],["fijo","Fijo"],["prestamo","Préstamos"],["ingreso","Ingreso"]] as [Tipo,string][]).map(([v, l]) => (
+            {([["gasto","Gasto"],["variable","Variable"],["gasto fijo","Gasto fijo"],["prestamo","Préstamos"],["ingreso","Ingreso"]] as [Tipo,string][]).map(([v, l]) => (
               <button key={v} onClick={() => setTipo(v)} className="py-2 rounded-xl text-xs font-semibold border" style={tipo === v ? { background: "var(--ae-ink)", color: "#fff", borderColor: "var(--ae-ink)" } : { borderColor: "var(--ae-line)" }}>{l}</button>
             ))}
           </div>
