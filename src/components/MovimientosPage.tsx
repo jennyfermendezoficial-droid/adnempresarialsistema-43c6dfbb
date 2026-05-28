@@ -302,6 +302,8 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
 }
 
 function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }: { uid: string; categoria: Categoria; item?: Item; cuentas: CuentaBancaria[]; mesAncla: string; onClose: () => void; onSaved: () => void }) {
+  // placeholder anchor
+  void 0;
   const editing = Boolean(item);
   const fechaDefault = mesAncla;
   const [nombre, setNombre] = useState(item?.nombre ?? "");
