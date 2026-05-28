@@ -124,8 +124,8 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
             ${balance.toFixed(2)}
           </div>
           <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
-            <div><div className="opacity-70">Ingresos</div><div className="text-lg font-semibold" style={{ color: "#A8D547" }}>+${totalIngresos.toFixed(2)}</div></div>
-            <div><div className="opacity-70">Gastos</div><div className="text-lg font-semibold" style={{ color: "#E94B8C" }}>−${totalGastos.toFixed(2)}</div></div>
+            <div><div className="opacity-70">Ingresos que suman</div><div className="text-lg font-semibold" style={{ color: "#A8D547" }}>+${totalIngresos.toFixed(2)}</div></div>
+            <div><div className="opacity-70">Todo lo que descuenta</div><div className="text-lg font-semibold" style={{ color: "#E94B8C" }}>−${totalGastos.toFixed(2)}</div></div>
           </div>
         </div>
       </div>
@@ -145,7 +145,7 @@ function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditI
   onAdd: () => void; onEditItem: (item: Item) => void; onOpenPrestamo: (p: Prestamo) => void; onDeleteItem: (id: string) => void; onDeleteCat: () => void;
 }) {
   const esPrestamo = cat.tipo === "prestamo";
-  const tipoLabel = cat.tipo === "ingreso" ? "Ingreso" : cat.tipo === "fijo" ? "Fijo" : cat.tipo === "prestamo" ? "Préstamos" : cat.tipo === "gasto" ? "Gasto" : "Variable";
+  const tipoLabel = cat.tipo === "ingreso" ? "Ingreso · suma" : cat.tipo === "fijo" ? "Gasto fijo · descuenta" : cat.tipo === "prestamo" ? "Préstamo · descuenta" : cat.tipo === "gasto" ? "Gasto general · descuenta" : "Gasto variable · descuenta";
   return (
     <div className="rounded-2xl overflow-hidden bg-white" style={{ boxShadow: "var(--ae-shadow)" }}>
       <div className="p-4 flex items-center justify-between" style={{ background: `linear-gradient(135deg, ${cat.color}, ${cat.color}dd)`, color: "#fff" }}>
