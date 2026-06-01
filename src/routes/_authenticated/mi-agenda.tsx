@@ -320,6 +320,21 @@ function Page() {
                   <label className="ae-label">Notas</label>
                   <textarea rows={2} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="ae-input"/>
                 </div>
+                <label className="flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer" style={{ borderColor: "var(--ae-line)", background: "var(--ae-paper)" }}>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">Repetir todos los días</div>
+                    <div className="text-[11px]" style={{ color: "var(--ae-ink-soft)" }}>
+                      La actividad aparecerá cada día a la misma hora.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={form.recurrencia === "diaria"}
+                    onChange={(e) => setForm({ ...form, recurrencia: e.target.checked ? "diaria" : "ninguna" })}
+                    className="w-5 h-5 accent-current flex-shrink-0"
+                    style={{ accentColor: form.color }}
+                  />
+                </label>
               </div>
               <button onClick={guardar} disabled={saving} className="ae-btn-ink w-full mt-5 disabled:opacity-60">
                 {saving ? "Guardando…" : editing ? "Guardar cambios" : "Guardar actividad"}
