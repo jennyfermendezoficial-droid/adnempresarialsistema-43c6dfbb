@@ -13,6 +13,7 @@ interface Actividad {
   id: string; titulo: string; descripcion: string | null;
   fecha: string; hora_inicio: string; duracion_min: number;
   color: string | null; ubicacion: string | null; link: string | null;
+  recurrencia?: string | null;
 }
 
 const HORAS = Array.from({ length: 19 }, (_, i) => 5 + i); // 5–23
@@ -32,13 +33,22 @@ function Page() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Actividad | null>(null);
-  const emptyForm = { titulo: "", fecha, hora_inicio: "09:00", duracion_min: 60, descripcion: "", ubicacion: "", link: "", color: "#7A8B6F" };
+  const emptyForm = { titulo: "", fecha, hora_inicio: "09:00", duracion_min: 60, descripcion: "", ubicacion: "", link: "", color: "#7A8B6F", recurrencia: "ninguna" };
   const [form, setForm] = useState(emptyForm);
 
   const cargar = async () => {
     if (!uid) return;
-    const { data } = await supabase.from("ae_actividades").select("*").eq("usuario_id", uid).eq("fecha", fecha).order("hora_inicio");
-    setActs((data as Actividad[]) ?? []);
+    // Trae actividades del día Y recurrentes diarias creadas en/antes de la fecha
+    const { data } = await supabase
+      .from("ae_actividades")
+      .select("*")
+      .eq("usuario_id", uid)
+      .or(`fecha.eq.${fecha},recurrencia.eq.diaria`)
+      .order("hora_inicio");
+    const filtradas = ((data as Actividad[]) ?? []).filter(
+      (a) => a.fecha === fecha || (a.recurrencia === "diaria" && a.fecha <= fecha)
+    );
+    setActs(filtradas);
   };
   useEffect(() => { cargar(); }, [uid, fecha]); // eslint-disable-line
 
@@ -84,6 +94,7 @@ function Page() {
       ubicacion: actividad.ubicacion || "",
       link: actividad.link || "",
       color: actividad.color || "#7A8B6F",
+      recurrencia: actividad.recurrencia || "ninguna",
     });
     setOpen(true);
   };
@@ -96,6 +107,7 @@ function Page() {
       usuario_id: uid, titulo: form.titulo, descripcion: form.descripcion || null,
       fecha: form.fecha, hora_inicio: form.hora_inicio, duracion_min: form.duracion_min,
       color: form.color, ubicacion: form.ubicacion || null, link: form.link || null,
+      recurrencia: form.recurrencia || "ninguna",
     };
     const { error } = editing
       ? await supabase.from("ae_actividades").update(payload).eq("id", editing.id)
@@ -308,6 +320,21 @@ function Page() {
                   <label className="ae-label">Notas</label>
                   <textarea rows={2} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="ae-input"/>
                 </div>
+                <label className="flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer" style={{ borderColor: "var(--ae-line)", background: "var(--ae-paper)" }}>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">Repetir todos los días</div>
+                    <div className="text-[11px]" style={{ color: "var(--ae-ink-soft)" }}>
+                      La actividad aparecerá cada día a la misma hora.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={form.recurrencia === "diaria"}
+                    onChange={(e) => setForm({ ...form, recurrencia: e.target.checked ? "diaria" : "ninguna" })}
+                    className="w-5 h-5 accent-current flex-shrink-0"
+                    style={{ accentColor: form.color }}
+                  />
+                </label>
               </div>
               <button onClick={guardar} disabled={saving} className="ae-btn-ink w-full mt-5 disabled:opacity-60">
                 {saving ? "Guardando…" : editing ? "Guardar cambios" : "Guardar actividad"}
