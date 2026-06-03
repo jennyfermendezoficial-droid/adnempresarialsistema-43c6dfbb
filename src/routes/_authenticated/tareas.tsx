@@ -10,6 +10,16 @@ import {
   Calendar, Star, UserCircle2,
 } from "lucide-react";
 
+const MAX_FILES = 10;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+function getAllFiles(e: Entrega): ArchivoEntrega[] {
+  const extra = Array.isArray(e.archivos) ? e.archivos : [];
+  if (extra.length > 0) return extra;
+  if (e.archivo_url) return [{ url: e.archivo_url, nombre: e.archivo_nombre, tipo: e.archivo_tipo }];
+  return [];
+}
+
 export const Route = createFileRoute("/_authenticated/tareas")({ component: Page });
 
 interface Tarea {
