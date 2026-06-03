@@ -304,9 +304,25 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
 function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }: { uid: string; categoria: Categoria; item?: Item; cuentas: CuentaBancaria[]; mesAncla: string; onClose: () => void; onSaved: () => void }) {
   const editing = Boolean(item);
   const fechaDefault = mesAncla;
+  const esProveedor = /proveedor/i.test(categoria.nombre);
+
+  // Si es categoría de proveedores, intentamos leer factura/subtotal/iva desde la descripción guardada
+  const parseProv = (d: string | null | undefined) => {
+    if (!d) return { factura: "", obs: "", subtotal: "" };
+    const m = d.match(/Factura:\s*([^\|]+?)(?:\s*\|\s*Subtotal:\s*([\d.]+))?(?:\s*\|\s*IVA[^|]*)?(?:\s*\|\s*(.*))?$/i);
+    if (!m) return { factura: "", obs: d, subtotal: "" };
+    return { factura: (m[1] || "").trim(), subtotal: (m[2] || "").trim(), obs: (m[3] || "").trim() };
+  };
+  const prov0 = parseProv(item?.descripcion);
+
   const [nombre, setNombre] = useState(item?.nombre ?? "");
-  const [desc, setDesc] = useState(item?.descripcion ?? "");
+  const [desc, setDesc] = useState(esProveedor ? prov0.obs : (item?.descripcion ?? ""));
   const [valor, setValor] = useState(item ? String(item.valor) : "");
+  const [factura, setFactura] = useState(prov0.factura);
+  const [subtotal, setSubtotal] = useState(esProveedor && item ? (prov0.subtotal || (Number(item.valor) / 1.15).toFixed(2)) : "");
+  const IVA_RATE = 0.15;
+  const ivaCalc = esProveedor ? Number(subtotal || 0) * IVA_RATE : 0;
+  const totalCalc = esProveedor ? Number(subtotal || 0) + ivaCalc : Number(valor || 0);
   const [fecha, setFecha] = useState(item?.fecha ?? fechaDefault);
   const [cuenta, setCuenta] = useState(item?.cuenta_pago ?? "");
   const [recur, setRecur] = useState<"ninguna" | "mismo_valor" | "mismo_concepto">((item?.recurrencia as "ninguna" | "mismo_valor" | "mismo_concepto" | undefined) ?? (categoria.tipo === "gasto fijo" ? "mismo_valor" : "ninguna"));
@@ -314,9 +330,17 @@ function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }
   const [flash, setFlash] = useState(false);
 
   const guardar = async (continuar: boolean) => {
-    if (!nombre.trim() || !valor) return toast.error("Nombre y valor son obligatorios");
+    if (esProveedor) {
+      if (!nombre.trim() || !factura.trim() || !subtotal) return toast.error("Proveedor, # factura y valor sin IVA son obligatorios");
+    } else {
+      if (!nombre.trim() || !valor) return toast.error("Nombre y valor son obligatorios");
+    }
     setSaving(true);
-    const payload = { usuario_id: uid, categoria_id: categoria.id, nombre, descripcion: desc || null, valor: Number(valor), fecha, recurrencia: recur, cuenta_pago: cuenta.trim() || null };
+    const descFinal = esProveedor
+      ? `Factura: ${factura.trim()} | Subtotal: ${Number(subtotal).toFixed(2)} | IVA 15%: ${ivaCalc.toFixed(2)}${desc.trim() ? ` | ${desc.trim()}` : ""}`
+      : (desc || null);
+    const valorFinal = esProveedor ? Number(totalCalc.toFixed(2)) : Number(valor);
+    const payload = { usuario_id: uid, categoria_id: categoria.id, nombre, descripcion: descFinal, valor: valorFinal, fecha, recurrencia: recur, cuenta_pago: cuenta.trim() || null };
     const { error } = editing && item
       ? await supabase.from("ae_items_cat").update(payload).eq("id", item.id)
       : await supabase.from("ae_items_cat").insert(payload);
@@ -326,7 +350,7 @@ function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }
     onSaved();
     if (continuar && !editing) {
       setFlash(true); setTimeout(() => setFlash(false), 600);
-      setNombre(""); setDesc(""); setValor(""); setCuenta("");
+      setNombre(""); setDesc(""); setValor(""); setCuenta(""); setFactura(""); setSubtotal("");
     } else {
       onClose();
     }
@@ -339,12 +363,31 @@ function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }
       </div>}
       {flash && <div className="rounded-xl p-2 mb-2 text-xs font-semibold text-center" style={{ background: "#A8D547", color: "#1F1B16" }}>✓ Guardado</div>}
       <div className="space-y-3">
-        <div><label className="ae-label">Nombre del ítem</label><input className="ae-input" placeholder="Ej. Pago de luz" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus/></div>
-        <div><label className="ae-label">Descripción (opcional)</label><input className="ae-input" placeholder="Ej. Empresa Eléctrica – mayo" value={desc} onChange={(e) => setDesc(e.target.value)}/></div>
-        <div className="grid grid-cols-2 gap-2">
-          <div><label className="ae-label">Valor (USD)</label><input type="number" step="0.01" className="ae-input" placeholder="0.00" value={valor} onChange={(e) => setValor(e.target.value)}/></div>
-          <div><label className="ae-label">Fecha</label><input type="date" className="ae-input" value={fecha} onChange={(e) => setFecha(e.target.value)}/></div>
-        </div>
+        {esProveedor ? (
+          <>
+            <div><label className="ae-label">Nombre del proveedor</label><input className="ae-input" placeholder="Ej. Distribuidora XYZ" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus/></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><label className="ae-label"># Factura</label><input className="ae-input" placeholder="001-001-000123" value={factura} onChange={(e) => setFactura(e.target.value)}/></div>
+              <div><label className="ae-label">Fecha</label><input type="date" className="ae-input" value={fecha} onChange={(e) => setFecha(e.target.value)}/></div>
+            </div>
+            <div><label className="ae-label">Descripción (opcional)</label><input className="ae-input" placeholder="Ej. Compra de insumos" value={desc} onChange={(e) => setDesc(e.target.value)}/></div>
+            <div><label className="ae-label">Valor sin IVA (USD)</label><input type="number" step="0.01" className="ae-input" placeholder="0.00" value={subtotal} onChange={(e) => setSubtotal(e.target.value)}/></div>
+            <div className="rounded-xl p-3 grid grid-cols-3 gap-2 text-center" style={{ background: "var(--ae-paper)" }}>
+              <div><div className="text-[10px] uppercase opacity-70">Subtotal</div><div className="font-semibold tabular-nums text-sm">${Number(subtotal || 0).toFixed(2)}</div></div>
+              <div><div className="text-[10px] uppercase opacity-70">IVA 15%</div><div className="font-semibold tabular-nums text-sm">${ivaCalc.toFixed(2)}</div></div>
+              <div><div className="text-[10px] uppercase opacity-70">Total</div><div className="font-bold tabular-nums text-sm" style={{ color: categoria.color }}>${totalCalc.toFixed(2)}</div></div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div><label className="ae-label">Nombre del ítem</label><input className="ae-input" placeholder="Ej. Pago de luz" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus/></div>
+            <div><label className="ae-label">Descripción (opcional)</label><input className="ae-input" placeholder="Ej. Empresa Eléctrica – mayo" value={desc} onChange={(e) => setDesc(e.target.value)}/></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><label className="ae-label">Valor (USD)</label><input type="number" step="0.01" className="ae-input" placeholder="0.00" value={valor} onChange={(e) => setValor(e.target.value)}/></div>
+              <div><label className="ae-label">Fecha</label><input type="date" className="ae-input" value={fecha} onChange={(e) => setFecha(e.target.value)}/></div>
+            </div>
+          </>
+        )}
         <div><label className="ae-label">Cuenta bancaria / método de pago</label><select className="ae-input" value={cuenta} onChange={(e) => setCuenta(e.target.value)}><option value="">{cuentas.length ? "Sin cuenta específica" : "Primero crea una cuenta en Mis cuentas bancarias"}</option>{cuentas.map(c => <option key={c.id} value={`${c.nombre} – ${c.numero_cuenta}`}>{c.nombre} – {c.numero_cuenta}</option>)}</select></div>
         <div>
           <label className="ae-label">¿Se repite cada mes?</label>
