@@ -1,0 +1,1 @@
+ALTER TABLE public.ae_actividades ADD COLUMN IF NOT EXISTS recurrencia_hasta date;

@@ -14,6 +14,7 @@ interface Actividad {
   fecha: string; hora_inicio: string; duracion_min: number;
   color: string | null; ubicacion: string | null; link: string | null;
   recurrencia?: string | null;
+  recurrencia_hasta?: string | null;
 }
 
 const HORAS = Array.from({ length: 19 }, (_, i) => 5 + i); // 5–23
@@ -25,15 +26,23 @@ const COLORES = [
   { name: "Lectura", v: "#8B6B8B" },
 ];
 
+// Formatea Date local a YYYY-MM-DD evitando desfase de zona horaria (UTC)
+function toLocalYMD(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function Page() {
   const { session } = useAuth();
   const uid = session?.user.id;
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(() => toLocalYMD(new Date()));
   const [acts, setActs] = useState<Actividad[]>([]);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Actividad | null>(null);
-  const emptyForm = { titulo: "", fecha, hora_inicio: "09:00", duracion_min: 60, descripcion: "", ubicacion: "", link: "", color: "#7A8B6F", recurrencia: "ninguna" };
+  const emptyForm = { titulo: "", fecha, hora_inicio: "09:00", duracion_min: 60, descripcion: "", ubicacion: "", link: "", color: "#7A8B6F", recurrencia: "ninguna", recurrencia_hasta: "" };
   const [form, setForm] = useState(emptyForm);
 
   const cargar = async () => {
@@ -46,7 +55,11 @@ function Page() {
       .or(`fecha.eq.${fecha},recurrencia.eq.diaria`)
       .order("hora_inicio");
     const filtradas = ((data as Actividad[]) ?? []).filter(
-      (a) => a.fecha === fecha || (a.recurrencia === "diaria" && a.fecha <= fecha)
+      (a) =>
+        a.fecha === fecha ||
+        (a.recurrencia === "diaria" &&
+          a.fecha <= fecha &&
+          (!a.recurrencia_hasta || a.recurrencia_hasta >= fecha))
     );
     setActs(filtradas);
   };
@@ -68,7 +81,7 @@ function Page() {
   // Próxima notificación = primera actividad futura del día
   const proxima = useMemo(() => {
     const ahora = new Date();
-    const hoy = ahora.toISOString().slice(0, 10);
+    const hoy = toLocalYMD(ahora);
     if (fecha !== hoy) return acts[0] ?? null;
     const nowMin = ahora.getHours() * 60 + ahora.getMinutes();
     return acts.find(a => {
@@ -95,6 +108,7 @@ function Page() {
       link: actividad.link || "",
       color: actividad.color || "#7A8B6F",
       recurrencia: actividad.recurrencia || "ninguna",
+      recurrencia_hasta: actividad.recurrencia_hasta || "",
     });
     setOpen(true);
   };
@@ -102,12 +116,16 @@ function Page() {
   const guardar = async () => {
     if (saving) return;
     if (!uid || !form.titulo.trim()) return toast.error("Pon un título");
+    if (form.recurrencia === "diaria" && form.recurrencia_hasta && form.recurrencia_hasta < form.fecha) {
+      return toast.error("La fecha final debe ser igual o posterior a la fecha de inicio");
+    }
     setSaving(true);
     const payload = {
       usuario_id: uid, titulo: form.titulo, descripcion: form.descripcion || null,
       fecha: form.fecha, hora_inicio: form.hora_inicio, duracion_min: form.duracion_min,
       color: form.color, ubicacion: form.ubicacion || null, link: form.link || null,
       recurrencia: form.recurrencia || "ninguna",
+      recurrencia_hasta: form.recurrencia === "diaria" && form.recurrencia_hasta ? form.recurrencia_hasta : null,
     };
     const { error } = editing
       ? await supabase.from("ae_actividades").update(payload).eq("id", editing.id)
@@ -148,7 +166,7 @@ function Page() {
         <div className="ae-eyebrow mb-2">Mi día</div>
         <div className="flex gap-2 overflow-x-auto pb-2 mb-5 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
           {dias.map(({ d, dow, num }) => {
-            const v = d.toISOString().slice(0, 10);
+            const v = toLocalYMD(d);
             const sel = v === fecha;
             return (
               <button key={v} onClick={() => setFecha(v)} className={`ae-day ${sel ? "ae-day-active" : ""}`}>
@@ -335,6 +353,21 @@ function Page() {
                     style={{ accentColor: form.color }}
                   />
                 </label>
+                {form.recurrencia === "diaria" && (
+                  <div>
+                    <label className="ae-label">Repetir hasta (opcional)</label>
+                    <input
+                      type="date"
+                      value={form.recurrencia_hasta}
+                      min={form.fecha}
+                      onChange={(e) => setForm({ ...form, recurrencia_hasta: e.target.value })}
+                      className="ae-input"
+                    />
+                    <div className="text-[11px] mt-1" style={{ color: "var(--ae-ink-soft)" }}>
+                      Déjalo vacío para repetir indefinidamente.
+                    </div>
+                  </div>
+                )}
               </div>
               <button onClick={guardar} disabled={saving} className="ae-btn-ink w-full mt-5 disabled:opacity-60">
                 {saving ? "Guardando…" : editing ? "Guardar cambios" : "Guardar actividad"}
