@@ -27,7 +27,7 @@ function Page() {
   const uid = session?.user.id;
   const [cfg, setCfg] = useState<Cfg | null>(null);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<Cfg>({ inicio_video_url: "", inicio_titulo: "", inicio_mensaje: "" });
+  const [draft, setDraft] = useState<Cfg>({ inicio_video_url: "", inicio_titulo: "", inicio_mensaje: "", tutorial_alumnos_url: "", tutorial_profesores_url: "" });
   const [progreso, setProgreso] = useState<{ pct: number; vistas: number; total: number } | null>(null);
   const [proxSesion, setProxSesion] = useState<{ fecha: string; hora_inicio: string; zoom_link: string | null; otroNombre: string } | null>(null);
   const [sinLeer, setSinLeer] = useState<number>(0);
