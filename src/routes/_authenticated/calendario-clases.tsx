@@ -19,6 +19,7 @@ function Page() {
   const [clases, setClases] = useState<Clase[]>([]);
   const [newOn, setNewOn] = useState<string | null>(null);
   const [staff, setStaff] = useState<{ id: string; nombre: string }[]>([]);
+  const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
     titulo: "",
     descripcion: "",
@@ -59,7 +60,8 @@ function Page() {
   };
 
   const crear = async () => {
-    if (!newOn || !session) return;
+    if (!newOn || !session || creating) return;
+    setCreating(true);
     const [h1,m1] = form.hora_inicio.split(":").map(Number);
     const [h2,m2] = form.hora_fin.split(":").map(Number);
     const dur = (h2*60+m2) - (h1*60+m1);
@@ -76,14 +78,22 @@ function Page() {
           cursor2.setDate(cursor2.getDate() + 7);
         }
       }
+      // Nombre del profesor que dicta
+      const profId = form.profesor_id || session.user.id;
+      const prof = staff.find((s) => s.id === profId);
+      const nombreProf = prof?.nombre || "Profesor";
+      const topic = `${form.titulo} – ${nombreProf}`;
+      const agenda = form.descripcion
+        ? `${form.descripcion}\n\nDicta: ${nombreProf}`
+        : `Dicta: ${nombreProf}`;
       const nuevas: Clase[] = [];
       for (const f of fechas) {
-        const zoom = await createZoom({ data: { topic: form.titulo, start_time: `${f}T${form.hora_inicio}:00`, duration: Math.max(15, dur) } });
+        const zoom = await createZoom({ data: { topic, start_time: `${f}T${form.hora_inicio}:00`, duration: Math.max(15, dur), agenda } });
         const { data, error } = await supabase.from("clases_en_vivo").insert({
           fecha: f, hora_inicio: form.hora_inicio + ":00", hora_fin: form.hora_fin + ":00",
           titulo: form.titulo, descripcion: form.descripcion || null,
           zoom_meeting_id: zoom.meeting_id, zoom_link: zoom.join_url,
-          profesor_id: form.profesor_id || session.user.id, created_by: session.user.id,
+          profesor_id: profId, created_by: session.user.id,
         }).select().single();
         if (error) throw error;
         nuevas.push(data as Clase);
@@ -93,6 +103,7 @@ function Page() {
       setForm({ titulo: "", descripcion: "", hora_inicio: "10:00", hora_fin: "11:00", repetir: false, repetir_hasta: "", profesor_id: "" });
       toast.success(nuevas.length > 1 ? `${nuevas.length} clases creadas (con Zoom)` : "Clase creada con Zoom");
     } catch (e) { toast.error((e as Error).message); }
+    finally { setCreating(false); }
   };
 
   const eliminar = async (id: string) => {
@@ -134,9 +145,12 @@ function Page() {
               )}
             </div>
             {dayClases(d).map((c) => (
-              <div key={c.id} className="text-[10px] rounded-lg p-1.5 bg-violet-gradient text-white shadow-sm">
+              <div key={c.id} title={c.descripcion ?? c.titulo} className="text-[10px] rounded-lg p-1.5 bg-violet-gradient text-white shadow-sm">
                 <div className="font-semibold truncate">{c.titulo}</div>
                 <div className="opacity-90">{c.hora_inicio.slice(0,5)}</div>
+                {c.descripcion && (
+                  <div className="opacity-90 line-clamp-2 mt-0.5">{c.descripcion}</div>
+                )}
                 {c.zoom_link && <a href={c.zoom_link} target="_blank" rel="noreferrer" className="underline flex items-center gap-0.5"><Video className="w-2.5 h-2.5"/>Zoom</a>}
                 {isStaff && <button onClick={() => eliminar(c.id)} className="underline mt-0.5 flex items-center gap-0.5"><Trash2 className="w-2.5 h-2.5"/>Eliminar</button>}
               </div>
@@ -180,8 +194,10 @@ function Page() {
               <p className="text-[11px] opacity-60">Se crearán clases independientes cada semana. Puedes editar o eliminar cualquiera por separado (por ej. cambiar el nombre del próximo lunes).</p>
             </div>
             <div className="flex gap-2 justify-end pt-2">
-              <button onClick={() => setNewOn(null)} className="px-4 py-2 rounded-lg border">Cancelar</button>
-              <button disabled={!form.titulo || (form.repetir && !form.repetir_hasta)} onClick={crear} className="px-4 py-2 rounded-lg bg-violet-gradient text-white disabled:opacity-50">Crear con Zoom</button>
+              <button disabled={creating} onClick={() => setNewOn(null)} className="px-4 py-2 rounded-lg border">Cancelar</button>
+              <button disabled={creating || !form.titulo || (form.repetir && !form.repetir_hasta)} onClick={crear} className="px-4 py-2 rounded-lg bg-violet-gradient text-white disabled:opacity-50">
+                {creating ? "Creando…" : "Crear con Zoom"}
+              </button>
             </div>
           </div>
         </div>

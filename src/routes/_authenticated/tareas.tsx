@@ -776,9 +776,15 @@ function EntregaRow({
         </div>
         <div className="flex items-center gap-1">
           <IconBtn onClick={descargar} title="Descargar"><Download className="w-4 h-4" style={{ color: "var(--violet)" }} /></IconBtn>
-          <IconBtn onClick={() => setShowGrade(!showGrade)} title="Calificar">
-            <Award className="w-4 h-4" style={{ color: entrega.calificacion != null ? "var(--violet)" : "var(--muted)" }} />
-          </IconBtn>
+          <button
+            onClick={() => setShowGrade(!showGrade)}
+            title="Calificar"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm"
+            style={{ background: "linear-gradient(135deg,var(--violet),var(--violet-2))" }}
+          >
+            <Award className="w-3.5 h-3.5" />
+            {entrega.calificacion != null ? "Editar nota" : "Calificar"}
+          </button>
           <IconBtn onClick={eliminar} title="Eliminar"><Trash2 className="w-4 h-4 text-red-500" /></IconBtn>
         </div>
       </div>
