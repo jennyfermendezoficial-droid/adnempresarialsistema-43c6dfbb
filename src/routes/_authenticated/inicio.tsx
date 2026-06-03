@@ -149,17 +149,6 @@ function Page() {
     setCfg(draft); setEditing(false); toast.success("Guardado");
   };
 
-  const saveTutorial = async (kind: "alumnos" | "profesores", videoId: string | null) => {
-    const payload = kind === "alumnos"
-      ? { tutorial_alumnos_url: videoId }
-      : { tutorial_profesores_url: videoId };
-    const { error } = await supabase.from("app_config").update(payload).eq("id", true);
-    if (error) { toast.error(error.message); return false; }
-    setCfg((c) => c ? { ...c, ...payload } as Cfg : c);
-    setDraft((d) => ({ ...d, ...payload } as Cfg));
-    return true;
-  };
-
   const onFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
