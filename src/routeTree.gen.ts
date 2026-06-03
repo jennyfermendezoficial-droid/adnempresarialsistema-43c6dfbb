@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedTutorialesRouteImport } from './routes/_authenticated/tutoriales'
 import { Route as AuthenticatedTareasRouteImport } from './routes/_authenticated/tareas'
 import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticated/permisos'
 import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
@@ -61,6 +62,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTutorialesRoute = AuthenticatedTutorialesRouteImport.update({
+  id: '/tutoriales',
+  path: '/tutoriales',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTareasRoute = AuthenticatedTareasRouteImport.update({
   id: '/tareas',
@@ -212,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
   '/tareas': typeof AuthenticatedTareasRoute
+  '/tutoriales': typeof AuthenticatedTutorialesRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
   '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
   '/cursos/': typeof AuthenticatedCursosIndexRoute
@@ -241,6 +248,7 @@ export interface FileRoutesByTo {
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
   '/tareas': typeof AuthenticatedTareasRoute
+  '/tutoriales': typeof AuthenticatedTutorialesRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
   '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
   '/cursos': typeof AuthenticatedCursosIndexRoute
@@ -272,6 +280,7 @@ export interface FileRoutesById {
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/permisos': typeof AuthenticatedPermisosRoute
   '/_authenticated/tareas': typeof AuthenticatedTareasRoute
+  '/_authenticated/tutoriales': typeof AuthenticatedTutorialesRoute
   '/_authenticated/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
   '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
   '/_authenticated/cursos/': typeof AuthenticatedCursosIndexRoute
@@ -303,6 +312,7 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/permisos'
     | '/tareas'
+    | '/tutoriales'
     | '/cursos/$cursoId'
     | '/api/public/zoom-webhook'
     | '/cursos/'
@@ -332,6 +342,7 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/permisos'
     | '/tareas'
+    | '/tutoriales'
     | '/cursos/$cursoId'
     | '/api/public/zoom-webhook'
     | '/cursos'
@@ -362,6 +373,7 @@ export interface FileRouteTypes {
     | '/_authenticated/perfil'
     | '/_authenticated/permisos'
     | '/_authenticated/tareas'
+    | '/_authenticated/tutoriales'
     | '/_authenticated/cursos/$cursoId'
     | '/api/public/zoom-webhook'
     | '/_authenticated/cursos/'
@@ -412,6 +424,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/tutoriales': {
+      id: '/_authenticated/tutoriales'
+      path: '/tutoriales'
+      fullPath: '/tutoriales'
+      preLoaderRoute: typeof AuthenticatedTutorialesRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tareas': {
       id: '/_authenticated/tareas'
@@ -598,6 +617,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPermisosRoute: typeof AuthenticatedPermisosRoute
   AuthenticatedTareasRoute: typeof AuthenticatedTareasRoute
+  AuthenticatedTutorialesRoute: typeof AuthenticatedTutorialesRoute
   AuthenticatedCursosCursoIdRoute: typeof AuthenticatedCursosCursoIdRoute
   AuthenticatedCursosIndexRoute: typeof AuthenticatedCursosIndexRoute
 }
@@ -623,6 +643,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPermisosRoute: AuthenticatedPermisosRoute,
   AuthenticatedTareasRoute: AuthenticatedTareasRoute,
+  AuthenticatedTutorialesRoute: AuthenticatedTutorialesRoute,
   AuthenticatedCursosCursoIdRoute: AuthenticatedCursosCursoIdRoute,
   AuthenticatedCursosIndexRoute: AuthenticatedCursosIndexRoute,
 }

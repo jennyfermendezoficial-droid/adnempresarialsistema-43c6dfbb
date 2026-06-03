@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Home, BookOpen, CalendarDays, Users, MessageSquare,
   ShieldCheck, Wallet, Gift, LogOut, Hash, Headphones, Calendar,
-  Clock3, CalendarRange, Briefcase, Home as HomeIcon, BarChart3, FileText, Landmark, Bell,
+  Clock3, CalendarRange, Briefcase, Home as HomeIcon, BarChart3, FileText, Landmark, Bell, GraduationCap,
 } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
@@ -10,7 +10,10 @@ import { InstallAppButton } from "./InstallAppButton";
 
 interface Item { to: string; label: string; icon: typeof Home; }
 
-const inicioItems: Item[] =  [{ to: "/inicio", label: "Inicio", icon: Home }];
+const inicioItems: Item[] =  [
+  { to: "/inicio", label: "Inicio", icon: Home },
+  { to: "/tutoriales", label: "Tutoriales", icon: GraduationCap },
+];
 const canalesItems: Item[] = [
   { to: "/general", label: "General", icon: Hash },
 ];
