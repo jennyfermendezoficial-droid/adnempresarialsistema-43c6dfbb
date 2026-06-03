@@ -150,11 +150,13 @@ function Page() {
   };
 
   const saveTutorial = async (kind: "alumnos" | "profesores", videoId: string | null) => {
-    const col = kind === "alumnos" ? "tutorial_alumnos_url" : "tutorial_profesores_url";
-    const { error } = await supabase.from("app_config").update({ [col]: videoId }).eq("id", true);
+    const payload = kind === "alumnos"
+      ? { tutorial_alumnos_url: videoId }
+      : { tutorial_profesores_url: videoId };
+    const { error } = await supabase.from("app_config").update(payload).eq("id", true);
     if (error) { toast.error(error.message); return false; }
-    setCfg((c) => c ? { ...c, [col]: videoId } as Cfg : c);
-    setDraft((d) => ({ ...d, [col]: videoId } as Cfg));
+    setCfg((c) => c ? { ...c, ...payload } as Cfg : c);
+    setDraft((d) => ({ ...d, ...payload } as Cfg));
     return true;
   };
 
