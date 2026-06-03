@@ -5,7 +5,7 @@ import { Plus, Trash2, X, ChevronRight, ChevronLeft, Pencil, Check } from "lucid
 import { toast } from "sonner";
 import { AeHeader } from "@/components/AeHeader";
 
-type Tipo = "gasto fijo" | "gasto variable" | "gasto" | "prestamo" | "ingreso" | "ingreso variable";
+type Tipo = "gasto fijo" | "gasto variable" | "gasto" | "prestamo" | "ingreso" | "ingreso variable" | "proveedor";
 interface Categoria { id: string; nombre: string; tipo: Tipo; color: string; icono: string | null; orden: number; ambito: string }
 interface Item { id: string; categoria_id: string; nombre: string; descripcion: string | null; valor: number; fecha: string; recurrencia: string; cuenta_pago: string | null }
 interface Prestamo { id: string; categoria_id: string | null; tipo: "banco" | "tarjeta" | "personal"; nombre: string; motivo: string | null; deuda_total: number; num_cuotas: number; valor_cuota: number; fecha_primera_cuota: string; observaciones: string | null }
@@ -155,6 +155,7 @@ function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditI
     cat.tipo === "gasto fijo" ? "Gasto fijo · descuenta" :
     cat.tipo === "gasto variable" ? "Gasto variable · descuenta" :
     cat.tipo === "prestamo" ? "Préstamo · descuenta" :
+    cat.tipo === "proveedor" ? "Proveedor · descuenta" :
     "Gasto general · descuenta";
   return (
     <div className="rounded-2xl overflow-hidden bg-white" style={{ boxShadow: "var(--ae-shadow)" }}>
@@ -261,8 +262,8 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
         <div>
           <label className="ae-label">Tipo</label>
           <div className="grid grid-cols-2 gap-2">
-            {([["gasto","Gasto"],["gasto variable","Gasto variable"],["gasto fijo","Gasto fijo"],["prestamo","Préstamos"],["ingreso","Ingreso fijo"],["ingreso variable","Ingreso variable"]] as [Tipo,string][]).map(([v, l]) => (
-              <button key={v} onClick={() => setTipo(v)} className="py-2 rounded-xl text-xs font-semibold border" style={tipo === v ? { background: "var(--ae-ink)", color: "#fff", borderColor: "var(--ae-ink)" } : { borderColor: "var(--ae-line)" }}>{l}</button>
+            {([["gasto","Gasto"],["gasto variable","Gasto variable"],["gasto fijo","Gasto fijo"],["prestamo","Préstamos"],["ingreso","Ingreso fijo"],["ingreso variable","Ingreso variable"],["proveedor","Proveedor"]] as [Tipo,string][]).map(([v, l]) => (
+              <button key={v} onClick={() => setTipo(v)} className="py-2 px-2 rounded-xl text-xs font-semibold border text-center flex items-center justify-center" style={tipo === v ? { background: "var(--ae-ink)", color: "#fff", borderColor: "var(--ae-ink)" } : { borderColor: "var(--ae-line)" }}>{l}</button>
             ))}
           </div>
           <div className="text-[11px] mt-1.5" style={{ color: "var(--ae-ink-soft)" }}>
@@ -272,6 +273,7 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
             {tipo === "prestamo" && "Préstamos con cuotas — tendrá un flujo especial."}
             {tipo === "ingreso" && "Ingreso fijo que suma al balance (sueldo, mesada)."}
             {tipo === "ingreso variable" && "Ingreso que cambia cada mes (ventas, comisiones, propinas)."}
+            {tipo === "proveedor" && "Proveedores: registra factura, fecha, subtotal y calcula IVA 15% automáticamente."}
           </div>
         </div>
         <div>
@@ -304,7 +306,7 @@ function ModalCategoria({ ambito, uid, ordenInicial, onClose, onCreated }: { amb
 function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }: { uid: string; categoria: Categoria; item?: Item; cuentas: CuentaBancaria[]; mesAncla: string; onClose: () => void; onSaved: () => void }) {
   const editing = Boolean(item);
   const fechaDefault = mesAncla;
-  const esProveedor = /proveedor/i.test(categoria.nombre);
+  const esProveedor = categoria.tipo === "proveedor" || /proveedor/i.test(categoria.nombre);
 
   // Si es categoría de proveedores, intentamos leer factura/subtotal/iva desde la descripción guardada
   const parseProv = (d: string | null | undefined) => {
@@ -607,8 +609,8 @@ function ModalEditarCategoria({ uid, categoria, onClose, onSaved }: { uid: strin
         <div>
           <label className="ae-label">Tipo</label>
           <div className="grid grid-cols-2 gap-2">
-            {([["gasto","Gasto"],["gasto variable","Gasto variable"],["gasto fijo","Gasto fijo"],["prestamo","Préstamos"],["ingreso","Ingreso fijo"],["ingreso variable","Ingreso variable"]] as [Tipo,string][]).map(([v, l]) => (
-              <button key={v} onClick={() => setTipo(v)} className="py-2 rounded-xl text-xs font-semibold border" style={tipo === v ? { background: "var(--ae-ink)", color: "#fff", borderColor: "var(--ae-ink)" } : { borderColor: "var(--ae-line)" }}>{l}</button>
+            {([["gasto","Gasto"],["gasto variable","Gasto variable"],["gasto fijo","Gasto fijo"],["prestamo","Préstamos"],["ingreso","Ingreso fijo"],["ingreso variable","Ingreso variable"],["proveedor","Proveedor"]] as [Tipo,string][]).map(([v, l]) => (
+              <button key={v} onClick={() => setTipo(v)} className="py-2 px-2 rounded-xl text-xs font-semibold border text-center flex items-center justify-center" style={tipo === v ? { background: "var(--ae-ink)", color: "#fff", borderColor: "var(--ae-ink)" } : { borderColor: "var(--ae-line)" }}>{l}</button>
             ))}
           </div>
         </div>
