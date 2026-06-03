@@ -214,7 +214,7 @@ function StudentUploader({
       const all = [...existing, ...uploaded];
       if (mine) {
         const { error } = await supabase.from("tareas_entregas").update({
-          archivos: all,
+          archivos: all as unknown as never,
           archivo_url: all[0].url,
           archivo_nombre: all[0].nombre,
           archivo_tipo: all[0].tipo ?? null,
@@ -228,7 +228,7 @@ function StudentUploader({
           archivo_url: all[0].url,
           archivo_nombre: all[0].nombre,
           archivo_tipo: all[0].tipo ?? null,
-          archivos: all,
+          archivos: all as unknown as never,
           comentario: comentario || null,
         });
         if (error) throw error;
@@ -256,7 +256,7 @@ function StudentUploader({
       if (error) return toast.error(error.message);
     } else {
       const { error } = await supabase.from("tareas_entregas").update({
-        archivos: next,
+        archivos: next as unknown as never,
         archivo_url: next[0].url,
         archivo_nombre: next[0].nombre,
         archivo_tipo: next[0].tipo ?? null,
