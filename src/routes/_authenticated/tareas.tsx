@@ -792,14 +792,15 @@ function EntregaRow({
   const [fb, setFb] = useState(entrega.feedback ?? "");
   const [saving, setSaving] = useState(false);
 
-  const descargar = async () => {
-    const { data, error } = await supabase.storage.from("tareas").createSignedUrl(entrega.archivo_url, 60);
+  const files = getAllFiles(entrega);
+  const descargarUno = async (path: string) => {
+    const { data, error } = await supabase.storage.from("tareas").createSignedUrl(path, 60);
     if (error) return toast.error(error.message);
     window.open(data.signedUrl, "_blank");
   };
   const eliminar = async () => {
-    if (!confirm("¿Eliminar esta entrega?")) return;
-    try { await supabase.storage.from("tareas").remove([entrega.archivo_url]); } catch {}
+    if (!confirm("¿Eliminar esta entrega y todos sus archivos?")) return;
+    try { await supabase.storage.from("tareas").remove(files.map((f) => f.url)); } catch {}
     const { error } = await supabase.from("tareas_entregas").delete().eq("id", entrega.id);
     if (error) return toast.error(error.message);
     toast.success("Eliminada");
