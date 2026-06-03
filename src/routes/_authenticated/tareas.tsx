@@ -10,6 +10,16 @@ import {
   Calendar, Star, UserCircle2,
 } from "lucide-react";
 
+const MAX_FILES = 10;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+function getAllFiles(e: Entrega): ArchivoEntrega[] {
+  const extra = Array.isArray(e.archivos) ? e.archivos : [];
+  if (extra.length > 0) return extra;
+  if (e.archivo_url) return [{ url: e.archivo_url, nombre: e.archivo_nombre, tipo: e.archivo_tipo }];
+  return [];
+}
+
 export const Route = createFileRoute("/_authenticated/tareas")({ component: Page });
 
 interface Tarea {
@@ -32,7 +42,9 @@ interface Entrega {
   calificacion: number | null;
   feedback: string | null;
   created_at: string;
+  archivos?: ArchivoEntrega[] | null;
 }
+export interface ArchivoEntrega { url: string; nombre: string; tipo?: string | null; size?: number; [k: string]: unknown }
 interface Curso { id: string; nombre: string }
 interface Profile { id: string; nombre_completo: string; email: string; avatar_url: string | null }
 
@@ -170,34 +182,59 @@ function StudentUploader({
   const [comentario, setComentario] = useState(mine?.comentario ?? "");
   const [progress, setProgress] = useState(0);
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const existing = mine ? getAllFiles(mine) : [];
+
+  const uploadOne = async (file: File): Promise<ArchivoEntrega> => {
+    const ext = file.name.split(".").pop() ?? "bin";
+    const path = `${uid}/${tarea.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("tareas").upload(path, file, { upsert: false });
+    if (upErr) throw upErr;
+    return { url: path, nombre: file.name, tipo: file.type || ext, size: file.size };
+  };
+
+  const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
-    if (file.size > 50 * 1024 * 1024) return toast.error("El archivo no puede superar 50 MB");
+    if (!files.length) return;
+    const room = MAX_FILES - existing.length;
+    if (room <= 0) return toast.error(`Máximo ${MAX_FILES} archivos por entrega`);
+    const toUpload = files.slice(0, room);
+    if (files.length > room) toast.warning(`Solo se subirán ${room} (límite ${MAX_FILES})`);
+    for (const f of toUpload) {
+      if (f.size > MAX_FILE_SIZE) return toast.error(`"${f.name}" supera 50 MB`);
+    }
     try {
       setUploading(true);
-      setProgress(20);
-      const ext = file.name.split(".").pop() ?? "bin";
-      const path = `${uid}/${tarea.id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("tareas").upload(path, file, { upsert: true });
-      if (upErr) throw upErr;
-      setProgress(70);
-      if (mine) {
-        try { await supabase.storage.from("tareas").remove([mine.archivo_url]); } catch {}
-        await supabase.from("tareas_entregas").delete().eq("id", mine.id);
+      setProgress(5);
+      const uploaded: ArchivoEntrega[] = [];
+      for (let i = 0; i < toUpload.length; i++) {
+        uploaded.push(await uploadOne(toUpload[i]));
+        setProgress(Math.round(((i + 1) / toUpload.length) * 90));
       }
-      const { error: insErr } = await supabase.from("tareas_entregas").insert({
-        tarea_id: tarea.id,
-        alumna_id: uid,
-        archivo_url: path,
-        archivo_nombre: file.name,
-        archivo_tipo: file.type || ext,
-        comentario: comentario || null,
-      });
-      if (insErr) throw insErr;
+      const all = [...existing, ...uploaded];
+      if (mine) {
+        const { error } = await supabase.from("tareas_entregas").update({
+          archivos: all as unknown as never,
+          archivo_url: all[0].url,
+          archivo_nombre: all[0].nombre,
+          archivo_tipo: all[0].tipo ?? null,
+          comentario: comentario || null,
+        }).eq("id", mine.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("tareas_entregas").insert({
+          tarea_id: tarea.id,
+          alumna_id: uid,
+          archivo_url: all[0].url,
+          archivo_nombre: all[0].nombre,
+          archivo_tipo: all[0].tipo ?? null,
+          archivos: all as unknown as never,
+          comentario: comentario || null,
+        });
+        if (error) throw error;
+      }
       setProgress(100);
-      toast.success("Tarea entregada");
+      toast.success(toUpload.length > 1 ? `${toUpload.length} archivos subidos` : "Archivo subido");
       onChanged();
     } catch (err: any) {
       toast.error(err.message ?? "Error al subir");
@@ -207,44 +244,73 @@ function StudentUploader({
     }
   };
 
-  const eliminarMia = async () => {
-    if (!mine || !confirm("¿Eliminar tu entrega?")) return;
-    try { await supabase.storage.from("tareas").remove([mine.archivo_url]); } catch {}
-    const { error } = await supabase.from("tareas_entregas").delete().eq("id", mine.id);
-    if (error) return toast.error(error.message);
-    toast.success("Entrega eliminada");
+  const removeFile = async (idx: number) => {
+    if (!mine) return;
+    const target = existing[idx];
+    if (!target) return;
+    if (!confirm(`¿Eliminar "${target.nombre}"?`)) return;
+    const next = existing.filter((_, i) => i !== idx);
+    try { await supabase.storage.from("tareas").remove([target.url]); } catch {}
+    if (next.length === 0) {
+      const { error } = await supabase.from("tareas_entregas").delete().eq("id", mine.id);
+      if (error) return toast.error(error.message);
+    } else {
+      const { error } = await supabase.from("tareas_entregas").update({
+        archivos: next as unknown as never,
+        archivo_url: next[0].url,
+        archivo_nombre: next[0].nombre,
+        archivo_tipo: next[0].tipo ?? null,
+      }).eq("id", mine.id);
+      if (error) return toast.error(error.message);
+    }
+    toast.success("Archivo eliminado");
     onChanged();
   };
 
-  const descargar = async () => {
-    if (!mine) return;
-    const { data, error } = await supabase.storage.from("tareas").createSignedUrl(mine.archivo_url, 60);
+  const downloadFile = async (path: string) => {
+    const { data, error } = await supabase.storage.from("tareas").createSignedUrl(path, 60);
     if (error) return toast.error(error.message);
     window.open(data.signedUrl, "_blank");
   };
 
+  const saveComment = async () => {
+    if (!mine) return;
+    const { error } = await supabase.from("tareas_entregas").update({ comentario: comentario || null }).eq("id", mine.id);
+    if (error) return toast.error(error.message);
+    toast.success("Comentario guardado");
+  };
+
+  const canAdd = existing.length < MAX_FILES;
+
   return (
     <div className="space-y-3">
-      {mine && (
-        <div className="flex items-center justify-between p-3 rounded-lg border gap-3 flex-wrap"
-          style={{ background: "var(--bg-2)", borderColor: "var(--line)" }}>
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText className="w-5 h-5 flex-shrink-0" style={{ color: "var(--violet)" }} />
-            <div className="min-w-0">
-              <div className="text-sm font-semibold truncate" style={{ color: "var(--ink)" }}>{mine.archivo_nombre}</div>
-              <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-                Entregada el {new Date(mine.created_at).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" })}
-              </div>
+      {existing.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
+              Archivos entregados ({existing.length}/{MAX_FILES})
+            </div>
+            <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+              {mine && new Date(mine.created_at).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" })}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={descargar} className="p-2 rounded-lg hover:bg-black/5" title="Descargar">
-              <Download className="w-4 h-4" style={{ color: "var(--violet)" }} />
-            </button>
-            <button onClick={eliminarMia} className="p-2 rounded-lg hover:bg-red-50" title="Eliminar">
-              <Trash2 className="w-4 h-4 text-red-500" />
-            </button>
-          </div>
+          {existing.map((f, idx) => (
+            <div key={idx} className="flex items-center justify-between p-3 rounded-lg border gap-3"
+              style={{ background: "var(--bg-2)", borderColor: "var(--line)" }}>
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="w-4 h-4 flex-shrink-0" style={{ color: "var(--violet)" }} />
+                <div className="text-sm truncate" style={{ color: "var(--ink)" }}>{f.nombre}</div>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button onClick={() => downloadFile(f.url)} className="p-2 rounded-lg hover:bg-black/5" title="Descargar">
+                  <Download className="w-4 h-4" style={{ color: "var(--violet)" }} />
+                </button>
+                <button onClick={() => removeFile(idx)} className="p-2 rounded-lg hover:bg-red-50" title="Eliminar">
+                  <Trash2 className="w-4 h-4 text-red-500" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -277,19 +343,35 @@ function StudentUploader({
           style={{ background: "var(--bg-2)", borderColor: "var(--line)", color: "var(--ink)" }}
           placeholder="Escribe un comentario para tu entrega..."
         />
+        {mine && (
+          <button onClick={saveComment} className="mt-1 text-[11px] font-semibold" style={{ color: "var(--violet)" }}>
+            Guardar comentario
+          </button>
+        )}
       </div>
 
-      <input ref={fileRef} type="file" hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.png,.jpg,.jpeg" onChange={handleFile} />
+      <input
+        ref={fileRef}
+        type="file"
+        hidden
+        multiple
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.png,.jpg,.jpeg,.gif,.webp,.heic,.mp4,.mov,.webm,.m4v,.mp3,.wav,.m4a"
+        onChange={handleFiles}
+      />
       <button
         onClick={() => fileRef.current?.click()}
-        disabled={uploading}
-        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-white text-sm border-2 border-dashed"
+        disabled={uploading || !canAdd}
+        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-white text-sm border-2 border-dashed disabled:opacity-60"
         style={{ background: uploading ? "var(--muted)" : "linear-gradient(135deg,var(--violet),var(--violet-2))", borderColor: "transparent" }}
       >
-        {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Subiendo {progress}%...</> : <><Upload className="w-4 h-4" /> {mine ? "Reemplazar archivo" : "Subir archivo"}</>}
+        {uploading
+          ? <><Loader2 className="w-4 h-4 animate-spin" /> Subiendo {progress}%...</>
+          : canAdd
+            ? <><Upload className="w-4 h-4" /> {existing.length > 0 ? "Añadir más archivos" : "Subir archivos"}</>
+            : <>Límite alcanzado ({MAX_FILES})</>}
       </button>
       <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>
-        PDF, Word, Excel, PowerPoint, imágenes o ZIP. Máx 50 MB.
+        Imágenes, videos cortos, PDF, Word, Excel, PowerPoint o ZIP. Hasta {MAX_FILES} archivos, máx 50 MB cada uno.
       </p>
     </div>
   );
@@ -710,14 +792,15 @@ function EntregaRow({
   const [fb, setFb] = useState(entrega.feedback ?? "");
   const [saving, setSaving] = useState(false);
 
-  const descargar = async () => {
-    const { data, error } = await supabase.storage.from("tareas").createSignedUrl(entrega.archivo_url, 60);
+  const files = getAllFiles(entrega);
+  const descargarUno = async (path: string) => {
+    const { data, error } = await supabase.storage.from("tareas").createSignedUrl(path, 60);
     if (error) return toast.error(error.message);
     window.open(data.signedUrl, "_blank");
   };
   const eliminar = async () => {
-    if (!confirm("¿Eliminar esta entrega?")) return;
-    try { await supabase.storage.from("tareas").remove([entrega.archivo_url]); } catch {}
+    if (!confirm("¿Eliminar esta entrega y todos sus archivos?")) return;
+    try { await supabase.storage.from("tareas").remove(files.map((f) => f.url)); } catch {}
     const { error } = await supabase.from("tareas_entregas").delete().eq("id", entrega.id);
     if (error) return toast.error(error.message);
     toast.success("Eliminada");
@@ -752,7 +835,7 @@ function EntregaRow({
           )}
           <div className="text-[11px] flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
             <span className="inline-flex items-center gap-1 truncate">
-              <FileText className="w-3 h-3" /> {entrega.archivo_nombre}
+              <FileText className="w-3 h-3" /> {files.length} {files.length === 1 ? "archivo" : "archivos"}
             </span>
             <span>·</span>
             <span>{new Date(entrega.created_at).toLocaleString("es", { dateStyle: "short", timeStyle: "short" })}</span>
@@ -775,7 +858,9 @@ function EntregaRow({
           )}
         </div>
         <div className="flex items-center gap-1">
-          <IconBtn onClick={descargar} title="Descargar"><Download className="w-4 h-4" style={{ color: "var(--violet)" }} /></IconBtn>
+          {files.length === 1 && (
+            <IconBtn onClick={() => descargarUno(files[0].url)} title="Descargar"><Download className="w-4 h-4" style={{ color: "var(--violet)" }} /></IconBtn>
+          )}
           <button
             onClick={() => setShowGrade(!showGrade)}
             title="Calificar"
@@ -788,6 +873,23 @@ function EntregaRow({
           <IconBtn onClick={eliminar} title="Eliminar"><Trash2 className="w-4 h-4 text-red-500" /></IconBtn>
         </div>
       </div>
+      {files.length > 1 && (
+        <div className="mt-2 pt-2 border-t space-y-1" style={{ borderColor: "var(--line)" }}>
+          <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+            Archivos ({files.length})
+          </div>
+          {files.map((f, idx) => (
+            <button key={idx} onClick={() => descargarUno(f.url)}
+              className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-left hover:bg-black/5">
+              <span className="inline-flex items-center gap-2 text-xs truncate" style={{ color: "var(--ink)" }}>
+                <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--violet)" }} />
+                <span className="truncate">{f.nombre}</span>
+              </span>
+              <Download className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--violet)" }} />
+            </button>
+          ))}
+        </div>
+      )}
       {showGrade && (
         <div className="mt-3 pt-3 border-t space-y-2" style={{ borderColor: "var(--line)" }}>
           <div className="grid grid-cols-1 md:grid-cols-[120px_1fr] gap-2">
@@ -945,14 +1047,14 @@ function Header({ subtitle }: { subtitle: string }) {
 function StatCard({ icon, label, value, highlight }: { icon: React.ReactNode; label: string; value: number | string; highlight?: boolean }) {
   return (
     <div className="p-4 rounded-xl border" style={{
-      background: highlight ? "linear-gradient(135deg, rgba(245,158,11,.08), rgba(245,158,11,.02))" : "var(--surface)",
-      borderColor: highlight ? "#f59e0b" : "var(--line)",
+      background: highlight ? "linear-gradient(135deg, rgba(124,107,255,.10), rgba(124,107,255,.02))" : "var(--surface)",
+      borderColor: highlight ? "var(--violet)" : "var(--line)",
     }}>
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide mb-1"
-        style={{ color: highlight ? "#d97706" : "var(--muted)" }}>
-        {icon} {label}
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide mb-1"
+        style={{ color: highlight ? "var(--violet)" : "var(--muted)" }}>
+        {icon} <span className="truncate">{label}</span>
       </div>
-      <div className="text-2xl font-bold" style={{ color: "var(--ink)" }}>{value}</div>
+      <div className="text-2xl font-bold" style={{ color: highlight ? "var(--violet)" : "var(--ink)" }}>{value}</div>
     </div>
   );
 }
