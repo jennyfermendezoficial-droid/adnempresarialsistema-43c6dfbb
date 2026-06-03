@@ -306,6 +306,7 @@ function Page() {
                     const taken = ocupado(fecha, h);
                     const diaPasado = d < startToday;
                     const horaPasada = slotPasado(fecha, h);
+                    const sinAnticipacion = !diaPasado && requiereAnticipacion(fecha);
                     if (ses) {
                       return (
                         <td key={i} className="px-2 py-2">
@@ -337,6 +338,16 @@ function Page() {
                           <div className="w-full py-2.5 rounded-xl text-xs font-medium text-center"
                             style={{ color: "var(--muted-foreground)", opacity: 0.45, textDecoration: "line-through" }}>
                             No disponible
+                          </div>
+                        </td>
+                      );
+                    }
+                    if (sinAnticipacion) {
+                      return (
+                        <td key={i} className="px-2 py-2">
+                          <div className="w-full py-2.5 rounded-xl text-[10.5px] font-medium text-center leading-tight px-1"
+                            style={{ color: "var(--muted-foreground)", background: "rgba(0,0,0,.03)", border: "1px dashed var(--border)" }}>
+                            Reserva con 1 día de<br/>anticipación
                           </div>
                         </td>
                       );
