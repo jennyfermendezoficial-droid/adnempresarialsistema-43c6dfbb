@@ -835,7 +835,7 @@ function EntregaRow({
           )}
           <div className="text-[11px] flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
             <span className="inline-flex items-center gap-1 truncate">
-              <FileText className="w-3 h-3" /> {entrega.archivo_nombre}
+              <FileText className="w-3 h-3" /> {files.length} {files.length === 1 ? "archivo" : "archivos"}
             </span>
             <span>·</span>
             <span>{new Date(entrega.created_at).toLocaleString("es", { dateStyle: "short", timeStyle: "short" })}</span>
@@ -858,7 +858,9 @@ function EntregaRow({
           )}
         </div>
         <div className="flex items-center gap-1">
-          <IconBtn onClick={descargar} title="Descargar"><Download className="w-4 h-4" style={{ color: "var(--violet)" }} /></IconBtn>
+          {files.length === 1 && (
+            <IconBtn onClick={() => descargarUno(files[0].url)} title="Descargar"><Download className="w-4 h-4" style={{ color: "var(--violet)" }} /></IconBtn>
+          )}
           <button
             onClick={() => setShowGrade(!showGrade)}
             title="Calificar"
@@ -871,6 +873,23 @@ function EntregaRow({
           <IconBtn onClick={eliminar} title="Eliminar"><Trash2 className="w-4 h-4 text-red-500" /></IconBtn>
         </div>
       </div>
+      {files.length > 1 && (
+        <div className="mt-2 pt-2 border-t space-y-1" style={{ borderColor: "var(--line)" }}>
+          <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+            Archivos ({files.length})
+          </div>
+          {files.map((f, idx) => (
+            <button key={idx} onClick={() => descargarUno(f.url)}
+              className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-left hover:bg-black/5">
+              <span className="inline-flex items-center gap-2 text-xs truncate" style={{ color: "var(--ink)" }}>
+                <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--violet)" }} />
+                <span className="truncate">{f.nombre}</span>
+              </span>
+              <Download className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--violet)" }} />
+            </button>
+          ))}
+        </div>
+      )}
       {showGrade && (
         <div className="mt-3 pt-3 border-t space-y-2" style={{ borderColor: "var(--line)" }}>
           <div className="grid grid-cols-1 md:grid-cols-[120px_1fr] gap-2">
