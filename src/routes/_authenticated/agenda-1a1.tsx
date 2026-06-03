@@ -10,7 +10,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/agenda-1a1")({ component: Page });
 
 interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string }
-interface Profile { id: string; nombre_completo: string; email: string; avatar_url?: string | null }
+interface Profile { id: string; nombre_completo: string; email: string; avatar_url?: string | null; actividad?: string | null }
 
 // Slots cada HORA PUNTUAL · sesiones de 30 minutos
 const HORAS = ["09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00","19:00"];
@@ -26,6 +26,7 @@ const TEMAS: { match: string; tema: string }[] = [
   { match: "erick",    tema: "IA y generación de imágenes" },
 ];
 function temaDe(p: Profile) {
+  if (p.actividad && p.actividad.trim()) return p.actividad.trim();
   const k = (p.nombre_completo + " " + p.email).toLowerCase();
   return TEMAS.find((t) => k.includes(t.match))?.tema ?? "Mentoría general";
 }
@@ -53,6 +54,8 @@ function Page() {
   const [saving, setSaving] = useState(false);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
   const [now, setNow] = useState(new Date());
+  // Mis próximas sesiones (alumna o profesor)
+  const [proximas, setProximas] = useState<Sesion[]>([]);
 
   // tick para recalcular slots pasados
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t); }, []);
@@ -65,7 +68,7 @@ function Page() {
       const ids = Array.from(new Set(((roles ?? []) as { user_id: string }[]).map((r) => r.user_id)));
       if (!ids.length) return;
       const { data: profs } = await supabase.from("profiles")
-        .select("id,nombre_completo,email,avatar_url").in("id", ids);
+        .select("id,nombre_completo,email,avatar_url,actividad").in("id", ids);
       const list = (profs ?? []) as Profile[];
       // Orden alfabético
       list.sort((a, b) => (a.nombre_completo || a.email).localeCompare(b.nombre_completo || b.email));
@@ -92,6 +95,21 @@ function Page() {
     })();
   }, []); // eslint-disable-line
 
+  // Cargar próximas sesiones del usuario (como alumna o como profesor)
+  useEffect(() => {
+    if (!uid) return;
+    const hoy = fmt(new Date());
+    (async () => {
+      const { data } = await supabase
+        .from("sesiones_1a1")
+        .select("*")
+        .or(`alumna_id.eq.${uid},profesor_id.eq.${uid}`)
+        .gte("fecha", hoy)
+        .order("fecha").order("hora_inicio");
+      setProximas((data as Sesion[]) ?? []);
+    })();
+  }, [uid, sesiones]);
+
   useEffect(() => {
     if (!profesorId) return;
     const ini = fmt(weekStart);
@@ -113,14 +131,25 @@ function Page() {
   const profesorActual = profesores.find((p) => p.id === profesorId);
   const ratingActual = profesorId ? ratings[profesorId] : undefined;
   const startToday = new Date(now); startToday.setHours(0,0,0,0);
+  const startTomorrow = new Date(startToday); startTomorrow.setDate(startTomorrow.getDate() + 1);
 
   function slotPasado(fecha: string, hora: string) {
     const d = new Date(fecha + "T" + hora + ":00");
     return d.getTime() <= now.getTime();
   }
 
+  // Reglas: solo se puede reservar con al menos 1 día de anticipación
+  function requiereAnticipacion(fecha: string) {
+    const d = new Date(fecha + "T00:00:00");
+    return d.getTime() < startTomorrow.getTime();
+  }
+
   const reservar = async () => {
     if (!booking || !uid || !profesorId || saving) return;
+    if (requiereAnticipacion(booking.fecha)) {
+      toast.error("Debes reservar con al menos 1 día de anticipación.");
+      return;
+    }
     setSaving(true);
     const { fecha, hora } = booking;
 
@@ -145,7 +174,12 @@ function Page() {
       const totalMin = hh * 60 + DURACION_MIN;
       const fin = `${String(Math.floor(totalMin / 60)).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
       const start_time = `${fecha}T${hora}:00`;
-      const zoom = await createZoom({ data: { topic: `Sesión 1a1`, start_time, duration: DURACION_MIN } });
+      const profActual = profesores.find((p) => p.id === profesorId);
+      const nombreProf = profActual?.nombre_completo || profActual?.email || "Profesor";
+      const tema = profActual ? temaDe(profActual) : "Mentoría 1 a 1";
+      const topic = `${nombreProf} – ${tema}`;
+      const agenda = `Sesión 1 a 1 con ${nombreProf}\nTema: ${tema}`;
+      const zoom = await createZoom({ data: { topic, start_time, duration: DURACION_MIN, agenda } });
       const { data, error } = await supabase.from("sesiones_1a1").insert({
         profesor_id: profesorId, alumna_id: uid, fecha, hora_inicio: hora + ":00", hora_fin: fin + ":00",
         zoom_meeting_id: zoom.meeting_id, zoom_link: zoom.join_url, estado: "confirmada",
