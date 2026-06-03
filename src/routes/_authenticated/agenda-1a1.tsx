@@ -393,6 +393,46 @@ function Page() {
           </div>
         </div>
       )}
+
+      {proximas.length > 0 && (
+        <div className="mt-8">
+          <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-60 mb-3 px-1">Tus próximas sesiones</div>
+          <div className="rounded-2xl border bg-card overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/60">
+                <tr>
+                  <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Fecha</th>
+                  <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Hora</th>
+                  <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">{role === "admin" || role === "soporte" ? "Alumna / Mentor" : "Mentor"}</th>
+                  <th className="text-right px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {proximas.map((s) => {
+                  const esMia = s.alumna_id === uid;
+                  const otroId = esMia ? s.profesor_id : s.alumna_id;
+                  const otro = profesores.find((p) => p.id === otroId);
+                  const fechaTxt = new Date(s.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "short", day: "numeric", month: "short" });
+                  return (
+                    <tr key={s.id} className="border-t">
+                      <td className="px-3 py-2 capitalize">{fechaTxt}</td>
+                      <td className="px-3 py-2 font-mono">{s.hora_inicio.slice(0,5)}</td>
+                      <td className="px-3 py-2">{otro?.nombre_completo || otro?.email || (esMia ? "Mentor" : "Alumna")}</td>
+                      <td className="px-3 py-2 text-right">
+                        {s.zoom_link ? (
+                          <a href={s.zoom_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-gradient text-white">
+                            <Video className="w-3.5 h-3.5" /> Entrar a Zoom
+                          </a>
+                        ) : <span className="opacity-50 text-xs">sin link</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
