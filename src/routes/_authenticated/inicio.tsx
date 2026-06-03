@@ -339,40 +339,6 @@ function Page() {
         </Link>
       </div>
 
-      {/* Tutoriales */}
-      {(cfg?.tutorial_alumnos_url || cfg?.tutorial_profesores_url || role === "admin") && bunnyCfg && (
-        <div className="mt-8">
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-60">Tutoriales</div>
-              <h2 className="text-xl md:text-2xl font-semibold">Aprende a usar la plataforma</h2>
-            </div>
-          </div>
-          <div className={`grid gap-4 ${role === "admin" || role === "soporte" ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
-            <TutorialVideoCard
-              title="Tutorial para alumnos"
-              subtitle="Cómo aprovechar la plataforma como estudiante"
-              videoId={cfg?.tutorial_alumnos_url ?? null}
-              bunnyCfg={bunnyCfg}
-              canEdit={role === "admin"}
-              onUploaded={(id) => saveTutorial("alumnos", id)}
-              onDelete={() => saveTutorial("alumnos", null)}
-            />
-            {(role === "admin" || role === "soporte") && (
-              <TutorialVideoCard
-                title="Tutorial para profesores"
-                subtitle="Guía interna para soporte y profesores"
-                videoId={cfg?.tutorial_profesores_url ?? null}
-                bunnyCfg={bunnyCfg}
-                canEdit={role === "admin"}
-                onUploaded={(id) => saveTutorial("profesores", id)}
-                onDelete={() => saveTutorial("profesores", null)}
-              />
-            )}
-          </div>
-        </div>
-      )}
-
       {editing && (
         <div className="mt-6 p-5 rounded-2xl border bg-card space-y-3">
           <h3 className="font-semibold">Editar bienvenida</h3>
