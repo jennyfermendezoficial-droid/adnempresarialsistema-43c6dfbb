@@ -14,7 +14,13 @@ import {
 
 export const Route = createFileRoute("/_authenticated/inicio")({ component: Page });
 
-interface Cfg { inicio_video_url: string | null; inicio_titulo: string | null; inicio_mensaje: string | null }
+interface Cfg {
+  inicio_video_url: string | null;
+  inicio_titulo: string | null;
+  inicio_mensaje: string | null;
+  tutorial_alumnos_url: string | null;
+  tutorial_profesores_url: string | null;
+}
 
 function Page() {
   const { profile, role, session } = useAuth();
@@ -60,9 +66,9 @@ function Page() {
   }, [cfg?.inicio_video_url]); // eslint-disable-line
 
   useEffect(() => {
-    supabase.from("app_config").select("inicio_video_url,inicio_titulo,inicio_mensaje").eq("id", true).maybeSingle()
+    supabase.from("app_config").select("inicio_video_url,inicio_titulo,inicio_mensaje,tutorial_alumnos_url,tutorial_profesores_url").eq("id", true).maybeSingle()
       .then(({ data }) => {
-        const c = (data as Cfg) ?? { inicio_video_url: null, inicio_titulo: "Bienvenidos a ADN Empresarial", inicio_mensaje: "Tu transformación empresarial comienza aquí." };
+        const c = (data as Cfg) ?? { inicio_video_url: null, inicio_titulo: "Bienvenidos a ADN Empresarial", inicio_mensaje: "Tu transformación empresarial comienza aquí.", tutorial_alumnos_url: null, tutorial_profesores_url: null };
         setCfg(c);
         setDraft(c);
       });
