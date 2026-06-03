@@ -27,6 +27,7 @@ export type Database = {
           link: string | null
           recordatorios: Json | null
           recurrencia: string | null
+          recurrencia_hasta: string | null
           titulo: string
           ubicacion: string | null
           usuario_id: string
@@ -43,6 +44,7 @@ export type Database = {
           link?: string | null
           recordatorios?: Json | null
           recurrencia?: string | null
+          recurrencia_hasta?: string | null
           titulo: string
           ubicacion?: string | null
           usuario_id: string
@@ -59,6 +61,7 @@ export type Database = {
           link?: string | null
           recordatorios?: Json | null
           recurrencia?: string | null
+          recurrencia_hasta?: string | null
           titulo?: string
           ubicacion?: string | null
           usuario_id?: string
