@@ -364,6 +364,8 @@ export type Database = {
           inicio_mensaje: string | null
           inicio_titulo: string | null
           inicio_video_url: string | null
+          tutorial_alumnos_url: string | null
+          tutorial_profesores_url: string | null
           updated_at: string
         }
         Insert: {
@@ -371,6 +373,8 @@ export type Database = {
           inicio_mensaje?: string | null
           inicio_titulo?: string | null
           inicio_video_url?: string | null
+          tutorial_alumnos_url?: string | null
+          tutorial_profesores_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -378,6 +382,8 @@ export type Database = {
           inicio_mensaje?: string | null
           inicio_titulo?: string | null
           inicio_video_url?: string | null
+          tutorial_alumnos_url?: string | null
+          tutorial_profesores_url?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1129,6 +1135,7 @@ export type Database = {
           archivo_nombre: string
           archivo_tipo: string | null
           archivo_url: string
+          archivos: Json
           calificacion: number | null
           comentario: string | null
           created_at: string
@@ -1141,6 +1148,7 @@ export type Database = {
           archivo_nombre: string
           archivo_tipo?: string | null
           archivo_url: string
+          archivos?: Json
           calificacion?: number | null
           comentario?: string | null
           created_at?: string
@@ -1153,6 +1161,7 @@ export type Database = {
           archivo_nombre?: string
           archivo_tipo?: string | null
           archivo_url?: string
+          archivos?: Json
           calificacion?: number | null
           comentario?: string | null
           created_at?: string
