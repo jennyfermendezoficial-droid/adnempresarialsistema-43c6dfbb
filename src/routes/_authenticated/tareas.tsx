@@ -44,7 +44,7 @@ interface Entrega {
   created_at: string;
   archivos?: ArchivoEntrega[] | null;
 }
-export interface ArchivoEntrega { url: string; nombre: string; tipo?: string | null; size?: number }
+export interface ArchivoEntrega { url: string; nombre: string; tipo?: string | null; size?: number; [k: string]: unknown }
 interface Curso { id: string; nombre: string }
 interface Profile { id: string; nombre_completo: string; email: string; avatar_url: string | null }
 
