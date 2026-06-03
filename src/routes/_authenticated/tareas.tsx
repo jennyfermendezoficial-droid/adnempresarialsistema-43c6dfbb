@@ -1047,14 +1047,14 @@ function Header({ subtitle }: { subtitle: string }) {
 function StatCard({ icon, label, value, highlight }: { icon: React.ReactNode; label: string; value: number | string; highlight?: boolean }) {
   return (
     <div className="p-4 rounded-xl border" style={{
-      background: highlight ? "linear-gradient(135deg, rgba(245,158,11,.08), rgba(245,158,11,.02))" : "var(--surface)",
-      borderColor: highlight ? "#f59e0b" : "var(--line)",
+      background: highlight ? "linear-gradient(135deg, rgba(124,107,255,.10), rgba(124,107,255,.02))" : "var(--surface)",
+      borderColor: highlight ? "var(--violet)" : "var(--line)",
     }}>
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide mb-1"
-        style={{ color: highlight ? "#d97706" : "var(--muted)" }}>
-        {icon} {label}
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide mb-1"
+        style={{ color: highlight ? "var(--violet)" : "var(--muted)" }}>
+        {icon} <span className="truncate">{label}</span>
       </div>
-      <div className="text-2xl font-bold" style={{ color: "var(--ink)" }}>{value}</div>
+      <div className="text-2xl font-bold" style={{ color: highlight ? "var(--violet)" : "var(--ink)" }}>{value}</div>
     </div>
   );
 }
