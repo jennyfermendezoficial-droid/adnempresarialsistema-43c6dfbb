@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Home, BookOpen, CalendarDays, Users, MessageSquare,
   ShieldCheck, Wallet, Gift, LogOut, Hash, Headphones, Calendar,
-  Clock3, CalendarRange, Briefcase, Home as HomeIcon, BarChart3, FileText, Landmark,
+  Clock3, CalendarRange, Briefcase, Home as HomeIcon, BarChart3, FileText, Landmark, Bell,
 } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
@@ -25,6 +25,9 @@ const academiaItems: Item[] = [
   { to: "/cursos",            label: "Cursos",               icon: BookOpen },
   { to: "/calendario-clases", label: "Calendario de clases", icon: Calendar },
   { to: "/tareas",            label: "Tareas",               icon: FileText },
+];
+const staffAcademiaItems: Item[] = [
+  { to: "/mis-clases-asignadas", label: "Mis clases asignadas", icon: Bell },
 ];
 const comunidadItems: Item[] = [
   { to: "/miembros", label: "Miembros", icon: Users },
@@ -87,6 +90,9 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
 
         <SectionLabel className="mt-3">Academia</SectionLabel>
         <Nav items={academiaItems} isActive={isActive} onClick={onNavigate} />
+        {(role === "admin" || role === "soporte") && (
+          <Nav items={staffAcademiaItems} isActive={isActive} onClick={onNavigate} />
+        )}
 
         <SectionLabel className="mt-3">Comunidad</SectionLabel>
         <Nav items={comunidadItems} isActive={isActive} onClick={onNavigate} />
