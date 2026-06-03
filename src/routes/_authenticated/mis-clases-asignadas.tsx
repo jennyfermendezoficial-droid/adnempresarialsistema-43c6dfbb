@@ -16,33 +16,32 @@ function Page() {
   const isStaff = role === "admin" || role === "soporte";
   const [clases, setClases] = useState<Clase[]>([]);
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
-  const [alumnas, setAlumnas] = useState<Record<string, Profile>>({});
+  const [personas, setPersonas] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!uid || !isStaff) return;
+    if (!uid) return;
     (async () => {
       const hoy = new Date().toISOString().slice(0, 10);
+      const clasesQuery = supabase.from("clases_en_vivo").select("*").gte("fecha", hoy).order("fecha").order("hora_inicio");
       const [{ data: c }, { data: s }] = await Promise.all([
-        supabase.from("clases_en_vivo").select("*").eq("profesor_id", uid).gte("fecha", hoy).order("fecha").order("hora_inicio"),
-        supabase.from("sesiones_1a1").select("*").eq("profesor_id", uid).gte("fecha", hoy).order("fecha").order("hora_inicio"),
+        isStaff ? clasesQuery.eq("profesor_id", uid) : clasesQuery,
+        supabase.from("sesiones_1a1").select("*").or(`alumna_id.eq.${uid},profesor_id.eq.${uid}`).gte("fecha", hoy).order("fecha").order("hora_inicio"),
       ]);
       const cl = (c as Clase[]) ?? [];
       const se = (s as Sesion[]) ?? [];
       setClases(cl);
       setSesiones(se);
-      const ids = Array.from(new Set(se.map((x) => x.alumna_id)));
+      const ids = Array.from(new Set(se.flatMap((x) => [x.alumna_id, x.profesor_id]).filter((id) => id !== uid)));
       if (ids.length) {
         const { data: ps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", ids);
         const map: Record<string, Profile> = {};
         ((ps as Profile[]) ?? []).forEach((p) => { map[p.id] = p; });
-        setAlumnas(map);
+        setPersonas(map);
       }
       setLoading(false);
     })();
   }, [uid, isStaff]);
-
-  if (!isStaff) return <div className="p-8 text-center text-muted-foreground">Solo para profesores (admin o soporte).</div>;
 
   const ahora = new Date();
   const dentroDe24h = (fecha: string, hora: string) => {
@@ -55,17 +54,18 @@ function Page() {
   const items: Item[] = [
     ...clases.map<Item>((c) => ({ tipo: "clase", id: c.id, fecha: c.fecha, hora: c.hora_inicio, titulo: c.titulo, sub: c.descripcion || "Clase en vivo", link: c.zoom_link })),
     ...sesiones.map<Item>((s) => {
-      const al = alumnas[s.alumna_id];
-      return { tipo: "1a1", id: s.id, fecha: s.fecha, hora: s.hora_inicio, titulo: `1 a 1 con ${al?.nombre_completo || al?.email || "alumna"}`, sub: "Sesión privada", link: s.zoom_link };
+      const soyAlumna = s.alumna_id === uid;
+      const persona = personas[soyAlumna ? s.profesor_id : s.alumna_id];
+      return { tipo: "1a1", id: s.id, fecha: s.fecha, hora: s.hora_inicio, titulo: `1 a 1 con ${persona?.nombre_completo || persona?.email || (soyAlumna ? "mentor" : "alumna")}`, sub: "Sesión privada", link: s.zoom_link };
     }),
   ].sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="relative overflow-hidden rounded-3xl p-6 mb-6 bg-violet-gradient text-white shadow-xl">
-        <div className="text-[11px] uppercase tracking-[0.18em] opacity-80">Para profesores</div>
+        <div className="text-[11px] uppercase tracking-[0.18em] opacity-80">Agenda personal</div>
         <h1 className="text-3xl font-bold mt-1">Mis clases asignadas</h1>
-        <p className="text-sm opacity-90 mt-1">Aquí ves todas las clases en vivo y sesiones 1 a 1 que te tocan dictar.</p>
+        <p className="text-sm opacity-90 mt-1">Aquí ves tus clases en vivo y sesiones 1 a 1 próximas.</p>
       </div>
 
       {loading ? (
