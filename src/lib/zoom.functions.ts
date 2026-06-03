@@ -21,12 +21,13 @@ async function getZoomToken() {
 
 export const createZoomMeeting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { topic: string; start_time: string; duration: number }) =>
+  .inputValidator((d: { topic: string; start_time: string; duration: number; agenda?: string }) =>
     z
       .object({
         topic: z.string().min(1).max(200),
         start_time: z.string().min(10),
         duration: z.number().int().min(15).max(480),
+        agenda: z.string().max(2000).optional(),
       })
       .parse(d)
   )
@@ -44,6 +45,7 @@ export const createZoomMeeting = createServerFn({ method: "POST" })
         start_time: data.start_time,
         duration: data.duration,
         timezone: "America/Lima",
+        agenda: data.agenda ?? "",
         settings: {
           join_before_host: true,
           waiting_room: false,
