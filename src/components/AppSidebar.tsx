@@ -25,8 +25,6 @@ const academiaItems: Item[] = [
   { to: "/cursos",            label: "Cursos",               icon: BookOpen },
   { to: "/calendario-clases", label: "Calendario de clases", icon: Calendar },
   { to: "/tareas",            label: "Tareas",               icon: FileText },
-];
-const staffAcademiaItems: Item[] = [
   { to: "/mis-clases-asignadas", label: "Mis clases asignadas", icon: Bell },
 ];
 const comunidadItems: Item[] = [
@@ -90,9 +88,6 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
 
         <SectionLabel className="mt-3">Academia</SectionLabel>
         <Nav items={academiaItems} isActive={isActive} onClick={onNavigate} />
-        {(role === "admin" || role === "soporte") && (
-          <Nav items={staffAcademiaItems} isActive={isActive} onClick={onNavigate} />
-        )}
 
         <SectionLabel className="mt-3">Comunidad</SectionLabel>
         <Nav items={comunidadItems} isActive={isActive} onClick={onNavigate} />
