@@ -32,7 +32,9 @@ interface Entrega {
   calificacion: number | null;
   feedback: string | null;
   created_at: string;
+  archivos?: ArchivoEntrega[] | null;
 }
+export interface ArchivoEntrega { url: string; nombre: string; tipo?: string | null; size?: number }
 interface Curso { id: string; nombre: string }
 interface Profile { id: string; nombre_completo: string; email: string; avatar_url: string | null }
 
