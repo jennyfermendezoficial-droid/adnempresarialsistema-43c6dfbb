@@ -99,7 +99,19 @@ export const getBunnyVideoStatus = createServerFn({ method: "POST" })
   .inputValidator((d: { videoId: string }) =>
     z.object({ videoId: z.string().min(1).max(64) }).parse(d)
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Authorize: caller must be staff OR have access to a lección using this video.
+    // RLS on `lecciones` already scopes visibility to staff and users with course access,
+    // so a successful lookup here implies the caller can see the video.
+    const { data: roles } = await context.supabase
+      .from("user_roles").select("role").eq("user_id", context.userId);
+    const isStaff = ((roles ?? []) as { role: string }[])
+      .some((r) => r.role === "admin" || r.role === "soporte");
+    if (!isStaff) {
+      const { data: lec } = await context.supabase
+        .from("lecciones").select("id").eq("bunny_video_id", data.videoId).maybeSingle();
+      if (!lec) throw new Error("No autorizado para consultar este video.");
+    }
     const { libraryId, apiKey } = getConfig();
     const res = await fetch(
       `https://video.bunnycdn.com/library/${libraryId}/videos/${data.videoId}`,
