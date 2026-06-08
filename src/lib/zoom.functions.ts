@@ -21,17 +21,28 @@ async function getZoomToken() {
 
 export const createZoomMeeting = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { topic: string; start_time: string; duration: number; agenda?: string }) =>
+  .inputValidator((d: { topic: string; start_time: string; duration: number; agenda?: string; purpose?: "1a1" | "class" }) =>
     z
       .object({
         topic: z.string().min(1).max(200),
         start_time: z.string().min(10),
         duration: z.number().int().min(15).max(480),
         agenda: z.string().max(2000).optional(),
+        purpose: z.enum(["1a1", "class"]).default("1a1"),
       })
       .parse(d)
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Server-side authorization: class meetings can only be created by staff (admin/soporte).
+    // 1:1 session meetings are open to any authenticated user (validated at sesiones_1a1 insert via RLS).
+    if (data.purpose === "class") {
+      const { data: roles } = await context.supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", context.userId);
+      const isStaff = (roles ?? []).some((r) => r.role === "admin" || r.role === "soporte");
+      if (!isStaff) throw new Error("No autorizado: solo staff puede crear reuniones de clase.");
+    }
     const token = await getZoomToken();
     const res = await fetch(`https://api.zoom.us/v2/users/me/meetings`, {
       method: "POST",
