@@ -88,7 +88,7 @@ function Page() {
         : `Dicta: ${nombreProf}`;
       const nuevas: Clase[] = [];
       for (const f of fechas) {
-        const zoom = await createZoom({ data: { topic, start_time: `${f}T${form.hora_inicio}:00`, duration: Math.max(15, dur), agenda } });
+        const zoom = await createZoom({ data: { topic, start_time: `${f}T${form.hora_inicio}:00`, duration: Math.max(15, dur), agenda, purpose: "class" } });
         const { data, error } = await supabase.from("clases_en_vivo").insert({
           fecha: f, hora_inicio: form.hora_inicio + ":00", hora_fin: form.hora_fin + ":00",
           titulo: form.titulo, descripcion: form.descripcion || null,
