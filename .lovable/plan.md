@@ -1,54 +1,40 @@
-# Plan de arreglos
+## Objetivo
+Permitir que cada usuario tenga **hasta 5 sesiones activas al mismo tiempo** (5 dispositivos/navegadores distintos logueados con la misma cuenta). Si intenta abrir una 6ta sesión, se cierra la más antigua automáticamente.
 
-Voy a abordar todos los problemas que mencionaste en este orden. Cada punto se hace en una sola pasada para que quede todo funcionando junto.
+## Cómo funcionará
 
-## 1. Calendario de clases (`/calendario-clases`)
+1. Cuando un usuario inicia sesión, se registra su sesión actual en una tabla `sesiones_activas` con: `user_id`, `session_id` (un UUID generado en el cliente y guardado en localStorage), `dispositivo` (user agent), `ultima_actividad`, `creada_en`.
+2. Al iniciar sesión, el sistema cuenta cuántas sesiones activas tiene el usuario:
+   - Si tiene menos de 5 → registra la nueva normalmente.
+   - Si ya tiene 5 → elimina la más antigua (por `ultima_actividad`) y registra la nueva. El dispositivo expulsado, al hacer cualquier acción, detecta que su sesión ya no existe y se desloguea automáticamente con un mensaje: *"Tu sesión se cerró porque se superó el límite de 5 dispositivos."*
+3. Cada vez que el usuario navega/usa la app, se actualiza `ultima_actividad` (cada 2-3 minutos, no en cada click).
+4. Al cerrar sesión manualmente, se borra el registro de esa sesión.
+5. Las sesiones inactivas por más de 30 días se limpian automáticamente.
 
-- **Evitar Zooms duplicados por doble clic**: el botón "Crear con Zoom" se deshabilita en cuanto se aprieta una vez, muestra "Creando…" y solo se vuelve a habilitar al terminar o si hay error.
-- **Mostrar descripción en la tarjeta del calendario**: además del título y la hora, debajo aparece un fragmento de la descripción (cortado para que no rompa el layout). Al pasar el mouse muestra todo.
-- **Zoom con info completa**: el `topic` que se manda a Zoom será `"<Título> – <Nombre del profesor>"` y el campo `agenda` llevará la descripción. Así la notificación de Zoom muestra de qué trata la clase y quién la dicta.
-- **Repetir semanal**: sigue creando una entrada por semana en el calendario y un Zoom por cada una (es lo correcto, cada clase tiene su propio link), pero garantizado solo una ronda por clic.
+## Cambios técnicos
 
-## 2. Agenda 1 a 1 (`/agenda-1a1`)
+### Base de datos (migración)
+- Nueva tabla `public.sesiones_activas` (`id`, `user_id`, `session_id` único, `dispositivo`, `ip`, `creada_en`, `ultima_actividad`).
+- RLS: cada usuario ve/borra solo sus propias sesiones; admin ve todas.
+- GRANTs a `authenticated` y `service_role`.
+- Función RPC `registrar_sesion(session_id, dispositivo)` que: inserta la sesión, y si hay >5, borra la más antigua. `SECURITY DEFINER`.
+- Función RPC `validar_sesion(session_id)` que devuelve `true/false` si la sesión sigue activa.
 
-- **Evitar Zooms duplicados**: botón "Reservar" deshabilitado mientras procesa, igual que arriba.
-- **Bloquear reservas para el mismo día**: solo se permite reservar a partir de mañana. Los slots de hoy aparecen en gris con leyenda "Reserva con al menos 1 día de anticipación".
-- **Nombre del Zoom de 1a1**: `"<Profesor> – <Actividad/Especialidad>"`. Para esto leo la nueva columna `actividad` del profesor (ver punto 4) y la mando como `topic`. La descripción del alumno va en `agenda`.
-- **Quitar el bloque tipo Amazon**: limpio la sección de reservar para que quede solo "Elige tu mentor".
-- **Agregar tabla "Tus próximas sesiones"** debajo de los mentores: muestra fecha, hora, mentor, link de Zoom y botón para entrar. Visible para alumnos y también para profesores/admin (en su caso muestra las sesiones que ellos deben dictar).
+### Frontend
+- `src/lib/auth-context.tsx`:
+  - Al detectar `SIGNED_IN`, generar un `session_id` (UUID), guardarlo en `localStorage`, y llamar `registrar_sesion`.
+  - Cada 2 minutos (o al cambiar de ruta), llamar `validar_sesion`. Si devuelve `false` → `signOut()` + toast *"Tu sesión se cerró: superaste el límite de 5 dispositivos activos."*
+  - Al hacer `signOut`, borrar el registro de la sesión actual y limpiar `localStorage`.
 
-## 3. Notificaciones para profesores/admin
+### Página opcional (no incluida, solo aviso)
+- No agrego UI nueva para listar dispositivos activos. Si querés esa pantalla ("mis dispositivos conectados, cerrar sesión remota"), avisame y la sumo.
 
-- **Nuevo apartado en el menú**: "Mis próximas clases" (visible solo para admin y soporte). Lista en orden cronológico:
-  - Clases en vivo que tienen que dictar (de `clases_en_vivo` donde `profesor_id = yo`).
-  - Sesiones 1 a 1 donde son el mentor.
-  - Con link a Zoom y aviso visual cuando faltan menos de 24h.
-- Notificación push existente se reutiliza si está disponible; si no, se prioriza el listado visual.
+## Lo que NO cambia
+- El login sigue igual (email + contraseña).
+- No se tocan permisos, roles, ni otras tablas.
+- No afecta a usuarios ya logueados hasta su próximo inicio de sesión (las sesiones viejas no tienen `session_id` registrado y se contarán como "sin límite" hasta que vuelvan a entrar — alternativamente las puedo invalidar todas de golpe forzando un re-login global; decime si lo querés).
 
-## 4. Permisos (`/permisos`) - edición con lapicito
-
-- **Nueva columna `actividad` en `profiles`** (texto corto tipo "Meta Ads", "IA y generación de imágenes").
-- **Lápiz junto al nombre** del usuario para editar:
-  - Nombre completo.
-  - Actividad / a qué se dedica.
-- **Lápiz para reseñas/calificaciones**: abre un modal con todas las `calificaciones_mensuales` del usuario y permite borrar las que sean de prueba.
-- **Lápiz para sesiones 1a1**: permite borrar reservas falsas (Jennifer Méndez, Jaime, etc.) directamente desde el admin.
-
-## 5. Tareas - botón calificar invisible
-
-- El botón "Calificar" en `/tareas` y en el detalle de entregas se cambia a usar el gradiente violeta del sistema con texto blanco para que sea visible sobre fondo blanco.
-- También se arregla el contador "X por calificar" para que sea legible.
-
-## Cambios técnicos (resumen para referencia)
-
-- Migración DB:
-  - `ALTER TABLE profiles ADD COLUMN actividad text;`
-  - Política `DELETE` en `sesiones_1a1` para admin (si no existía ya).
-- `src/lib/zoom.functions.ts`: aceptar `agenda` opcional y pasarlo al body de Zoom.
-- `src/routes/_authenticated/calendario-clases.tsx`: estado `creating`, descripción visible, `topic` enriquecido.
-- `src/routes/_authenticated/agenda-1a1.tsx`: estado `reserving`, filtro de slots hoy, `topic` con actividad, sección "Tus próximas sesiones", quitar bloque Amazon.
-- `src/routes/_authenticated/mis-clases-asignadas.tsx` (nuevo): listado para profesores/admin + entrada en sidebar.
-- `src/routes/_authenticated/permisos.tsx`: modal de edición por usuario (nombre, actividad, calificaciones, sesiones 1a1).
-- `src/routes/_authenticated/tareas.tsx`: estilos del botón calificar y contador.
-
-¿Le doy con todo este plan o quieres que ajuste algo antes de empezar?
+## Confirmación
+¿Procedo así? ¿O preferís:
+- (a) Bloquear el 6to login con error en vez de expulsar al más antiguo, o
+- (b) Sumar la pantalla "Mis dispositivos conectados" para ver/cerrar sesiones manualmente?

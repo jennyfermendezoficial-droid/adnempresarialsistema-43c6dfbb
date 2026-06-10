@@ -1058,6 +1058,33 @@ export type Database = {
         }
         Relationships: []
       }
+      sesiones_activas: {
+        Row: {
+          creada_en: string
+          dispositivo: string | null
+          id: string
+          session_id: string
+          ultima_actividad: string
+          user_id: string
+        }
+        Insert: {
+          creada_en?: string
+          dispositivo?: string | null
+          id?: string
+          session_id: string
+          ultima_actividad?: string
+          user_id: string
+        }
+        Update: {
+          creada_en?: string
+          dispositivo?: string | null
+          id?: string
+          session_id?: string
+          ultima_actividad?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       soporte_privado_mensajes: {
         Row: {
           autor_id: string
@@ -1205,6 +1232,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cerrar_sesion: { Args: { _session_id: string }; Returns: undefined }
       get_my_tarifas: {
         Args: never
         Returns: {
@@ -1226,6 +1254,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      registrar_sesion: {
+        Args: { _dispositivo: string; _session_id: string }
+        Returns: undefined
+      }
+      validar_sesion: { Args: { _session_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "soporte" | "usuario"
