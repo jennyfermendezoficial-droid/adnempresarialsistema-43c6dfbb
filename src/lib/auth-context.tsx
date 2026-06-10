@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const sid = getOrCreateDeviceSessionId();
       const ua = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 300) : "desconocido";
-      // @ts-expect-error rpc tipada genérica
+      
       await supabase.rpc("registrar_sesion", { _session_id: sid, _dispositivo: ua });
     } catch { /* noop */ }
   };
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const sid = localStorage.getItem(SESSION_KEY);
         if (!sid) return;
-        // @ts-expect-error rpc genérica
+        
         const { data, error } = await supabase.rpc("validar_sesion", { _session_id: sid });
         if (cancelled || error) return;
         if (data === false) {
@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const sid = localStorage.getItem(SESSION_KEY);
       if (sid) {
-        // @ts-expect-error rpc genérica
+        
         await supabase.rpc("cerrar_sesion", { _session_id: sid });
         localStorage.removeItem(SESSION_KEY);
       }
