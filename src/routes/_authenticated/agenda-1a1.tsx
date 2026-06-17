@@ -51,6 +51,7 @@ function Page() {
   const [profesorId, setProfesorId] = useState<string | null>(null);
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
   const [booking, setBooking] = useState<{ fecha: string; hora: string } | null>(null);
+  const [motivo, setMotivo] = useState("");
   const [saving, setSaving] = useState(false);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
   const [now, setNow] = useState(new Date());
@@ -150,6 +151,9 @@ function Page() {
       toast.error("Debes reservar con al menos 1 día de anticipación.");
       return;
     }
+    const motivoLimpio = motivo.trim();
+    if (!motivoLimpio) { toast.error("Cuéntale al profesor tu duda o inquietud."); return; }
+    if (motivoLimpio.length > 100) { toast.error("El motivo no puede superar los 100 caracteres."); return; }
     setSaving(true);
     const { fecha, hora } = booking;
 
@@ -182,11 +186,12 @@ function Page() {
       const zoom = await createZoom({ data: { topic, start_time, duration: DURACION_MIN, agenda } });
       const { data, error } = await supabase.from("sesiones_1a1").insert({
         profesor_id: profesorId, alumna_id: uid, fecha, hora_inicio: hora + ":00", hora_fin: fin + ":00",
-        zoom_meeting_id: zoom.meeting_id, zoom_link: zoom.join_url, estado: "confirmada",
+        zoom_meeting_id: zoom.meeting_id, zoom_link: zoom.join_url, estado: "confirmada", motivo: motivoLimpio,
       }).select().single();
       if (error) throw error;
       setSesiones((s) => [...s, data as Sesion]);
       setBooking(null);
+      setMotivo("");
       toast.success("Sesión agendada. Revisa tu Zoom en la celda.");
     } catch (e) {
       toast.error((e as Error).message);
