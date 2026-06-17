@@ -7,7 +7,7 @@ import { Video, Calendar, AlertCircle } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/mis-clases-asignadas")({ component: Page });
 
 interface Clase { id: string; fecha: string; hora_inicio: string; hora_fin: string; titulo: string; descripcion: string | null; zoom_link: string | null; profesor_id: string | null }
-interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string }
+interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string; motivo: string | null }
 interface Profile { id: string; nombre_completo: string; email: string }
 
 function Page() {
@@ -50,13 +50,13 @@ function Page() {
     return diff > 0 && diff < 24 * 60 * 60 * 1000;
   };
 
-  type Item = { tipo: "clase" | "1a1"; id: string; fecha: string; hora: string; titulo: string; sub: string; link: string | null };
+  type Item = { tipo: "clase" | "1a1"; id: string; fecha: string; hora: string; titulo: string; sub: string; link: string | null; motivo?: string | null; soyProfe?: boolean };
   const items: Item[] = [
     ...clases.map<Item>((c) => ({ tipo: "clase", id: c.id, fecha: c.fecha, hora: c.hora_inicio, titulo: c.titulo, sub: c.descripcion || "Clase en vivo", link: c.zoom_link })),
     ...sesiones.map<Item>((s) => {
       const soyAlumna = s.alumna_id === uid;
       const persona = personas[soyAlumna ? s.profesor_id : s.alumna_id];
-      return { tipo: "1a1", id: s.id, fecha: s.fecha, hora: s.hora_inicio, titulo: `1 a 1 con ${persona?.nombre_completo || persona?.email || (soyAlumna ? "mentor" : "alumna")}`, sub: "Sesión privada", link: s.zoom_link };
+      return { tipo: "1a1", id: s.id, fecha: s.fecha, hora: s.hora_inicio, titulo: `1 a 1 con ${persona?.nombre_completo || persona?.email || (soyAlumna ? "mentor" : "alumna")}`, sub: "Sesión privada", link: s.zoom_link, motivo: s.motivo, soyProfe: !soyAlumna };
     }),
   ].sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
 
@@ -101,6 +101,14 @@ function Page() {
                     {new Date(it.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })} · {it.hora.slice(0,5)}
                   </p>
                   {it.sub && <p className="text-xs mt-1 opacity-80 line-clamp-2">{it.sub}</p>}
+                  {it.tipo === "1a1" && it.motivo && (
+                    <div className="mt-2 p-2 rounded-lg border-l-2 text-xs" style={{ borderColor: "var(--violet)", background: "rgba(124,107,255,.06)" }}>
+                      <div className="text-[10px] uppercase tracking-wider font-bold opacity-70 mb-0.5">
+                        {it.soyProfe ? "Duda de la alumna" : "Tu duda / inquietud"}
+                      </div>
+                      <div className="opacity-90">{it.motivo}</div>
+                    </div>
+                  )}
                 </div>
                 {it.link && (
                   <a href={it.link} target="_blank" rel="noreferrer"
