@@ -51,6 +51,7 @@ function Page() {
   const [profesorId, setProfesorId] = useState<string | null>(null);
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
   const [booking, setBooking] = useState<{ fecha: string; hora: string } | null>(null);
+  const [motivo, setMotivo] = useState("");
   const [saving, setSaving] = useState(false);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
   const [now, setNow] = useState(new Date());
@@ -150,6 +151,9 @@ function Page() {
       toast.error("Debes reservar con al menos 1 día de anticipación.");
       return;
     }
+    const motivoLimpio = motivo.trim();
+    if (!motivoLimpio) { toast.error("Cuéntale al profesor tu duda o inquietud."); return; }
+    if (motivoLimpio.length > 100) { toast.error("El motivo no puede superar los 100 caracteres."); return; }
     setSaving(true);
     const { fecha, hora } = booking;
 
@@ -182,11 +186,12 @@ function Page() {
       const zoom = await createZoom({ data: { topic, start_time, duration: DURACION_MIN, agenda } });
       const { data, error } = await supabase.from("sesiones_1a1").insert({
         profesor_id: profesorId, alumna_id: uid, fecha, hora_inicio: hora + ":00", hora_fin: fin + ":00",
-        zoom_meeting_id: zoom.meeting_id, zoom_link: zoom.join_url, estado: "confirmada",
+        zoom_meeting_id: zoom.meeting_id, zoom_link: zoom.join_url, estado: "confirmada", motivo: motivoLimpio,
       }).select().single();
       if (error) throw error;
       setSesiones((s) => [...s, data as Sesion]);
       setBooking(null);
+      setMotivo("");
       toast.success("Sesión agendada. Revisa tu Zoom en la celda.");
     } catch (e) {
       toast.error((e as Error).message);
@@ -372,7 +377,7 @@ function Page() {
       )}
 
       {booking && (
-        <div className="fixed inset-0 bg-black/50 grid place-items-center z-50" onClick={() => setBooking(null)}>
+        <div className="fixed inset-0 bg-black/50 grid place-items-center z-50" onClick={() => { setBooking(null); setMotivo(""); }}>
           <div className="bg-card p-6 rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-2">Confirmar reserva</h3>
             {profesorActual && (
@@ -384,8 +389,18 @@ function Page() {
               {new Date(booking.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })} a las {booking.hora} (30 minutos).
               <br />Se creará una reunión de Zoom automáticamente.
             </p>
+            <label className="block text-xs font-medium mb-1">¿Cuál es tu duda o inquietud? <span className="text-muted-foreground">(máx. 100 caracteres)</span></label>
+            <textarea
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value.slice(0, 100))}
+              rows={3}
+              maxLength={100}
+              placeholder="Ej. Necesito ayuda con la estructura de mi landing page…"
+              className="w-full px-3 py-2 rounded-lg border bg-background text-sm mb-1"
+            />
+            <div className="text-[10px] text-muted-foreground text-right mb-3">{motivo.length}/100</div>
             <div className="flex gap-2 justify-end">
-              <button disabled={saving} onClick={() => setBooking(null)} className="px-4 py-2 rounded-lg border">Cancelar</button>
+              <button disabled={saving} onClick={() => { setBooking(null); setMotivo(""); }} className="px-4 py-2 rounded-lg border">Cancelar</button>
               <button disabled={saving} onClick={reservar} className="px-4 py-2 rounded-lg bg-violet-gradient text-white disabled:opacity-60">
                 {saving ? "Reservando…" : "Reservar"}
               </button>
