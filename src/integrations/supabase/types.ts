@@ -1026,6 +1026,7 @@ export type Database = {
           hora_fin: string
           hora_inicio: string
           id: string
+          motivo: string | null
           profesor_id: string
           zoom_link: string | null
           zoom_meeting_id: string | null
@@ -1039,6 +1040,7 @@ export type Database = {
           hora_fin: string
           hora_inicio: string
           id?: string
+          motivo?: string | null
           profesor_id: string
           zoom_link?: string | null
           zoom_meeting_id?: string | null
@@ -1052,6 +1054,7 @@ export type Database = {
           hora_fin?: string
           hora_inicio?: string
           id?: string
+          motivo?: string | null
           profesor_id?: string
           zoom_link?: string | null
           zoom_meeting_id?: string | null
