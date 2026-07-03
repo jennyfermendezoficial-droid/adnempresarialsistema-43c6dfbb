@@ -207,22 +207,43 @@ function CategoriaCard({ cat, items, prestamos, cuotasMes, total, onAdd, onEditI
         ) : (
           <>
             {items.length === 0 && <div className="text-xs text-center py-3" style={{ color: "var(--ae-ink-soft)" }}>Sin ítems este mes.</div>}
-            {items.map(it => (
-              <div key={it.id} className="flex items-center justify-between p-2.5 border-b last:border-b-0" style={{ borderColor: "var(--ae-line)" }}>
-                <div className="min-w-0">
-                  <div className="font-semibold text-sm truncate">{it.nombre}</div>
-                  <div className="text-[11px]" style={{ color: "var(--ae-ink-soft)" }}>
-                    {it.descripcion && <span>{it.descripcion} · </span>}
-                    {new Date(it.fecha + "T00:00").toLocaleDateString("es-EC", { day: "numeric", month: "short" })}{it.cuenta_pago ? ` · ${it.cuenta_pago}` : ""}
+            {items.map(it => {
+              // Ítem replicado por "concepto, valor cambia" que aún no tiene valor asignado en este mes.
+              const pideValor = it.recurrencia === "mismo_concepto" && Number(it.valor) === 0;
+              return (
+                <div
+                  key={it.id}
+                  className="flex items-center justify-between p-2.5 border-b last:border-b-0"
+                  style={{
+                    borderColor: "var(--ae-line)",
+                    background: pideValor ? "#FFF6E0" : undefined,
+                  }}
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">{it.nombre}</div>
+                    <div className="text-[11px]" style={{ color: "var(--ae-ink-soft)" }}>
+                      {it.descripcion && <span>{it.descripcion} · </span>}
+                      {new Date(it.fecha + "T00:00").toLocaleDateString("es-EC", { day: "numeric", month: "short" })}{it.cuenta_pago ? ` · ${it.cuenta_pago}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {pideValor ? (
+                      <button
+                        onClick={() => onEditItem(it)}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold"
+                        style={{ background: "#D4A847", color: "#1F1B16" }}
+                      >
+                        Poner valor de este mes
+                      </button>
+                    ) : (
+                      <span className="font-semibold tabular-nums text-sm">${Number(it.valor).toFixed(2)}</span>
+                    )}
+                    <button onClick={() => onEditItem(it)} className="opacity-50 hover:opacity-100 p-1" aria-label="Editar ítem"><Pencil className="w-3.5 h-3.5"/></button>
+                    <button onClick={() => onDeleteItem(it.id)} className="opacity-40 hover:opacity-90 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold tabular-nums text-sm">${Number(it.valor).toFixed(2)}</span>
-                  <button onClick={() => onEditItem(it)} className="opacity-50 hover:opacity-100 p-1" aria-label="Editar ítem"><Pencil className="w-3.5 h-3.5"/></button>
-                  <button onClick={() => onDeleteItem(it.id)} className="opacity-40 hover:opacity-90 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </>
         )}
         <button onClick={onAdd} className="w-full mt-2 py-2.5 rounded-xl text-sm font-semibold border border-dashed flex items-center justify-center gap-2" style={{ borderColor: cat.color, color: cat.color }}>
