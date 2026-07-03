@@ -354,9 +354,42 @@ function ModalItem({ uid, categoria, item, cuentas, mesAncla, onClose, onSaved }
     const { error } = editing && item
       ? await supabase.from("ae_items_cat").update(payload).eq("id", item.id)
       : await supabase.from("ae_items_cat").insert(payload);
+    if (error) { setSaving(false); return toast.error(error.message); }
+
+    // ---- Recurrencia automática: genera copias para los 11 meses SIGUIENTES
+    // (nunca hacia atrás). Solo al crear (no al editar), y solo si el usuario
+    // eligió "mismo_valor" o "mismo_concepto". Los proveedores no se replican
+    // (cada factura es única).
+    let mesesGenerados = 0;
+    if (!editing && !esProveedor && (recur === "mismo_valor" || recur === "mismo_concepto")) {
+      const filas = Array.from({ length: 11 }, (_, i) => {
+        const f = addMonths(fecha, i + 1); // solo meses futuros
+        return {
+          usuario_id: uid,
+          categoria_id: categoria.id,
+          nombre,
+          descripcion: descFinal,
+          // mismo_valor: hereda el valor. mismo_concepto: queda en 0 para que
+          // el usuario lo ajuste ese mes.
+          valor: recur === "mismo_valor" ? valorFinal : 0,
+          fecha: f,
+          recurrencia: recur,
+          cuenta_pago: cuenta.trim() || null,
+        };
+      });
+      const { error: recErr } = await supabase.from("ae_items_cat").insert(filas);
+      if (recErr) { setSaving(false); return toast.error(`Se guardó este mes pero falló la recurrencia: ${recErr.message}`); }
+      mesesGenerados = filas.length;
+    }
+
     setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success(editing ? "Ítem actualizado" : "Ítem guardado");
+    toast.success(
+      editing
+        ? "Ítem actualizado"
+        : mesesGenerados > 0
+          ? `Ítem guardado y replicado en ${mesesGenerados} meses siguientes`
+          : "Ítem guardado"
+    );
     onSaved();
     if (continuar && !editing) {
       setFlash(true); setTimeout(() => setFlash(false), 600);
