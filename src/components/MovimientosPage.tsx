@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Plus, Trash2, X, ChevronRight, ChevronLeft, Pencil, Check } from "lucide-react";
@@ -34,18 +34,26 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
   const [cuotasMes, setCuotasMes] = useState<Cuota[]>([]);
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
 
+  // Guarda: descarta respuestas que llegan fuera de orden (evita que un fetch
+  // viejo pise datos nuevos y produzca el efecto de "los ítems se mueven y
+  // después vuelven a su sitio" tras guardar/cerrar un modal).
+  const seqRef = useRef(0);
   const cargar = async () => {
     if (!uid) return;
-    const { data: c } = await supabase.from("ae_cat_gastos").select("*").eq("usuario_id", uid).eq("ambito", ambito).order("orden").order("created_at");
-    setCats((c as Categoria[]) ?? []);
-    const { data: it } = await supabase.from("ae_items_cat").select("*").eq("usuario_id", uid).gte("fecha", mesAncla).lt("fecha", mesFin).order("fecha", { ascending: false });
-    setItems((it as Item[]) ?? []);
-    const { data: p } = await supabase.from("ae_prestamos").select("*").eq("usuario_id", uid).eq("ambito", ambito).order("created_at");
-    setPrestamos((p as Prestamo[]) ?? []);
-    const { data: cu } = await supabase.from("ae_cuotas").select("*").eq("usuario_id", uid).gte("fecha_programada", mesAncla).lt("fecha_programada", mesFin);
-    setCuotasMes((cu as Cuota[]) ?? []);
-    const { data: cb } = await supabase.from("ae_cuentas_bancarias").select("*").eq("usuario_id", uid).eq("activo", true).order("created_at", { ascending: false });
-    setCuentas((cb as CuentaBancaria[]) ?? []);
+    const mySeq = ++seqRef.current;
+    const [c, it, p, cu, cb] = await Promise.all([
+      supabase.from("ae_cat_gastos").select("*").eq("usuario_id", uid).eq("ambito", ambito).order("orden").order("created_at"),
+      supabase.from("ae_items_cat").select("*").eq("usuario_id", uid).gte("fecha", mesAncla).lt("fecha", mesFin).order("fecha", { ascending: false }),
+      supabase.from("ae_prestamos").select("*").eq("usuario_id", uid).eq("ambito", ambito).order("created_at"),
+      supabase.from("ae_cuotas").select("*").eq("usuario_id", uid).gte("fecha_programada", mesAncla).lt("fecha_programada", mesFin),
+      supabase.from("ae_cuentas_bancarias").select("*").eq("usuario_id", uid).eq("activo", true).order("created_at", { ascending: false }),
+    ]);
+    if (mySeq !== seqRef.current) return; // llegó otra recarga más nueva; descartamos
+    setCats((c.data as Categoria[]) ?? []);
+    setItems((it.data as Item[]) ?? []);
+    setPrestamos((p.data as Prestamo[]) ?? []);
+    setCuotasMes((cu.data as Cuota[]) ?? []);
+    setCuentas((cb.data as CuentaBancaria[]) ?? []);
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [uid, ambito, mesAncla]);
 
@@ -134,7 +142,7 @@ export function MovimientosPage({ ambito, titulo, subtitulo }: { ambito: "negoci
       </div>
 
       {modalCat && uid && <ModalCategoria ambito={ambito} uid={uid} ordenInicial={cats.length} onClose={() => setModalCat(false)} onCreated={(cat, abrirItem) => { setModalCat(false); cargar(); if (abrirItem) { if (cat.tipo === "prestamo") setModalPrestamo(cat); else setModalItem({ categoria: cat }); } }} />}
-      {modalItem && uid && <ModalItem uid={uid} categoria={modalItem.categoria} item={modalItem.item} cuentas={cuentas} mesAncla={mesAncla} onClose={() => { setModalItem(null); cargar(); }} onSaved={() => cargar()} />}
+      {modalItem && uid && <ModalItem uid={uid} categoria={modalItem.categoria} item={modalItem.item} cuentas={cuentas} mesAncla={mesAncla} onClose={() => setModalItem(null)} onSaved={() => cargar()} />}
       {modalPrestamo && uid && <ModalPrestamo uid={uid} ambito={ambito} categoria={modalPrestamo} onClose={() => { setModalPrestamo(null); cargar(); }} />}
       {detallePrestamo && uid && <ModalDetallePrestamo uid={uid} prestamo={detallePrestamo} onClose={() => { setDetallePrestamo(null); cargar(); }} />}
       {editCat && uid && <ModalEditarCategoria uid={uid} categoria={editCat} onClose={() => setEditCat(null)} onSaved={() => { setEditCat(null); cargar(); }} />}
