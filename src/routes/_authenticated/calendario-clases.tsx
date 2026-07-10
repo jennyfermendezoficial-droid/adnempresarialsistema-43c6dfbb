@@ -88,7 +88,15 @@ function Page() {
         : `Dicta: ${nombreProf}`;
       const nuevas: Clase[] = [];
       for (const f of fechas) {
-        const zoom = await createZoom({ data: { topic, start_time: `${f}T${form.hora_inicio}:00`, duration: Math.max(15, dur), agenda, purpose: "class" } });
+        // Si la hora ya pasó (crear una clase con retraso), usar "ahora" para que Zoom no rechace.
+        let startIso = `${f}T${form.hora_inicio}:00`;
+        const startLocal = new Date(`${f}T${form.hora_inicio}:00`);
+        if (startLocal.getTime() < Date.now() - 60_000) {
+          const now = new Date(Date.now() + 60_000);
+          const pad = (n: number) => String(n).padStart(2, "0");
+          startIso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:00`;
+        }
+        const zoom = await createZoom({ data: { topic, start_time: startIso, duration: Math.max(15, dur), agenda, purpose: "class" } });
         const { data, error } = await supabase.from("clases_en_vivo").insert({
           fecha: f, hora_inicio: form.hora_inicio + ":00", hora_fin: form.hora_fin + ":00",
           titulo: form.titulo, descripcion: form.descripcion || null,
