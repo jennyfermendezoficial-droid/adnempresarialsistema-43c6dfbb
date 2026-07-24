@@ -1,40 +1,27 @@
-## Objetivo
-Permitir que cada usuario tenga **hasta 5 sesiones activas al mismo tiempo** (5 dispositivos/navegadores distintos logueados con la misma cuenta). Si intenta abrir una 6ta sesión, se cierra la más antigua automáticamente.
+## Diagnóstico confirmado
 
-## Cómo funcionará
+- El reproductor muestra "404" porque el backend responde `Bunny status 401` al consultar el estado de cada video en Bunny (verificado en las peticiones de red actuales, se repite cada ~10s).
+- Los `bunny_video_id` en la base de datos son correctos (GUIDs válidos) y el código del reproductor está bien.
+- El problema es **credenciales**: la `BUNNY_STREAM_API_KEY` guardada ya no autentica contra `video.bunnycdn.com`.
 
-1. Cuando un usuario inicia sesión, se registra su sesión actual en una tabla `sesiones_activas` con: `user_id`, `session_id` (un UUID generado en el cliente y guardado en localStorage), `dispositivo` (user agent), `ultima_actividad`, `creada_en`.
-2. Al iniciar sesión, el sistema cuenta cuántas sesiones activas tiene el usuario:
-   - Si tiene menos de 5 → registra la nueva normalmente.
-   - Si ya tiene 5 → elimina la más antigua (por `ultima_actividad`) y registra la nueva. El dispositivo expulsado, al hacer cualquier acción, detecta que su sesión ya no existe y se desloguea automáticamente con un mensaje: *"Tu sesión se cerró porque se superó el límite de 5 dispositivos."*
-3. Cada vez que el usuario navega/usa la app, se actualiza `ultima_actividad` (cada 2-3 minutos, no en cada click).
-4. Al cerrar sesión manualmente, se borra el registro de esa sesión.
-5. Las sesiones inactivas por más de 30 días se limpian automáticamente.
+## Qué haremos
 
-## Cambios técnicos
+1. **Renovar la API key de Bunny Stream**
+   - Abrir un formulario seguro para que pegues la API key actualizada de la biblioteca de Bunny (Bunny.net → Stream → tu biblioteca → API → "API Key").
+   - Verificar también que `BUNNY_STREAM_LIBRARY_ID` y `BUNNY_STREAM_CDN_HOSTNAME` sigan siendo los correctos de esa misma biblioteca (te los pediré solo si sospechamos que también cambiaron).
+2. **Validar en vivo** — Una vez guardada la key, entramos a "Dia 1 ADN Empresarial" y confirmamos que el iframe deja de mostrar 404 y reproduce. Como el frontend hace polling cada 5–10s, se ve el cambio sin recargar.
+3. **Mejora chiquita opcional** — Si te sirve, en el reproductor podemos mostrar un mensaje claro tipo "El servicio de video no está autenticado, contacta al admin" en lugar del 404 crudo, para que los alumnos no se confundan si vuelve a pasar.
 
-### Base de datos (migración)
-- Nueva tabla `public.sesiones_activas` (`id`, `user_id`, `session_id` único, `dispositivo`, `ip`, `creada_en`, `ultima_actividad`).
-- RLS: cada usuario ve/borra solo sus propias sesiones; admin ve todas.
-- GRANTs a `authenticated` y `service_role`.
-- Función RPC `registrar_sesion(session_id, dispositivo)` que: inserta la sesión, y si hay >5, borra la más antigua. `SECURITY DEFINER`.
-- Función RPC `validar_sesion(session_id)` que devuelve `true/false` si la sesión sigue activa.
+## Lo que NO hay que hacer
 
-### Frontend
-- `src/lib/auth-context.tsx`:
-  - Al detectar `SIGNED_IN`, generar un `session_id` (UUID), guardarlo en `localStorage`, y llamar `registrar_sesion`.
-  - Cada 2 minutos (o al cambiar de ruta), llamar `validar_sesion`. Si devuelve `false` → `signOut()` + toast *"Tu sesión se cerró: superaste el límite de 5 dispositivos activos."*
-  - Al hacer `signOut`, borrar el registro de la sesión actual y limpiar `localStorage`.
+- No hay que re-subir los videos (siguen en Bunny).
+- No hay que cambiar código del reproductor (funciona bien).
+- No hay que tocar la base de datos.
 
-### Página opcional (no incluida, solo aviso)
-- No agrego UI nueva para listar dispositivos activos. Si querés esa pantalla ("mis dispositivos conectados, cerrar sesión remota"), avisame y la sumo.
+## Detalles técnicos
 
-## Lo que NO cambia
-- El login sigue igual (email + contraseña).
-- No se tocan permisos, roles, ni otras tablas.
-- No afecta a usuarios ya logueados hasta su próximo inicio de sesión (las sesiones viejas no tienen `session_id` registrado y se contarán como "sin límite" hasta que vuelvan a entrar — alternativamente las puedo invalidar todas de golpe forzando un re-login global; decime si lo querés).
+- Secret afectado: `BUNNY_STREAM_API_KEY` (runtime secret).
+- Server function afectada: `getBunnyVideoStatus` en `src/lib/bunny.functions.ts` — usa `AccessKey: apiKey` contra `https://video.bunnycdn.com/library/{libraryId}/videos/{videoId}` y recibe 401.
+- Efecto colateral: al no llegar `ready: true`, el iframe cae a la variante donde Bunny devuelve 404 en el reproductor embed.
 
-## Confirmación
-¿Procedo así? ¿O preferís:
-- (a) Bloquear el 6to login con error en vez de expulsar al más antiguo, o
-- (b) Sumar la pantalla "Mis dispositivos conectados" para ver/cerrar sesiones manualmente?
+Al aprobar este plan, el primer paso será abrirte el formulario seguro para pegar la nueva API key de Bunny.
