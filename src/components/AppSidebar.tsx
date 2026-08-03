@@ -1,38 +1,13 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  Home, BookOpen, CalendarDays, Users,
-  ShieldCheck, Wallet, LogOut, Hash, Calendar,
-  Bell, GraduationCap,
-} from "lucide-react";
+import { Home, LogOut } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
+import {
+  inicioItems, canalesItems, soporteItems, academiaItems, comunidadItems, adminItems,
+} from "@/lib/nav-items";
 
 interface Item { to: string; label: string; icon: typeof Home; }
-
-const inicioItems: Item[] =  [
-  { to: "/inicio", label: "Inicio", icon: Home },
-  { to: "/tutoriales", label: "Tutoriales", icon: GraduationCap },
-];
-const canalesItems: Item[] = [
-  { to: "/general", label: "General", icon: Hash },
-];
-const soporteItems: Item[] = [
-  { to: "/agenda-1a1", label: "Agenda 1 a 1", icon: CalendarDays },
-];
-const academiaItems: Item[] = [
-  { to: "/cursos",            label: "Cursos",               icon: BookOpen },
-  { to: "/calendario-clases", label: "Calendario de clases", icon: Calendar },
-  { to: "/mis-clases-asignadas", label: "Mis clases asignadas", icon: Bell },
-];
-const comunidadItems: Item[] = [
-  { to: "/miembros", label: "Miembros", icon: Users },
-];
-const adminItems: Item[] = [
-  { to: "/permisos", label: "Permisos",         icon: ShieldCheck },
-  { to: "/acceso-cursos", label: "Acceso a cursos", icon: BookOpen },
-  { to: "/pagos",    label: "Pagos e informes", icon: Wallet },
-];
 
 interface AppSidebarProps { onNavigate?: () => void }
 

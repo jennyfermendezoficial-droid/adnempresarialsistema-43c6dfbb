@@ -1,0 +1,133 @@
+import { Link, useRouterState } from "@tanstack/react-router";
+import { ChevronDown, LogOut, User } from "lucide-react";
+import { Logo, BrandName } from "./Logo";
+import { useAuth } from "@/lib/auth-context";
+import { InstallAppButton } from "./InstallAppButton";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  inicioItems, canalesItems, soporteItems, academiaItems, comunidadItems, adminItems,
+  type NavItem,
+} from "@/lib/nav-items";
+
+const BAR = "var(--deep-2)";
+
+export function TopNav() {
+  const { profile, role, signOut } = useAuth();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
+
+  const flat: NavItem[] = [...inicioItems, ...canalesItems, ...soporteItems, ...comunidadItems];
+  const groups: { label: string; items: NavItem[] }[] = [
+    { label: "Academia", items: academiaItems },
+    ...(role === "admin" || role === "soporte"
+      ? [{ label: "Admin", items: adminItems }]
+      : []),
+  ];
+
+  const initial = (profile?.nombre_completo || profile?.email || "?").slice(0, 1).toUpperCase();
+
+  return (
+    <header
+      className="sticky top-0 z-40 w-full border-b"
+      style={{ background: BAR, color: "var(--violet-light)", borderColor: "var(--line-dark)" }}
+    >
+      <div className="relative">
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "radial-gradient(circle at top right, rgba(124,107,255,.15), transparent 60%)" }}
+        />
+        <div className="relative z-10 px-6">
+          {/* Fila 1 */}
+          <div className="h-14 flex items-center gap-4">
+            <Link to="/inicio" className="flex items-center gap-3 min-w-0">
+              <Logo size={30} />
+              <BrandName className="text-[15px] truncate" />
+            </Link>
+
+            <div className="ml-auto flex items-center gap-2 shrink-0">
+              <InstallAppButton variant="icon" />
+
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-white/10 transition-colors outline-none">
+                  <div
+                    className="w-8 h-8 rounded-full grid place-items-center text-white text-sm font-semibold"
+                    style={{ background: "linear-gradient(135deg,var(--violet),var(--violet-2))" }}
+                  >
+                    {initial}
+                  </div>
+                  <ChevronDown className="w-4 h-4 opacity-70" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5">
+                    <div className="text-sm font-semibold truncate">{profile?.nombre_completo || "Mi cuenta"}</div>
+                    <div className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">
+                      {role || "usuario"}
+                    </div>
+                  </div>
+                  <DropdownMenuItem asChild>
+                    <Link to="/perfil" className="flex items-center gap-2 cursor-pointer">
+                      <User className="w-4 h-4" /> Mi perfil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => signOut()} className="flex items-center gap-2 cursor-pointer">
+                    <LogOut className="w-4 h-4" /> Cerrar sesión
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          {/* Fila 2: pestañas */}
+          <nav className="flex items-stretch gap-1 overflow-x-auto">
+            {flat.map(({ to, label, icon: Icon }) => (
+              <Link
+                key={to}
+                to={to}
+                className="group flex items-center gap-2 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors"
+                style={
+                  isActive(to)
+                    ? { color: "#fff", borderColor: "var(--violet)" }
+                    : { color: "var(--violet-light)", borderColor: "transparent" }
+                }
+              >
+                <Icon className="w-[17px] h-[17px] shrink-0 opacity-80" />
+                <span>{label}</span>
+              </Link>
+            ))}
+
+            {groups.map((g) => {
+              const active = g.items.some((i) => isActive(i.to));
+              return (
+                <DropdownMenu key={g.label}>
+                  <DropdownMenuTrigger
+                    className="flex items-center gap-1.5 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors outline-none"
+                    style={
+                      active
+                        ? { color: "#fff", borderColor: "var(--violet)" }
+                        : { color: "var(--violet-light)", borderColor: "transparent" }
+                    }
+                  >
+                    {g.label}
+                    <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-60">
+                    {g.items.map(({ to, label, icon: Icon }) => (
+                      <DropdownMenuItem key={to} asChild>
+                        <Link to={to} className="flex items-center gap-2 cursor-pointer">
+                          <Icon className="w-4 h-4" /> {label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+    </header>
+  );
+}

@@ -4,7 +4,7 @@ import { detectPlatform, isStandalone, installInstallListener, tryNativeInstall 
 
 let listenerInstalled = false;
 
-export function InstallAppButton({ compact = false }: { compact?: boolean }) {
+export function InstallAppButton({ compact = false, variant = "default" }: { compact?: boolean; variant?: "default" | "icon" }) {
   const [open, setOpen] = useState(false);
   const [installed, setInstalled] = useState(false);
   const [platform, setPlatform] = useState<ReturnType<typeof detectPlatform>>("unknown");
@@ -28,6 +28,17 @@ export function InstallAppButton({ compact = false }: { compact?: boolean }) {
 
   return (
     <>
+      {variant === "icon" ? (
+        <button
+          onClick={click}
+          title="Descargar app"
+          aria-label="Descargar app"
+          className="w-9 h-9 grid place-items-center rounded-full transition hover:bg-white/10"
+          style={{ color: "var(--violet-light)" }}
+        >
+          <Download className="w-[18px] h-[18px]" />
+        </button>
+      ) : (
       <button
         onClick={click}
         className={
@@ -44,6 +55,7 @@ export function InstallAppButton({ compact = false }: { compact?: boolean }) {
         <Download className="w-4 h-4" />
         Descargar app
       </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm grid place-items-center p-4" onClick={() => setOpen(false)}>
