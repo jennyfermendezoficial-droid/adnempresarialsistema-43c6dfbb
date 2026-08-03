@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { AppSidebar } from "@/components/AppSidebar";
+import { TopNav } from "@/components/TopNav";
 import { Logo, BrandName } from "@/components/Logo";
 import { PostClassRatingModal } from "@/components/PostClassRatingModal";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
@@ -59,14 +60,9 @@ function AuthedLayout() {
 
   return (
     <div className="h-screen w-full flex overflow-hidden">
-      {/* Sidebar desktop (siempre visible >= md) */}
-      <div className="hidden md:block flex-shrink-0">
-        <AppSidebar />
-      </div>
-
-      {/* Drawer móvil */}
+      {/* Drawer móvil / tablet */}
       {drawerOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
+        <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in"
             onClick={() => setDrawerOpen(false)}
@@ -85,9 +81,14 @@ function AuthedLayout() {
       )}
 
       <main className="flex-1 overflow-y-auto flex flex-col min-w-0" style={{ background: "var(--bg-2)" }}>
-        {/* Top bar móvil con hamburguesa */}
+        {/* Menú superior (computador) */}
+        <div className="hidden lg:block">
+          <TopNav />
+        </div>
+
+        {/* Top bar móvil/tablet con hamburguesa */}
         <header
-          className="md:hidden sticky top-0 z-30 flex items-center gap-3 px-3 h-14 border-b"
+          className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-3 h-14 border-b"
           style={{
             background: "var(--deep-2)",
             borderColor: "var(--line-dark)",
