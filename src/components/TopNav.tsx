@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronDown, LogOut, User } from "lucide-react";
+import { useRef, useState } from "react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
@@ -12,6 +13,67 @@ import {
 } from "@/lib/nav-items";
 
 const BAR = "var(--deep-2)";
+
+function HoverGroup({
+  label,
+  items,
+  active,
+  isActive,
+}: {
+  label: string;
+  items: NavItem[];
+  active: boolean;
+  isActive: (p: string) => boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const show = () => {
+    if (timer.current) clearTimeout(timer.current);
+    setOpen(true);
+  };
+  const hide = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setOpen(false), 150);
+  };
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        className="flex items-center gap-1.5 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors outline-none"
+        style={
+          active
+            ? { color: "#fff", borderColor: "var(--violet)" }
+            : { color: "var(--violet-light)", borderColor: "transparent" }
+        }
+      >
+        {label}
+        <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="center"
+        sideOffset={0}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        className="w-60"
+      >
+        {items.map(({ to, label: l, icon: Icon }) => (
+          <DropdownMenuItem key={to} asChild>
+            <Link
+              to={to}
+              className="flex items-center gap-2 cursor-pointer"
+              data-active={isActive(to) ? "true" : undefined}
+            >
+              <Icon className="w-4 h-4" /> {l}
+            </Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export function TopNav() {
   const { profile, role, signOut } = useAuth();
@@ -39,7 +101,7 @@ export function TopNav() {
           className="absolute inset-0 pointer-events-none"
           style={{ background: "radial-gradient(circle at top right, rgba(124,107,255,.15), transparent 60%)" }}
         />
-        <div className="relative z-10 px-6">
+        <div className="relative z-10 mx-auto w-full max-w-[1400px] px-6">
           {/* Fila 1 */}
           <div className="h-14 flex items-center gap-4">
             <Link to="/inicio" className="flex items-center gap-3 min-w-0">
@@ -81,7 +143,7 @@ export function TopNav() {
           </div>
 
           {/* Fila 2: pestañas */}
-          <nav className="flex items-stretch gap-1 overflow-x-auto">
+          <nav className="flex items-stretch justify-center gap-1 overflow-x-auto">
             {flat.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
@@ -101,28 +163,13 @@ export function TopNav() {
             {groups.map((g) => {
               const active = g.items.some((i) => isActive(i.to));
               return (
-                <DropdownMenu key={g.label}>
-                  <DropdownMenuTrigger
-                    className="flex items-center gap-1.5 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors outline-none"
-                    style={
-                      active
-                        ? { color: "#fff", borderColor: "var(--violet)" }
-                        : { color: "var(--violet-light)", borderColor: "transparent" }
-                    }
-                  >
-                    {g.label}
-                    <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-60">
-                    {g.items.map(({ to, label, icon: Icon }) => (
-                      <DropdownMenuItem key={to} asChild>
-                        <Link to={to} className="flex items-center gap-2 cursor-pointer">
-                          <Icon className="w-4 h-4" /> {label}
-                        </Link>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <HoverGroup
+                  key={g.label}
+                  label={g.label}
+                  items={g.items}
+                  active={active}
+                  isActive={isActive}
+                />
               );
             })}
           </nav>
