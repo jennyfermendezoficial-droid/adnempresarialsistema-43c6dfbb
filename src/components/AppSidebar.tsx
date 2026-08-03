@@ -1,8 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  Home, BookOpen, CalendarDays, Users, MessageSquare,
-  ShieldCheck, Wallet, Gift, LogOut, Hash, Headphones, Calendar,
-  Clock3, CalendarRange, Briefcase, Home as HomeIcon, BarChart3, FileText, Landmark, Bell, GraduationCap,
+  Home, BookOpen, CalendarDays, Users,
+  ShieldCheck, Wallet, LogOut, Hash, Calendar,
+  Bell, GraduationCap,
 } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
