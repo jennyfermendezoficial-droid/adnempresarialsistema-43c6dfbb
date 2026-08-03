@@ -17,35 +17,21 @@ const inicioItems: Item[] =  [
 const canalesItems: Item[] = [
   { to: "/general", label: "General", icon: Hash },
 ];
-const staffCanalesItems: Item[] = [
-  { to: "/chat-profesores", label: "Chat profesores", icon: Headphones },
-];
 const soporteItems: Item[] = [
-  { to: "/chats",      label: "Chats",        icon: MessageSquare },
   { to: "/agenda-1a1", label: "Agenda 1 a 1", icon: CalendarDays },
 ];
 const academiaItems: Item[] = [
   { to: "/cursos",            label: "Cursos",               icon: BookOpen },
   { to: "/calendario-clases", label: "Calendario de clases", icon: Calendar },
-  { to: "/tareas",            label: "Tareas",               icon: FileText },
   { to: "/mis-clases-asignadas", label: "Mis clases asignadas", icon: Bell },
 ];
 const comunidadItems: Item[] = [
   { to: "/miembros", label: "Miembros", icon: Users },
 ];
-const miAgendaItems: Item[] = [
-  { to: "/mi-agenda",     label: "Agenda diaria",  icon: Clock3 },
-  { to: "/mi-calendario", label: "Calendario",     icon: CalendarRange },
-  { to: "/mi-negocio",    label: "Negocio",        icon: Briefcase },
-  { to: "/mi-casa",       label: "Casa",           icon: HomeIcon },
-  { to: "/mis-cuentas-bancarias", label: "Cuentas bancarias", icon: Landmark },
-  { to: "/mis-reportes",  label: "Reportes",       icon: BarChart3 },
-];
 const adminItems: Item[] = [
   { to: "/permisos", label: "Permisos",         icon: ShieldCheck },
   { to: "/acceso-cursos", label: "Acceso a cursos", icon: BookOpen },
   { to: "/pagos",    label: "Pagos e informes", icon: Wallet },
-  { to: "/bonos",    label: "Bonos",            icon: Gift },
 ];
 
 interface AppSidebarProps { onNavigate?: () => void }
@@ -82,9 +68,6 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
 
         <SectionLabel className="mt-3">Canales</SectionLabel>
         <Nav items={canalesItems} isActive={isActive} onClick={onNavigate} />
-        {(role === "admin" || role === "soporte") && (
-          <Nav items={staffCanalesItems} isActive={isActive} onClick={onNavigate} />
-        )}
 
         <SectionLabel className="mt-3">Soporte</SectionLabel>
         <Nav items={soporteItems} isActive={isActive} onClick={onNavigate} />
@@ -94,9 +77,6 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
 
         <SectionLabel className="mt-3">Comunidad</SectionLabel>
         <Nav items={comunidadItems} isActive={isActive} onClick={onNavigate} />
-
-        <SectionLabel className="mt-3">Mi Agenda Emprendedora</SectionLabel>
-        <Nav items={miAgendaItems} isActive={isActive} onClick={onNavigate} />
 
         {(role === "admin" || role === "soporte") && (
           <>
