@@ -1,27 +1,21 @@
-## Diagnóstico confirmado
+# Limpiar el menú lateral
 
-- El reproductor muestra "404" porque el backend responde `Bunny status 401` al consultar el estado de cada video en Bunny (verificado en las peticiones de red actuales, se repite cada ~10s).
-- Los `bunny_video_id` en la base de datos son correctos (GUIDs válidos) y el código del reproductor está bien.
-- El problema es **credenciales**: la `BUNNY_STREAM_API_KEY` guardada ya no autentica contra `video.bunnycdn.com`.
+Quitar del menú los apartados que ya no se usan, sin tocar el resto.
 
-## Qué haremos
+## Se quitan del menú
 
-1. **Renovar la API key de Bunny Stream**
-   - Abrir un formulario seguro para que pegues la API key actualizada de la biblioteca de Bunny (Bunny.net → Stream → tu biblioteca → API → "API Key").
-   - Verificar también que `BUNNY_STREAM_LIBRARY_ID` y `BUNNY_STREAM_CDN_HOSTNAME` sigan siendo los correctos de esa misma biblioteca (te los pediré solo si sospechamos que también cambiaron).
-2. **Validar en vivo** — Una vez guardada la key, entramos a "Dia 1 ADN Empresarial" y confirmamos que el iframe deja de mostrar 404 y reproduce. Como el frontend hace polling cada 5–10s, se ve el cambio sin recargar.
-3. **Mejora chiquita opcional** — Si te sirve, en el reproductor podemos mostrar un mensaje claro tipo "El servicio de video no está autenticado, contacta al admin" en lugar del 404 crudo, para que los alumnos no se confundan si vuelve a pasar.
+- Soporte: Chats, y la sección completa desaparece si queda vacía (Agenda 1 a 1 se mantiene)
+- Canales: Chat profesores
+- Academia: Tareas
+- Mi Agenda Emprendedora: Agenda diaria, Calendario, Negocio, Casa, Cuentas bancarias, Reportes → la sección entera desaparece
+- Admin: Bonos
 
-## Lo que NO hay que hacer
+## Se mantienen igual
 
-- No hay que re-subir los videos (siguen en Bunny).
-- No hay que cambiar código del reproductor (funciona bien).
-- No hay que tocar la base de datos.
+Inicio, Tutoriales, General, Agenda 1 a 1, Cursos, Calendario de clases, Mis clases asignadas, Miembros, Permisos, Acceso a cursos, Pagos e informes, Perfil y Cerrar sesión.
 
 ## Detalles técnicos
 
-- Secret afectado: `BUNNY_STREAM_API_KEY` (runtime secret).
-- Server function afectada: `getBunnyVideoStatus` en `src/lib/bunny.functions.ts` — usa `AccessKey: apiKey` contra `https://video.bunnycdn.com/library/{libraryId}/videos/{videoId}` y recibe 401.
-- Efecto colateral: al no llegar `ready: true`, el iframe cae a la variante donde Bunny devuelve 404 en el reproductor embed.
+Solo se edita `src/components/AppSidebar.tsx`: se eliminan esas entradas de las listas de navegación y las secciones que quedan sin ítems (Mi Agenda Emprendedora, y Soporte si aplica).
 
-Al aprobar este plan, el primer paso será abrirte el formulario seguro para pegar la nueva API key de Bunny.
+Las páginas y los datos se conservan intactos: nada se borra de la base de datos y las rutas siguen existiendo por si más adelante se quieren volver a mostrar. Si prefieres que también se borren las páginas y sus datos, dilo y lo ajusto.
