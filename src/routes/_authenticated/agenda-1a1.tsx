@@ -349,8 +349,10 @@ function Page() {
                               <div className="opacity-80">Duración por definir</div>
                             )}
                             {ses.zoom_link && <a href={ses.zoom_link} target="_blank" rel="noreferrer" className="underline opacity-95">Entrar a Zoom →</a>}
-                            {(ses.profesor_id === uid || role === "admin") && !ses.duracion_min && (
-                              <button onClick={() => setDuracionModal(ses)} className="block underline mt-0.5 opacity-90">Registrar duración</button>
+                            {(ses.profesor_id === uid || role === "admin") && (
+                              <button onClick={() => setDuracionModal(ses)} className="block underline mt-0.5 opacity-90">
+                                {ses.duracion_min ? "Editar duración" : "Registrar duración"}
+                              </button>
                             )}
                             {(ses.alumna_id === uid || role === "admin") && (
                               <button onClick={() => cancelar(ses.id)} className="block underline mt-0.5 opacity-80">Cancelar</button>
@@ -472,9 +474,9 @@ function Page() {
                       </td>
                       <td className="px-3 py-2">{otroNombre || (esMia ? "Mentor" : "Alumna")}</td>
                       <td className="px-3 py-2 text-right">
-                        {!esMia && !s.duracion_min && (
+                        {(s.profesor_id === uid || role === "admin") && (
                           <button onClick={() => setDuracionModal(s)} className="inline-flex items-center gap-1 px-3 py-1.5 mr-2 rounded-lg text-xs font-semibold border">
-                            <Clock className="w-3.5 h-3.5" /> Registrar duración
+                            <Clock className="w-3.5 h-3.5" /> {s.duracion_min ? "Editar duración" : "Registrar duración"}
                           </button>
                         )}
                         {s.zoom_link ? (
@@ -496,6 +498,7 @@ function Page() {
         <RegistrarDuracionModal
           sesionId={duracionModal.id}
           horaInicio={duracionModal.hora_inicio}
+          duracionInicial={duracionModal.duracion_min ?? null}
           onClose={() => setDuracionModal(null)}
           onSaved={(min, fin) => {
             const upd = (arr: Sesion[]) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00", estado: "finalizada" } : x);

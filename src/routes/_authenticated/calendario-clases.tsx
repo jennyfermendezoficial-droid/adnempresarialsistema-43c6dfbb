@@ -4,12 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useServerFn } from "@tanstack/react-start";
 import { createZoomMeeting } from "@/lib/zoom.functions";
-import { ChevronLeft, ChevronRight, Plus, Video, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Video, Trash2, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 
 export const Route = createFileRoute("/_authenticated/calendario-clases")({ component: Page });
 
-interface Clase { id: string; fecha: string; hora_inicio: string; hora_fin: string; titulo: string; descripcion: string | null; zoom_link: string | null; profesor_id: string | null }
+interface Clase { id: string; fecha: string; hora_inicio: string; hora_fin: string; titulo: string; descripcion: string | null; zoom_link: string | null; profesor_id: string | null; duracion_min?: number | null }
 
 function Page() {
   const { session, role } = useAuth();
@@ -20,6 +21,7 @@ function Page() {
   const [newOn, setNewOn] = useState<string | null>(null);
   const [staff, setStaff] = useState<{ id: string; nombre: string }[]>([]);
   const [creating, setCreating] = useState(false);
+  const [duracionModal, setDuracionModal] = useState<Clase | null>(null);
   const [form, setForm] = useState({
     titulo: "",
     descripcion: "",
@@ -159,7 +161,15 @@ function Page() {
                 {c.descripcion && (
                   <div className="opacity-90 line-clamp-2 mt-0.5">{c.descripcion}</div>
                 )}
+                {c.duracion_min ? (
+                  <div className="opacity-90">{c.hora_inicio.slice(0,5)} – {c.hora_fin?.slice(0,5)} · {c.duracion_min} min</div>
+                ) : null}
                 {c.zoom_link && <a href={c.zoom_link} target="_blank" rel="noreferrer" className="underline flex items-center gap-0.5"><Video className="w-2.5 h-2.5"/>Zoom</a>}
+                {(c.profesor_id === session?.user.id || role === "admin") && new Date(`${c.fecha}T${c.hora_inicio}`) <= new Date() && (
+                  <button onClick={() => setDuracionModal(c)} className="underline mt-0.5 flex items-center gap-0.5">
+                    <Clock className="w-2.5 h-2.5"/>{c.duracion_min ? "Editar duración" : "Registrar duración"}
+                  </button>
+                )}
                 {isStaff && <button onClick={() => eliminar(c.id)} className="underline mt-0.5 flex items-center gap-0.5"><Trash2 className="w-2.5 h-2.5"/>Eliminar</button>}
               </div>
             ))}
@@ -209,6 +219,17 @@ function Page() {
             </div>
           </div>
         </div>
+      )}
+
+      {duracionModal && (
+        <RegistrarDuracionModal
+          tipo="clase"
+          sesionId={duracionModal.id}
+          horaInicio={duracionModal.hora_inicio}
+          duracionInicial={duracionModal.duracion_min ?? null}
+          onClose={() => setDuracionModal(null)}
+          onSaved={(min, fin) => setClases((arr) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00" } : x))}
+        />
       )}
     </div>
   );
