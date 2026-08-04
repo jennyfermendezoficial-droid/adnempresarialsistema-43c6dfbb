@@ -9,12 +9,12 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/agenda-1a1")({ component: Page });
 
-interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string }
+interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string | null; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string; duracion_min?: number | null; motivo?: string | null }
 interface Profile { id: string; nombre_completo: string; email: string; avatar_url?: string | null; actividad?: string | null }
 
-// Slots cada HORA PUNTUAL · sesiones de 30 minutos
+// Slots cada HORA PUNTUAL · la duración real la registra el profesor al terminar
 const HORAS = ["09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00","19:00"];
-const DURACION_MIN = 30;
+const ZOOM_DURACION_MIN = 60; // holgura para crear la reunión de Zoom
 const DIAS = ["Lun","Mar","Mié","Jue","Vie"];
 
 // Descripciones por profesor (match por nombre / email)
