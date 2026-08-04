@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useServerFn } from "@tanstack/react-start";
 import { createZoomMeeting } from "@/lib/zoom.functions";
-import { ChevronLeft, ChevronRight, Video, X as XIcon, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Video, X as XIcon, Star, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 
 export const Route = createFileRoute("/_authenticated/agenda-1a1")({ component: Page });
 
@@ -55,6 +56,9 @@ function Page() {
   const [saving, setSaving] = useState(false);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
   const [now, setNow] = useState(new Date());
+  // Perfiles de las contrapartes (estudiantes) para mostrar nombres
+  const [personas, setPersonas] = useState<Record<string, Profile>>({});
+  const [duracionModal, setDuracionModal] = useState<Sesion | null>(null);
   // Mis próximas sesiones (alumna o profesor)
   const [proximas, setProximas] = useState<Sesion[]>([]);
 
@@ -110,6 +114,28 @@ function Page() {
       setProximas((data as Sesion[]) ?? []);
     })();
   }, [uid, sesiones]);
+
+  // Cargar perfiles de todas las personas involucradas (estudiantes y mentores)
+  useEffect(() => {
+    if (!uid) return;
+    const ids = Array.from(new Set([...sesiones, ...proximas].flatMap((s) => [s.alumna_id, s.profesor_id])));
+    const faltan = ids.filter((id) => id && !personas[id]);
+    if (!faltan.length) return;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", faltan);
+      if (!data?.length) return;
+      setPersonas((prev) => {
+        const next = { ...prev };
+        (data as Profile[]).forEach((p) => { next[p.id] = p; });
+        return next;
+      });
+    })();
+  }, [uid, sesiones, proximas]); // eslint-disable-line
+
+  const nombreDe = (id: string) => {
+    const p = personas[id] ?? profesores.find((x) => x.id === id);
+    return p?.nombre_completo || p?.email || null;
+  };
 
   useEffect(() => {
     if (!profesorId) return;
@@ -174,18 +200,15 @@ function Page() {
         .eq("profesor_id", profesorId).eq("fecha", fecha).eq("hora_inicio", hora + ":00").limit(1);
       if (existe && existe.length) { toast.error("Ese horario acaba de ser reservado."); setSaving(false); return; }
 
-      const [hh] = hora.split(":").map(Number);
-      const totalMin = hh * 60 + DURACION_MIN;
-      const fin = `${String(Math.floor(totalMin / 60)).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
       const start_time = `${fecha}T${hora}:00`;
       const profActual = profesores.find((p) => p.id === profesorId);
       const nombreProf = profActual?.nombre_completo || profActual?.email || "Profesor";
       const tema = profActual ? temaDe(profActual) : "Mentoría 1 a 1";
       const topic = `${nombreProf} – ${tema}`;
       const agenda = `Sesión 1 a 1 con ${nombreProf}\nTema: ${tema}`;
-      const zoom = await createZoom({ data: { topic, start_time, duration: DURACION_MIN, agenda } });
+      const zoom = await createZoom({ data: { topic, start_time, duration: ZOOM_DURACION_MIN, agenda } });
       const { data, error } = await supabase.from("sesiones_1a1").insert({
-        profesor_id: profesorId, alumna_id: uid, fecha, hora_inicio: hora + ":00", hora_fin: fin + ":00",
+        profesor_id: profesorId, alumna_id: uid, fecha, hora_inicio: hora + ":00", hora_fin: null,
         zoom_meeting_id: zoom.meeting_id, zoom_link: zoom.join_url, estado: "confirmada", motivo: motivoLimpio,
       }).select().single();
       if (error) throw error;
