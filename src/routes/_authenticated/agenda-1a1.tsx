@@ -452,6 +452,7 @@ function Page() {
                 <tr>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Fecha</th>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Hora</th>
+                  <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Duración</th>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">{role === "admin" || role === "soporte" ? "Alumna / Mentor" : "Mentor"}</th>
                   <th className="text-right px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Acción</th>
                 </tr>
@@ -460,14 +461,22 @@ function Page() {
                 {proximas.map((s) => {
                   const esMia = s.alumna_id === uid;
                   const otroId = esMia ? s.profesor_id : s.alumna_id;
-                  const otro = profesores.find((p) => p.id === otroId);
+                  const otroNombre = nombreDe(otroId);
                   const fechaTxt = new Date(s.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "short", day: "numeric", month: "short" });
                   return (
                     <tr key={s.id} className="border-t">
                       <td className="px-3 py-2 capitalize">{fechaTxt}</td>
                       <td className="px-3 py-2 font-mono">{s.hora_inicio.slice(0,5)}</td>
-                      <td className="px-3 py-2">{otro?.nombre_completo || otro?.email || (esMia ? "Mentor" : "Alumna")}</td>
+                      <td className="px-3 py-2 text-xs">
+                        {s.duracion_min ? `${s.duracion_min} min` : <span className="opacity-60">por definir</span>}
+                      </td>
+                      <td className="px-3 py-2">{otroNombre || (esMia ? "Mentor" : "Alumna")}</td>
                       <td className="px-3 py-2 text-right">
+                        {!esMia && !s.duracion_min && (
+                          <button onClick={() => setDuracionModal(s)} className="inline-flex items-center gap-1 px-3 py-1.5 mr-2 rounded-lg text-xs font-semibold border">
+                            <Clock className="w-3.5 h-3.5" /> Registrar duración
+                          </button>
+                        )}
                         {s.zoom_link ? (
                           <a href={s.zoom_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-gradient text-white">
                             <Video className="w-3.5 h-3.5" /> Entrar a Zoom
@@ -481,6 +490,19 @@ function Page() {
             </table>
           </div>
         </div>
+      )}
+
+      {duracionModal && (
+        <RegistrarDuracionModal
+          sesionId={duracionModal.id}
+          horaInicio={duracionModal.hora_inicio}
+          onClose={() => setDuracionModal(null)}
+          onSaved={(min, fin) => {
+            const upd = (arr: Sesion[]) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00", estado: "finalizada" } : x);
+            setSesiones(upd);
+            setProximas(upd);
+          }}
+        />
       )}
     </div>
   );
