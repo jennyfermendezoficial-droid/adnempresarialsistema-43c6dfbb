@@ -565,7 +565,9 @@ export type Database = {
           created_by: string | null
           curso_id: string | null
           descripcion: string | null
+          duracion_min: number | null
           fecha: string
+          finalizada_at: string | null
           hora_fin: string
           hora_inicio: string
           id: string
@@ -580,7 +582,9 @@ export type Database = {
           created_by?: string | null
           curso_id?: string | null
           descripcion?: string | null
+          duracion_min?: number | null
           fecha: string
+          finalizada_at?: string | null
           hora_fin: string
           hora_inicio: string
           id?: string
@@ -595,7 +599,9 @@ export type Database = {
           created_by?: string | null
           curso_id?: string | null
           descripcion?: string | null
+          duracion_min?: number | null
           fecha?: string
+          finalizada_at?: string | null
           hora_fin?: string
           hora_inicio?: string
           id?: string
@@ -1259,6 +1265,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      registrar_duracion_clase: {
+        Args: { _clase_id: string; _duracion_min: number }
+        Returns: undefined
       }
       registrar_duracion_sesion: {
         Args: { _duracion_min: number; _sesion_id: string }
