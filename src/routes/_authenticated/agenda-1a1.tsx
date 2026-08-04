@@ -238,7 +238,7 @@ function Page() {
           <div>
             <div className="text-[11px] uppercase tracking-[0.18em] opacity-80">Sesiones privadas</div>
             <h1 className="text-3xl font-bold mt-1">Agenda 1 a 1</h1>
-            <p className="text-sm opacity-90 mt-1">Lunes a viernes · 30 minutos por sesión · Zoom automático.</p>
+            <p className="text-sm opacity-90 mt-1">Lunes a viernes · duración flexible (la registra tu mentor al terminar) · Zoom automático.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }} className="p-2 rounded-lg bg-white/15 hover:bg-white/25"><ChevronLeft className="w-4 h-4"/></button>
@@ -325,9 +325,7 @@ function Page() {
             <tbody>
               {HORAS.map((h) => (
                 <tr key={h} className="border-t">
-                  <td className="px-3 py-3 font-mono text-xs font-semibold opacity-80">
-                    {h}<span className="opacity-50"> – {h.slice(0,2)}:30</span>
-                  </td>
+                  <td className="px-3 py-3 font-mono text-xs font-semibold opacity-80">{h}</td>
                   {dias.map((d, i) => {
                     const fecha = fmt(d);
                     const ses = miSesion(fecha, h);
@@ -339,8 +337,21 @@ function Page() {
                       return (
                         <td key={i} className="px-2 py-2">
                           <div className="rounded-xl bg-violet-gradient text-white p-2.5 text-xs shadow-md">
-                            <div className="font-semibold flex items-center gap-1"><Video className="w-3 h-3"/> Reservada</div>
+                            <div className="font-semibold flex items-center gap-1">
+                              <Video className="w-3 h-3"/>
+                              <span className="truncate">
+                                {ses.profesor_id === uid ? (nombreDe(ses.alumna_id) ?? "Reservada") : "Reservada"}
+                              </span>
+                            </div>
+                            {ses.duracion_min ? (
+                              <div className="opacity-90">{ses.hora_inicio.slice(0,5)} – {ses.hora_fin?.slice(0,5)} · {ses.duracion_min} min</div>
+                            ) : (
+                              <div className="opacity-80">Duración por definir</div>
+                            )}
                             {ses.zoom_link && <a href={ses.zoom_link} target="_blank" rel="noreferrer" className="underline opacity-95">Entrar a Zoom →</a>}
+                            {(ses.profesor_id === uid || role === "admin") && !ses.duracion_min && (
+                              <button onClick={() => setDuracionModal(ses)} className="block underline mt-0.5 opacity-90">Registrar duración</button>
+                            )}
                             {(ses.alumna_id === uid || role === "admin") && (
                               <button onClick={() => cancelar(ses.id)} className="block underline mt-0.5 opacity-80">Cancelar</button>
                             )}
@@ -409,8 +420,8 @@ function Page() {
               </p>
             )}
             <p className="text-sm text-muted-foreground mb-4">
-              {new Date(booking.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })} a las {booking.hora} (30 minutos).
-              <br />Se creará una reunión de Zoom automáticamente.
+              {new Date(booking.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })} a las {booking.hora}.
+              <br />La duración real la registrará tu mentor al terminar. Se creará una reunión de Zoom automáticamente.
             </p>
             <label className="block text-xs font-medium mb-1">¿Cuál es tu duda o inquietud? <span className="text-muted-foreground">(máx. 100 caracteres)</span></label>
             <textarea
