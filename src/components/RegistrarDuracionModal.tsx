@@ -5,7 +5,10 @@ import { Clock } from "lucide-react";
 
 interface Props {
   sesionId: string;
+  /** "1a1" (por defecto) o "clase" para clases en vivo */
+  tipo?: "1a1" | "clase";
   horaInicio: string; // "HH:MM" o "HH:MM:SS"
+  duracionInicial?: number | null;
   onClose: () => void;
   onSaved: (duracionMin: number, horaFin: string) => void;
 }
@@ -19,11 +22,12 @@ function toHHMM(min: number) {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
 
-export function RegistrarDuracionModal({ sesionId, horaInicio, onClose, onSaved }: Props) {
+export function RegistrarDuracionModal({ sesionId, tipo = "1a1", horaInicio, duracionInicial, onClose, onSaved }: Props) {
   const inicio = horaInicio.slice(0, 5);
+  const inicial = duracionInicial && duracionInicial > 0 ? duracionInicial : 60;
   const [modo, setModo] = useState<"minutos" | "fin">("minutos");
-  const [minutos, setMinutos] = useState("60");
-  const [horaFin, setHoraFin] = useState(toHHMM(toMin(inicio) + 60));
+  const [minutos, setMinutos] = useState(String(inicial));
+  const [horaFin, setHoraFin] = useState(toHHMM(toMin(inicio) + inicial));
   const [saving, setSaving] = useState(false);
 
   const cambiarMinutos = (v: string) => {
@@ -47,10 +51,16 @@ export function RegistrarDuracionModal({ sesionId, horaInicio, onClose, onSaved 
       return;
     }
     setSaving(true);
-    const { error } = await supabase.rpc("registrar_duracion_sesion", {
-      _sesion_id: sesionId,
-      _duracion_min: Math.round(duracion),
-    });
+    const { error } =
+      tipo === "clase"
+        ? await supabase.rpc("registrar_duracion_clase", {
+            _clase_id: sesionId,
+            _duracion_min: Math.round(duracion),
+          })
+        : await supabase.rpc("registrar_duracion_sesion", {
+            _sesion_id: sesionId,
+            _duracion_min: Math.round(duracion),
+          });
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Duración registrada.");
@@ -62,7 +72,9 @@ export function RegistrarDuracionModal({ sesionId, horaInicio, onClose, onSaved 
     <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" onClick={onClose}>
       <div className="bg-card p-6 rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold mb-1 flex items-center gap-2"><Clock className="w-4 h-4" /> Registrar duración</h3>
-        <p className="text-xs text-muted-foreground mb-4">La reunión comenzó a las <span className="font-semibold text-foreground">{inicio}</span>.</p>
+        <p className="text-xs text-muted-foreground mb-4">
+          {tipo === "clase" ? "La clase" : "La reunión"} comenzó a las <span className="font-semibold text-foreground">{inicio}</span>.
+        </p>
 
         <div className="flex gap-1 p-1 rounded-xl bg-muted mb-4">
           {(["minutos", "fin"] as const).map((m) => (
