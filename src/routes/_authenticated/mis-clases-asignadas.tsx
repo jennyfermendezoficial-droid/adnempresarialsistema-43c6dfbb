@@ -7,7 +7,7 @@ import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 
 export const Route = createFileRoute("/_authenticated/mis-clases-asignadas")({ component: Page });
 
-interface Clase { id: string; fecha: string; hora_inicio: string; hora_fin: string; titulo: string; descripcion: string | null; zoom_link: string | null; profesor_id: string | null }
+interface Clase { id: string; fecha: string; hora_inicio: string; hora_fin: string; titulo: string; descripcion: string | null; zoom_link: string | null; profesor_id: string | null; duracion_min: number | null }
 interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string | null; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string; motivo: string | null; duracion_min: number | null }
 interface Profile { id: string; nombre_completo: string; email: string }
 
@@ -20,12 +20,17 @@ function Page() {
   const [personas, setPersonas] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
   const [duracionModal, setDuracionModal] = useState<Sesion | null>(null);
+  const [claseModal, setClaseModal] = useState<Clase | null>(null);
 
   useEffect(() => {
     if (!uid) return;
     (async () => {
       const hoy = new Date().toISOString().slice(0, 10);
-      const clasesQuery = supabase.from("clases_en_vivo").select("*").gte("fecha", hoy).order("fecha").order("hora_inicio");
+      // El staff ve también las clases pasadas recientes para poder registrar su duración
+      const desde = isStaff
+        ? new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+        : hoy;
+      const clasesQuery = supabase.from("clases_en_vivo").select("*").gte("fecha", desde).order("fecha").order("hora_inicio");
       const [{ data: c }, { data: s }] = await Promise.all([
         isStaff ? clasesQuery.eq("profesor_id", uid) : clasesQuery,
         supabase.from("sesiones_1a1").select("*").or(`alumna_id.eq.${uid},profesor_id.eq.${uid}`).order("fecha", { ascending: false }).order("hora_inicio"),
@@ -52,9 +57,15 @@ function Page() {
     return diff > 0 && diff < 24 * 60 * 60 * 1000;
   };
 
-  type Item = { tipo: "clase" | "1a1"; id: string; fecha: string; hora: string; titulo: string; sub: string; link: string | null; motivo?: string | null; soyProfe?: boolean; sesion?: Sesion };
+  type Item = { tipo: "clase" | "1a1"; id: string; fecha: string; hora: string; titulo: string; sub: string; link: string | null; motivo?: string | null; soyProfe?: boolean; sesion?: Sesion; clase?: Clase };
   const items: Item[] = [
-    ...clases.map<Item>((c) => ({ tipo: "clase", id: c.id, fecha: c.fecha, hora: c.hora_inicio, titulo: c.titulo, sub: c.descripcion || "Clase en vivo", link: c.zoom_link })),
+    ...clases.map<Item>((c) => ({
+      tipo: "clase", id: c.id, fecha: c.fecha, hora: c.hora_inicio, titulo: c.titulo,
+      sub: c.duracion_min
+        ? `${c.descripcion || "Clase en vivo"} · ${c.hora_inicio.slice(0,5)} – ${c.hora_fin?.slice(0,5)} · ${c.duracion_min} min`
+        : (c.descripcion || "Clase en vivo"),
+      link: c.zoom_link, soyProfe: c.profesor_id === uid, clase: c,
+    })),
     ...sesiones.map<Item>((s) => {
       const soyAlumna = s.alumna_id === uid;
       const persona = personas[soyAlumna ? s.profesor_id : s.alumna_id];
@@ -124,10 +135,16 @@ function Page() {
                     <Video className="w-3.5 h-3.5" /> Entrar a Zoom
                   </a>
                 )}
-                {it.tipo === "1a1" && it.soyProfe && it.sesion && !it.sesion.duracion_min && (
+                {it.tipo === "1a1" && it.soyProfe && it.sesion && (
                   <button onClick={() => setDuracionModal(it.sesion!)}
                     className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold border">
-                    <Clock className="w-3.5 h-3.5" /> Registrar duración
+                    <Clock className="w-3.5 h-3.5" /> {it.sesion.duracion_min ? "Editar duración" : "Registrar duración"}
+                  </button>
+                )}
+                {it.tipo === "clase" && it.clase && (it.clase.profesor_id === uid || role === "admin") && new Date(`${it.fecha}T${it.hora}`) <= ahora && (
+                  <button onClick={() => setClaseModal(it.clase!)}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold border">
+                    <Clock className="w-3.5 h-3.5" /> {it.clase.duracion_min ? "Editar duración" : "Registrar duración"}
                   </button>
                 )}
               </div>
@@ -142,6 +159,17 @@ function Page() {
           horaInicio={duracionModal.hora_inicio}
           onClose={() => setDuracionModal(null)}
           onSaved={(min, fin) => setSesiones((arr) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00", estado: "finalizada" } : x))}
+        />
+      )}
+
+      {claseModal && (
+        <RegistrarDuracionModal
+          tipo="clase"
+          sesionId={claseModal.id}
+          horaInicio={claseModal.hora_inicio}
+          duracionInicial={claseModal.duracion_min}
+          onClose={() => setClaseModal(null)}
+          onSaved={(min, fin) => setClases((arr) => arr.map((x) => x.id === claseModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00" } : x))}
         />
       )}
     </div>
