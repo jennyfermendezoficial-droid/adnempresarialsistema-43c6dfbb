@@ -2,12 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Video, Calendar, AlertCircle } from "lucide-react";
+import { Video, Calendar, AlertCircle, Clock } from "lucide-react";
+import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 
 export const Route = createFileRoute("/_authenticated/mis-clases-asignadas")({ component: Page });
 
 interface Clase { id: string; fecha: string; hora_inicio: string; hora_fin: string; titulo: string; descripcion: string | null; zoom_link: string | null; profesor_id: string | null }
-interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string; motivo: string | null }
+interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string | null; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string; motivo: string | null; duracion_min: number | null }
 interface Profile { id: string; nombre_completo: string; email: string }
 
 function Page() {
@@ -18,6 +19,7 @@ function Page() {
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
   const [personas, setPersonas] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
+  const [duracionModal, setDuracionModal] = useState<Sesion | null>(null);
 
   useEffect(() => {
     if (!uid) return;
@@ -26,7 +28,7 @@ function Page() {
       const clasesQuery = supabase.from("clases_en_vivo").select("*").gte("fecha", hoy).order("fecha").order("hora_inicio");
       const [{ data: c }, { data: s }] = await Promise.all([
         isStaff ? clasesQuery.eq("profesor_id", uid) : clasesQuery,
-        supabase.from("sesiones_1a1").select("*").or(`alumna_id.eq.${uid},profesor_id.eq.${uid}`).gte("fecha", hoy).order("fecha").order("hora_inicio"),
+        supabase.from("sesiones_1a1").select("*").or(`alumna_id.eq.${uid},profesor_id.eq.${uid}`).order("fecha", { ascending: false }).order("hora_inicio"),
       ]);
       const cl = (c as Clase[]) ?? [];
       const se = (s as Sesion[]) ?? [];
@@ -50,15 +52,21 @@ function Page() {
     return diff > 0 && diff < 24 * 60 * 60 * 1000;
   };
 
-  type Item = { tipo: "clase" | "1a1"; id: string; fecha: string; hora: string; titulo: string; sub: string; link: string | null; motivo?: string | null; soyProfe?: boolean };
+  type Item = { tipo: "clase" | "1a1"; id: string; fecha: string; hora: string; titulo: string; sub: string; link: string | null; motivo?: string | null; soyProfe?: boolean; sesion?: Sesion };
   const items: Item[] = [
     ...clases.map<Item>((c) => ({ tipo: "clase", id: c.id, fecha: c.fecha, hora: c.hora_inicio, titulo: c.titulo, sub: c.descripcion || "Clase en vivo", link: c.zoom_link })),
     ...sesiones.map<Item>((s) => {
       const soyAlumna = s.alumna_id === uid;
       const persona = personas[soyAlumna ? s.profesor_id : s.alumna_id];
-      return { tipo: "1a1", id: s.id, fecha: s.fecha, hora: s.hora_inicio, titulo: `1 a 1 con ${persona?.nombre_completo || persona?.email || (soyAlumna ? "mentor" : "alumna")}`, sub: "Sesión privada", link: s.zoom_link, motivo: s.motivo, soyProfe: !soyAlumna };
+      const nombre = persona?.nombre_completo || persona?.email || (soyAlumna ? "mentor" : "estudiante");
+      return {
+        tipo: "1a1", id: s.id, fecha: s.fecha, hora: s.hora_inicio,
+        titulo: soyAlumna ? `1 a 1 con ${nombre}` : `1 a 1 · ${nombre}`,
+        sub: s.duracion_min ? `Sesión privada · ${s.hora_inicio.slice(0,5)} – ${s.hora_fin?.slice(0,5)} · ${s.duracion_min} min` : "Sesión privada · duración por definir",
+        link: s.zoom_link, motivo: s.motivo, soyProfe: !soyAlumna, sesion: s,
+      };
     }),
-  ].sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  ].sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -116,10 +124,25 @@ function Page() {
                     <Video className="w-3.5 h-3.5" /> Entrar a Zoom
                   </a>
                 )}
+                {it.tipo === "1a1" && it.soyProfe && it.sesion && !it.sesion.duracion_min && (
+                  <button onClick={() => setDuracionModal(it.sesion!)}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold border">
+                    <Clock className="w-3.5 h-3.5" /> Registrar duración
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
+      )}
+
+      {duracionModal && (
+        <RegistrarDuracionModal
+          sesionId={duracionModal.id}
+          horaInicio={duracionModal.hora_inicio}
+          onClose={() => setDuracionModal(null)}
+          onSaved={(min, fin) => setSesiones((arr) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00", estado: "finalizada" } : x))}
+        />
       )}
     </div>
   );

@@ -4,17 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useServerFn } from "@tanstack/react-start";
 import { createZoomMeeting } from "@/lib/zoom.functions";
-import { ChevronLeft, ChevronRight, Video, X as XIcon, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Video, X as XIcon, Star, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 
 export const Route = createFileRoute("/_authenticated/agenda-1a1")({ component: Page });
 
-interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string }
+interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string | null; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string; duracion_min?: number | null; motivo?: string | null }
 interface Profile { id: string; nombre_completo: string; email: string; avatar_url?: string | null; actividad?: string | null }
 
-// Slots cada HORA PUNTUAL · sesiones de 30 minutos
+// Slots cada HORA PUNTUAL · la duración real la registra el profesor al terminar
 const HORAS = ["09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00","19:00"];
-const DURACION_MIN = 30;
+const ZOOM_DURACION_MIN = 60; // holgura para crear la reunión de Zoom
 const DIAS = ["Lun","Mar","Mié","Jue","Vie"];
 
 // Descripciones por profesor (match por nombre / email)
@@ -55,6 +56,9 @@ function Page() {
   const [saving, setSaving] = useState(false);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
   const [now, setNow] = useState(new Date());
+  // Perfiles de las contrapartes (estudiantes) para mostrar nombres
+  const [personas, setPersonas] = useState<Record<string, Profile>>({});
+  const [duracionModal, setDuracionModal] = useState<Sesion | null>(null);
   // Mis próximas sesiones (alumna o profesor)
   const [proximas, setProximas] = useState<Sesion[]>([]);
 
@@ -110,6 +114,28 @@ function Page() {
       setProximas((data as Sesion[]) ?? []);
     })();
   }, [uid, sesiones]);
+
+  // Cargar perfiles de todas las personas involucradas (estudiantes y mentores)
+  useEffect(() => {
+    if (!uid) return;
+    const ids = Array.from(new Set([...sesiones, ...proximas].flatMap((s) => [s.alumna_id, s.profesor_id])));
+    const faltan = ids.filter((id) => id && !personas[id]);
+    if (!faltan.length) return;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", faltan);
+      if (!data?.length) return;
+      setPersonas((prev) => {
+        const next = { ...prev };
+        (data as Profile[]).forEach((p) => { next[p.id] = p; });
+        return next;
+      });
+    })();
+  }, [uid, sesiones, proximas]); // eslint-disable-line
+
+  const nombreDe = (id: string) => {
+    const p = personas[id] ?? profesores.find((x) => x.id === id);
+    return p?.nombre_completo || p?.email || null;
+  };
 
   useEffect(() => {
     if (!profesorId) return;
@@ -174,18 +200,15 @@ function Page() {
         .eq("profesor_id", profesorId).eq("fecha", fecha).eq("hora_inicio", hora + ":00").limit(1);
       if (existe && existe.length) { toast.error("Ese horario acaba de ser reservado."); setSaving(false); return; }
 
-      const [hh] = hora.split(":").map(Number);
-      const totalMin = hh * 60 + DURACION_MIN;
-      const fin = `${String(Math.floor(totalMin / 60)).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
       const start_time = `${fecha}T${hora}:00`;
       const profActual = profesores.find((p) => p.id === profesorId);
       const nombreProf = profActual?.nombre_completo || profActual?.email || "Profesor";
       const tema = profActual ? temaDe(profActual) : "Mentoría 1 a 1";
       const topic = `${nombreProf} – ${tema}`;
       const agenda = `Sesión 1 a 1 con ${nombreProf}\nTema: ${tema}`;
-      const zoom = await createZoom({ data: { topic, start_time, duration: DURACION_MIN, agenda } });
+      const zoom = await createZoom({ data: { topic, start_time, duration: ZOOM_DURACION_MIN, agenda } });
       const { data, error } = await supabase.from("sesiones_1a1").insert({
-        profesor_id: profesorId, alumna_id: uid, fecha, hora_inicio: hora + ":00", hora_fin: fin + ":00",
+        profesor_id: profesorId, alumna_id: uid, fecha, hora_inicio: hora + ":00", hora_fin: null,
         zoom_meeting_id: zoom.meeting_id, zoom_link: zoom.join_url, estado: "confirmada", motivo: motivoLimpio,
       }).select().single();
       if (error) throw error;
@@ -215,7 +238,7 @@ function Page() {
           <div>
             <div className="text-[11px] uppercase tracking-[0.18em] opacity-80">Sesiones privadas</div>
             <h1 className="text-3xl font-bold mt-1">Agenda 1 a 1</h1>
-            <p className="text-sm opacity-90 mt-1">Lunes a viernes · 30 minutos por sesión · Zoom automático.</p>
+            <p className="text-sm opacity-90 mt-1">Lunes a viernes · duración flexible (la registra tu mentor al terminar) · Zoom automático.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }} className="p-2 rounded-lg bg-white/15 hover:bg-white/25"><ChevronLeft className="w-4 h-4"/></button>
@@ -302,9 +325,7 @@ function Page() {
             <tbody>
               {HORAS.map((h) => (
                 <tr key={h} className="border-t">
-                  <td className="px-3 py-3 font-mono text-xs font-semibold opacity-80">
-                    {h}<span className="opacity-50"> – {h.slice(0,2)}:30</span>
-                  </td>
+                  <td className="px-3 py-3 font-mono text-xs font-semibold opacity-80">{h}</td>
                   {dias.map((d, i) => {
                     const fecha = fmt(d);
                     const ses = miSesion(fecha, h);
@@ -316,8 +337,21 @@ function Page() {
                       return (
                         <td key={i} className="px-2 py-2">
                           <div className="rounded-xl bg-violet-gradient text-white p-2.5 text-xs shadow-md">
-                            <div className="font-semibold flex items-center gap-1"><Video className="w-3 h-3"/> Reservada</div>
+                            <div className="font-semibold flex items-center gap-1">
+                              <Video className="w-3 h-3"/>
+                              <span className="truncate">
+                                {ses.profesor_id === uid ? (nombreDe(ses.alumna_id) ?? "Reservada") : "Reservada"}
+                              </span>
+                            </div>
+                            {ses.duracion_min ? (
+                              <div className="opacity-90">{ses.hora_inicio.slice(0,5)} – {ses.hora_fin?.slice(0,5)} · {ses.duracion_min} min</div>
+                            ) : (
+                              <div className="opacity-80">Duración por definir</div>
+                            )}
                             {ses.zoom_link && <a href={ses.zoom_link} target="_blank" rel="noreferrer" className="underline opacity-95">Entrar a Zoom →</a>}
+                            {(ses.profesor_id === uid || role === "admin") && !ses.duracion_min && (
+                              <button onClick={() => setDuracionModal(ses)} className="block underline mt-0.5 opacity-90">Registrar duración</button>
+                            )}
                             {(ses.alumna_id === uid || role === "admin") && (
                               <button onClick={() => cancelar(ses.id)} className="block underline mt-0.5 opacity-80">Cancelar</button>
                             )}
@@ -386,8 +420,8 @@ function Page() {
               </p>
             )}
             <p className="text-sm text-muted-foreground mb-4">
-              {new Date(booking.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })} a las {booking.hora} (30 minutos).
-              <br />Se creará una reunión de Zoom automáticamente.
+              {new Date(booking.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })} a las {booking.hora}.
+              <br />La duración real la registrará tu mentor al terminar. Se creará una reunión de Zoom automáticamente.
             </p>
             <label className="block text-xs font-medium mb-1">¿Cuál es tu duda o inquietud? <span className="text-muted-foreground">(máx. 100 caracteres)</span></label>
             <textarea
@@ -418,6 +452,7 @@ function Page() {
                 <tr>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Fecha</th>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Hora</th>
+                  <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Duración</th>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">{role === "admin" || role === "soporte" ? "Alumna / Mentor" : "Mentor"}</th>
                   <th className="text-right px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Acción</th>
                 </tr>
@@ -426,14 +461,22 @@ function Page() {
                 {proximas.map((s) => {
                   const esMia = s.alumna_id === uid;
                   const otroId = esMia ? s.profesor_id : s.alumna_id;
-                  const otro = profesores.find((p) => p.id === otroId);
+                  const otroNombre = nombreDe(otroId);
                   const fechaTxt = new Date(s.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "short", day: "numeric", month: "short" });
                   return (
                     <tr key={s.id} className="border-t">
                       <td className="px-3 py-2 capitalize">{fechaTxt}</td>
                       <td className="px-3 py-2 font-mono">{s.hora_inicio.slice(0,5)}</td>
-                      <td className="px-3 py-2">{otro?.nombre_completo || otro?.email || (esMia ? "Mentor" : "Alumna")}</td>
+                      <td className="px-3 py-2 text-xs">
+                        {s.duracion_min ? `${s.duracion_min} min` : <span className="opacity-60">por definir</span>}
+                      </td>
+                      <td className="px-3 py-2">{otroNombre || (esMia ? "Mentor" : "Alumna")}</td>
                       <td className="px-3 py-2 text-right">
+                        {!esMia && !s.duracion_min && (
+                          <button onClick={() => setDuracionModal(s)} className="inline-flex items-center gap-1 px-3 py-1.5 mr-2 rounded-lg text-xs font-semibold border">
+                            <Clock className="w-3.5 h-3.5" /> Registrar duración
+                          </button>
+                        )}
                         {s.zoom_link ? (
                           <a href={s.zoom_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-gradient text-white">
                             <Video className="w-3.5 h-3.5" /> Entrar a Zoom
@@ -447,6 +490,19 @@ function Page() {
             </table>
           </div>
         </div>
+      )}
+
+      {duracionModal && (
+        <RegistrarDuracionModal
+          sesionId={duracionModal.id}
+          horaInicio={duracionModal.hora_inicio}
+          onClose={() => setDuracionModal(null)}
+          onSaved={(min, fin) => {
+            const upd = (arr: Sesion[]) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00", estado: "finalizada" } : x);
+            setSesiones(upd);
+            setProximas(upd);
+          }}
+        />
       )}
     </div>
   );
