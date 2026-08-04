@@ -1020,10 +1020,11 @@ export type Database = {
         Row: {
           alumna_id: string
           created_at: string
+          duracion_min: number | null
           estado: string
           fecha: string
           finalizada_at: string | null
-          hora_fin: string
+          hora_fin: string | null
           hora_inicio: string
           id: string
           motivo: string | null
@@ -1034,10 +1035,11 @@ export type Database = {
         Insert: {
           alumna_id: string
           created_at?: string
+          duracion_min?: number | null
           estado?: string
           fecha: string
           finalizada_at?: string | null
-          hora_fin: string
+          hora_fin?: string | null
           hora_inicio: string
           id?: string
           motivo?: string | null
@@ -1048,10 +1050,11 @@ export type Database = {
         Update: {
           alumna_id?: string
           created_at?: string
+          duracion_min?: number | null
           estado?: string
           fecha?: string
           finalizada_at?: string | null
-          hora_fin?: string
+          hora_fin?: string | null
           hora_inicio?: string
           id?: string
           motivo?: string | null
@@ -1256,6 +1259,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      registrar_duracion_sesion: {
+        Args: { _duracion_min: number; _sesion_id: string }
+        Returns: undefined
       }
       registrar_sesion: {
         Args: { _dispositivo: string; _session_id: string }
