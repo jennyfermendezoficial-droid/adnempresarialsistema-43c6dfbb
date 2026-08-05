@@ -93,7 +93,7 @@ export function ChatThread({
       }
     })();
     const channel = supabase
-      .channel(`rt-${table}-${filter?.value ?? "all"}`)
+      .channel(`rt-${table}-${filter?.value ?? "all"}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table },
