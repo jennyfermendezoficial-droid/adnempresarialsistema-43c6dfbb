@@ -53,7 +53,7 @@ export function GeneralChatPopover() {
     })();
 
     const channel = supabase
-      .channel("general-popover-unread")
+      .channel(`general-popover-unread-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "canal_general_mensajes" },
