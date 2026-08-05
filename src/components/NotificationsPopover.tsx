@@ -60,7 +60,7 @@ export function NotificationsPopover() {
   useEffect(() => {
     if (!uid) return;
     const channel = supabase
-      .channel(`notificaciones-${uid}`)
+      .channel(`notificaciones-${uid}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notificaciones", filter: `usuario_id=eq.${uid}` },

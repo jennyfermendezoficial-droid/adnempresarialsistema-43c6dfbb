@@ -1,11 +1,25 @@
-import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Component, type ReactNode, useEffect, useRef, useState } from "react";
 import { MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatThread } from "./ChatThread";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const SEEN_KEY = "general-last-seen";
+
+class ChatErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="h-full grid place-items-center p-4 text-center text-sm text-muted-foreground">
+          No se pudo cargar el chat. Cierra y vuelve a abrir el panel.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export function GeneralChatPopover() {
   const [open, setOpen] = useState(false);
@@ -39,7 +53,7 @@ export function GeneralChatPopover() {
     })();
 
     const channel = supabase
-      .channel("general-popover-unread")
+      .channel(`general-popover-unread-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "canal_general_mensajes" },
@@ -76,16 +90,11 @@ export function GeneralChatPopover() {
       <PopoverContent align="end" sideOffset={8} className="w-[380px] p-0 overflow-hidden">
         <div className="flex items-center justify-between px-3 py-2 border-b">
           <span className="text-sm font-semibold"># General</span>
-          <Link
-            to="/general"
-            onClick={() => setOpen(false)}
-            className="text-xs text-muted-foreground hover:underline"
-          >
-            Abrir canal
-          </Link>
         </div>
         <div className="h-[420px]">
-          <ChatThread table="canal_general_mensajes" authorMap={authorMap} height="100%" />
+          <ChatErrorBoundary>
+            <ChatThread table="canal_general_mensajes" authorMap={authorMap} height="100%" />
+          </ChatErrorBoundary>
         </div>
       </PopoverContent>
     </Popover>

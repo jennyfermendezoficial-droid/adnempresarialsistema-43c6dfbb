@@ -4,7 +4,7 @@ import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
 import {
-  inicioItems, canalesItems, soporteItems, academiaItems, comunidadItems, adminItems,
+  inicioItems, soporteItems, academiaItems, comunidadItems, adminItems,
 } from "@/lib/nav-items";
 
 interface Item { to: string; label: string; icon: typeof Home; }
@@ -40,9 +40,6 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
 
         <SectionLabel>Inicio</SectionLabel>
         <Nav items={inicioItems} isActive={isActive} onClick={onNavigate} />
-
-        <SectionLabel className="mt-3">Canales</SectionLabel>
-        <Nav items={canalesItems} isActive={isActive} onClick={onNavigate} />
 
         <SectionLabel className="mt-3">Soporte</SectionLabel>
         <Nav items={soporteItems} isActive={isActive} onClick={onNavigate} />
