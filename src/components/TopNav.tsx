@@ -5,6 +5,7 @@ import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
 import { GeneralChatPopover } from "./GeneralChatPopover";
+import { NotificationsPopover } from "./NotificationsPopover";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -112,6 +113,7 @@ export function TopNav() {
 
             <div className="ml-auto flex items-center gap-2 shrink-0">
               <GeneralChatPopover />
+              <NotificationsPopover />
               <InstallAppButton variant="icon" />
 
               <DropdownMenu>

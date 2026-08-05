@@ -1,0 +1,11 @@
+REVOKE ALL ON FUNCTION public.notificar(uuid[], text, text, text, text, uuid, uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.nombre_usuario(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notif_canal_general() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notif_chat_1a1() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notif_chat_profes() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notif_sesion_1a1_ins() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notif_sesion_1a1_fin() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notif_clase_nueva() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notif_tarea_nueva() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notif_entrega_nueva() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.notif_entrega_calificada() FROM PUBLIC, anon, authenticated;
