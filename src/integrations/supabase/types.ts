@@ -847,6 +847,45 @@ export type Database = {
           },
         ]
       }
+      notificaciones: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          cuerpo: string | null
+          id: string
+          leida: boolean
+          referencia_id: string | null
+          tipo: string
+          titulo: string
+          url: string | null
+          usuario_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          cuerpo?: string | null
+          id?: string
+          leida?: boolean
+          referencia_id?: string | null
+          tipo: string
+          titulo: string
+          url?: string | null
+          usuario_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          cuerpo?: string | null
+          id?: string
+          leida?: boolean
+          referencia_id?: string | null
+          tipo?: string
+          titulo?: string
+          url?: string | null
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       pagos_mensuales: {
         Row: {
           anio: number
@@ -1265,6 +1304,19 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      nombre_usuario: { Args: { _id: string }; Returns: string }
+      notificar: {
+        Args: {
+          _actor: string
+          _cuerpo: string
+          _referencia: string
+          _tipo: string
+          _titulo: string
+          _url: string
+          _usuarios: string[]
+        }
+        Returns: undefined
       }
       registrar_duracion_clase: {
         Args: { _clase_id: string; _duracion_min: number }
