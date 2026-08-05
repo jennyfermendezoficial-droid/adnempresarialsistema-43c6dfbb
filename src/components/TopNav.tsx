@@ -10,7 +10,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  inicioItems, canalesItems, soporteItems, academiaItems, comunidadItems, adminItems,
+  inicioItems, soporteItems, academiaItems, comunidadItems, adminItems,
   type NavItem,
 } from "@/lib/nav-items";
 
@@ -82,7 +82,7 @@ export function TopNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
-  const flat: NavItem[] = [...inicioItems, ...canalesItems, ...soporteItems, ...comunidadItems];
+  const flat: NavItem[] = [...inicioItems, ...soporteItems, ...comunidadItems];
   const groups: { label: string; items: NavItem[] }[] = [
     { label: "Academia", items: academiaItems },
     ...(role === "admin" || role === "soporte"

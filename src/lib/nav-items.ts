@@ -1,6 +1,6 @@
 import {
   Home, BookOpen, CalendarDays, Users,
-  ShieldCheck, Wallet, Hash, Calendar,
+  ShieldCheck, Wallet, Calendar,
   Bell, GraduationCap,
 } from "lucide-react";
 
@@ -9,9 +9,6 @@ export interface NavItem { to: string; label: string; icon: typeof Home }
 export const inicioItems: NavItem[] = [
   { to: "/inicio", label: "Inicio", icon: Home },
   { to: "/tutoriales", label: "Tutoriales", icon: GraduationCap },
-];
-export const canalesItems: NavItem[] = [
-  { to: "/general", label: "General", icon: Hash },
 ];
 export const soporteItems: NavItem[] = [
   { to: "/agenda-1a1", label: "Agenda 1 a 1", icon: CalendarDays },
