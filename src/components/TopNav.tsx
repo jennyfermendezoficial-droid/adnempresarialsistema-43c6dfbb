@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
+import { GeneralChatPopover } from "./GeneralChatPopover";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -110,6 +111,7 @@ export function TopNav() {
             </Link>
 
             <div className="ml-auto flex items-center gap-2 shrink-0">
+              <GeneralChatPopover />
               <InstallAppButton variant="icon" />
 
               <DropdownMenu>
