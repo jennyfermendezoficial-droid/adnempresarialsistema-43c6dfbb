@@ -500,8 +500,8 @@ function Page() {
           horaInicio={duracionModal.hora_inicio}
           duracionInicial={duracionModal.duracion_min ?? null}
           onClose={() => setDuracionModal(null)}
-          onSaved={(min, fin) => {
-            const upd = (arr: Sesion[]) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00", estado: "finalizada" } : x);
+          onSaved={(min, fin, ini) => {
+            const upd = (arr: Sesion[]) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_inicio: ini + ":00", hora_fin: fin + ":00", estado: "finalizada" } : x);
             setSesiones(upd);
             setProximas(upd);
           }}

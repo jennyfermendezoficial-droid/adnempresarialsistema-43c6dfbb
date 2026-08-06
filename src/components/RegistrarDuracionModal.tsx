@@ -10,7 +10,7 @@ interface Props {
   horaInicio: string; // "HH:MM" o "HH:MM:SS"
   duracionInicial?: number | null;
   onClose: () => void;
-  onSaved: (duracionMin: number, horaFin: string) => void;
+  onSaved: (duracionMin: number, horaFin: string, horaInicio: string) => void;
 }
 
 function toMin(hhmm: string) {
@@ -21,50 +21,39 @@ function toHHMM(min: number) {
   const m = ((min % 1440) + 1440) % 1440;
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
+function fmt(min: number) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h && m) return `${h} h ${m} min`;
+  if (h) return `${h} h`;
+  return `${m} min`;
+}
 
 export function RegistrarDuracionModal({ sesionId, tipo = "1a1", horaInicio, duracionInicial, onClose, onSaved }: Props) {
-  const inicio = horaInicio.slice(0, 5);
+  const inicioBase = horaInicio.slice(0, 5);
   const inicial = duracionInicial && duracionInicial > 0 ? duracionInicial : 60;
-  const [modo, setModo] = useState<"minutos" | "fin">("minutos");
-  const [minutos, setMinutos] = useState(String(inicial));
-  const [horaFin, setHoraFin] = useState(toHHMM(toMin(inicio) + inicial));
+  const [inicio, setInicio] = useState(inicioBase);
+  const [fin, setFin] = useState(toHHMM(toMin(inicioBase) + inicial));
   const [saving, setSaving] = useState(false);
 
-  const cambiarMinutos = (v: string) => {
-    setMinutos(v);
-    const n = Number(v);
-    if (Number.isFinite(n) && n > 0) setHoraFin(toHHMM(toMin(inicio) + n));
-  };
-  const cambiarHoraFin = (v: string) => {
-    setHoraFin(v);
-    if (/^\d{2}:\d{2}$/.test(v)) {
-      const diff = toMin(v) - toMin(inicio);
-      if (diff > 0) setMinutos(String(diff));
-    }
-  };
-
-  const duracion = Number(minutos);
+  const duracion = toMin(fin) - toMin(inicio);
+  const valido = /^\d{2}:\d{2}$/.test(inicio) && /^\d{2}:\d{2}$/.test(fin) && duracion > 0 && duracion <= 600;
 
   const guardar = async () => {
-    if (!Number.isFinite(duracion) || duracion <= 0 || duracion > 600) {
-      toast.error("Ingresa una duración válida (1 a 600 minutos).");
+    if (!valido) {
+      toast.error("La hora de fin debe ser posterior a la de inicio (máx. 10 horas).");
       return;
     }
     setSaving(true);
+    const args = { _duracion_min: duracion, _hora_inicio: `${inicio}:00` };
     const { error } =
       tipo === "clase"
-        ? await supabase.rpc("registrar_duracion_clase", {
-            _clase_id: sesionId,
-            _duracion_min: Math.round(duracion),
-          })
-        : await supabase.rpc("registrar_duracion_sesion", {
-            _sesion_id: sesionId,
-            _duracion_min: Math.round(duracion),
-          });
+        ? await supabase.rpc("registrar_duracion_clase", { _clase_id: sesionId, ...args })
+        : await supabase.rpc("registrar_duracion_sesion", { _sesion_id: sesionId, ...args });
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Duración registrada.");
-    onSaved(Math.round(duracion), toHHMM(toMin(inicio) + Math.round(duracion)));
+    onSaved(duracion, fin, inicio);
     onClose();
   };
 
@@ -73,41 +62,33 @@ export function RegistrarDuracionModal({ sesionId, tipo = "1a1", horaInicio, dur
       <div className="bg-card p-6 rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold mb-1 flex items-center gap-2"><Clock className="w-4 h-4" /> Registrar duración</h3>
         <p className="text-xs text-muted-foreground mb-4">
-          {tipo === "clase" ? "La clase" : "La reunión"} comenzó a las <span className="font-semibold text-foreground">{inicio}</span>.
+          Indica a qué hora empezó y a qué hora terminó {tipo === "clase" ? "la clase" : "la reunión"}. Solo el profesor que la dio puede registrarla.
         </p>
 
-        <div className="flex gap-1 p-1 rounded-xl bg-muted mb-4">
-          {(["minutos", "fin"] as const).map((m) => (
-            <button key={m} onClick={() => setModo(m)}
-              className="flex-1 py-2 rounded-lg text-xs font-semibold transition"
-              style={modo === m ? { background: "var(--card)", boxShadow: "0 1px 4px rgba(0,0,0,.08)" } : { opacity: 0.65 }}>
-              {m === "minutos" ? "Cuánto duró" : "A qué hora terminó"}
-            </button>
-          ))}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium mb-1">Hora de inicio</label>
+            <input type="time" value={inicio} onChange={(e) => setInicio(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border bg-background text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">Hora de fin</label>
+            <input type="time" value={fin} onChange={(e) => setFin(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border bg-background text-sm" />
+          </div>
         </div>
 
-        {modo === "minutos" ? (
-          <>
-            <label className="block text-xs font-medium mb-1">Duración en minutos</label>
-            <input type="number" min={1} max={600} value={minutos} onChange={(e) => cambiarMinutos(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border bg-background text-sm" />
-          </>
-        ) : (
-          <>
-            <label className="block text-xs font-medium mb-1">Hora en que terminó</label>
-            <input type="time" value={horaFin} onChange={(e) => cambiarHoraFin(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border bg-background text-sm" />
-          </>
-        )}
-
         <div className="mt-3 text-xs text-muted-foreground">
-          Resultado: <span className="font-semibold text-foreground">{inicio} – {horaFin}</span>
-          {Number.isFinite(duracion) && duracion > 0 && <> · {Math.round(duracion)} min</>}
+          {valido ? (
+            <>Resultado: <span className="font-semibold text-foreground">{inicio} – {fin}</span> · {fmt(duracion)}</>
+          ) : (
+            <span className="text-destructive">La hora de fin debe ser posterior a la de inicio (máx. 10 horas).</span>
+          )}
         </div>
 
         <div className="flex gap-2 justify-end mt-5">
           <button disabled={saving} onClick={onClose} className="px-4 py-2 rounded-lg border">Cancelar</button>
-          <button disabled={saving} onClick={guardar} className="px-4 py-2 rounded-lg bg-violet-gradient text-white disabled:opacity-60">
+          <button disabled={saving || !valido} onClick={guardar} className="px-4 py-2 rounded-lg bg-violet-gradient text-white disabled:opacity-60">
             {saving ? "Guardando…" : "Guardar"}
           </button>
         </div>

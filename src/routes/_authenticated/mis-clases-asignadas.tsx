@@ -185,7 +185,7 @@ function Page() {
           sesionId={duracionModal.id}
           horaInicio={duracionModal.hora_inicio}
           onClose={() => setDuracionModal(null)}
-          onSaved={(min, fin) => setSesiones((arr) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00", estado: "finalizada" } : x))}
+          onSaved={(min, fin, ini) => setSesiones((arr) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_inicio: ini + ":00", hora_fin: fin + ":00", estado: "finalizada" } : x))}
         />
       )}
 
@@ -196,7 +196,7 @@ function Page() {
           horaInicio={claseModal.hora_inicio}
           duracionInicial={claseModal.duracion_min}
           onClose={() => setClaseModal(null)}
-          onSaved={(min, fin) => setClases((arr) => arr.map((x) => x.id === claseModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00" } : x))}
+          onSaved={(min, fin, ini) => setClases((arr) => arr.map((x) => x.id === claseModal.id ? { ...x, duracion_min: min, hora_inicio: ini + ":00", hora_fin: fin + ":00" } : x))}
         />
       )}
 
