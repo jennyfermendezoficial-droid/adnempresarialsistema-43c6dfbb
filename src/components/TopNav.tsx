@@ -82,9 +82,8 @@ export function TopNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
-  const flat: NavItem[] = [...inicioItems, ...soporteItems, ...comunidadItems];
+  const flat: NavItem[] = [...inicioItems, ...soporteItems, ...academiaItems, ...comunidadItems];
   const groups: { label: string; items: NavItem[] }[] = [
-    { label: "Academia", items: academiaItems },
     ...(role === "admin" || role === "soporte"
       ? [{ label: "Admin", items: adminItems }]
       : []),
