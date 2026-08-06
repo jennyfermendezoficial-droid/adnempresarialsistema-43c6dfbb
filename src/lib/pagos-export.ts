@@ -166,7 +166,8 @@ export function listaMeses(desdeAnio = 2025): { value: string; label: string }[]
   const hoy = new Date();
   const out: { value: string; label: string }[] = [];
   for (let a = hoy.getFullYear(); a >= desdeAnio; a--) {
-    for (let m = 12; m >= 1; m--) {
+    const desde = a === hoy.getFullYear() ? hoy.getMonth() + 1 : 12;
+    for (let m = desde; m >= 1; m--) {
       out.push({ value: `${a}-${m}`, label: `${MESES[m - 1]} ${a}` });
     }
   }
