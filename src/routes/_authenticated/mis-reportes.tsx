@@ -116,7 +116,19 @@ function Page() {
         <button onClick={() => cambiar(-1)} className="ae-btn-ghost !p-2 !px-3"><ChevronLeft className="w-4 h-4"/></button>
         <div className="text-center">
           <div className="ae-eyebrow">Reporte de</div>
-          <div className="text-xl font-semibold capitalize" style={{ fontFamily: "Fraunces, serif" }}>{MESES[mes]} {anio}</div>
+          <select
+            value={`${anio}-${mes}`}
+            onChange={(e) => { const [a, m] = e.target.value.split("-").map(Number); setCursor(new Date(a, m, 1)); }}
+            className="text-xl font-semibold capitalize bg-transparent text-center outline-none cursor-pointer"
+            style={{ fontFamily: "Fraunces, serif" }}
+          >
+            {Array.from({ length: new Date().getFullYear() - 2024 }).flatMap((_, k) => {
+              const a = new Date().getFullYear() - k;
+              return MESES.map((nombre, i) => (
+                <option key={`${a}-${i}`} value={`${a}-${i}`}>{nombre} {a}</option>
+              )).reverse();
+            })}
+          </select>
         </div>
         <button onClick={() => cambiar(1)} className="ae-btn-ghost !p-2 !px-3"><ChevronRight className="w-4 h-4"/></button>
       </div>
