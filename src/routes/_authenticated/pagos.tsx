@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Lock, Star, ChevronLeft, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
+import { generarPagosPDF, exportarPagosExcel, listaMeses } from "@/lib/pagos-export";
 
 export const Route = createFileRoute("/_authenticated/pagos")({ component: Page });
 
@@ -18,9 +20,10 @@ interface StaffRow {
   email: string;
   rol: string;
   tema: string;
-  horasClase: number;
+  minutosClase: number;
   tarifaHora: number;
   sesiones1a1: number;
+  minutos1a1: number;
   tarifa1a1: number;
   mensajesEstudiantes: number;
   califPromedio: number;
@@ -108,22 +111,25 @@ function Page() {
         if (!p) return null as unknown as StaffRow;
 
         const [clasesRes, sesionesRes, califRes, chatsRes, bonosRes] = await Promise.all([
-          supabase.from("clases_en_vivo").select("hora_inicio,hora_fin").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
-          supabase.from("sesiones_1a1").select("id", { count: "exact", head: true }).eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
+          supabase.from("clases_en_vivo").select("hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
+          supabase.from("sesiones_1a1").select("hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
           supabase.from("calificaciones_mensuales").select("claridad,didactica,practico,desenvolvimiento").eq("profesor_id", pid),
           supabase.from("chats_1a1").select("id,usuario_a_id,usuario_b_id").or(`usuario_a_id.eq.${pid},usuario_b_id.eq.${pid}`),
           supabase.from("bonos").select("monto").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
         ]);
 
-        // Horas clase = suma(hora_fin - hora_inicio)
-        let horasClase = 0;
-        ((clasesRes.data ?? []) as { hora_inicio: string; hora_fin: string }[]).forEach((c) => {
-          const [hi, mi] = c.hora_inicio.split(":").map(Number);
-          const [hf, mf] = c.hora_fin.split(":").map(Number);
-          const diff = (hf * 60 + mf) - (hi * 60 + mi);
-          if (diff > 0) horasClase += diff / 60;
+        // Minutos exactos de clases en vivo
+        let minutosClase = 0;
+        ((clasesRes.data ?? []) as { hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
+          minutosClase += c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
         });
-        horasClase = Math.round(horasClase * 10) / 10;
+
+        // Minutos exactos de sesiones 1 a 1
+        const sesionesData = (sesionesRes.data ?? []) as { hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[];
+        let minutos1a1 = 0;
+        sesionesData.forEach((s) => {
+          minutos1a1 += s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
+        });
 
         // Calificación promedio
         const vals: number[] = [];
@@ -149,11 +155,11 @@ function Page() {
           mensajesEstudiantes = count ?? 0;
         }
 
-        const sesiones1a1 = sesionesRes.count ?? 0;
+        const sesiones1a1 = sesionesData.length;
         const tH = tarifaHora(califPromedio);
         const t1 = tarifaSesion(califPromedio);
         const bonos = ((bonosRes.data ?? []) as { monto: number }[]).reduce((a,b)=>a + Number(b.monto), 0);
-        const total = horasClase * tH + sesiones1a1 * t1 + bonos;
+        const total = Math.round(((minutosClase / 60) * tH + (minutos1a1 / 60) * t1 + bonos) * 100) / 100;
 
         const pago = pagoMap.get(pid);
 
@@ -163,8 +169,8 @@ function Page() {
           email: p.email,
           rol: map.get(pid) ?? "soporte",
           tema: temaDe(p),
-          horasClase, tarifaHora: tH,
-          sesiones1a1, tarifa1a1: t1,
+          minutosClase, tarifaHora: tH,
+          sesiones1a1, minutos1a1, tarifa1a1: t1,
           mensajesEstudiantes,
           califPromedio, califCount,
           bonos,
@@ -187,20 +193,20 @@ function Page() {
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [mes, anio]);
 
   const tot = useMemo(() => {
-    const horas = staff.reduce((a,b) => a + b.horasClase, 0);
+    const minutos = staff.reduce((a,b) => a + b.minutosClase + b.minutos1a1, 0);
     const sesiones = staff.reduce((a,b) => a + b.sesiones1a1, 0);
     const pagar = staff.filter(s => s.estado === "por_pagar").reduce((a,b) => a + b.total, 0);
     const pendCount = staff.filter(s => s.estado === "por_pagar").length;
     const califs = staff.filter(s => s.califCount > 0).map(s => s.califPromedio);
     const califEq = califs.length ? califs.reduce((a,b)=>a+b,0)/califs.length : 0;
-    return { horas: Math.round(horas*10)/10, sesiones, pagar, pendCount, califEq };
+    return { minutos, sesiones, pagar, pendCount, califEq };
   }, [staff]);
 
   const marcarPagado = async (row: StaffRow) => {
     if (!confirm(`¿Marcar como pagado a ${row.nombre} por $${row.total.toFixed(2)}?`)) return;
     const payload = {
       profesor_id: row.id, mes, anio,
-      total_horas: row.horasClase, total_bonos: row.bonos,
+      total_horas: horasDecimal(row.minutosClase + row.minutos1a1), total_bonos: row.bonos,
       monto_total: row.total, estado: "pagado",
       fecha_pago: new Date().toISOString(),
     };
@@ -224,7 +230,7 @@ function Page() {
       if (r.pagoId) continue;
       await supabase.from("pagos_mensuales").insert({
         profesor_id: r.id, mes, anio,
-        total_horas: r.horasClase, total_bonos: r.bonos,
+        total_horas: horasDecimal(r.minutosClase + r.minutos1a1), total_bonos: r.bonos,
         monto_total: r.total, estado: "por_pagar",
       });
     }
