@@ -253,16 +253,18 @@ function Page() {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 mb-5">
         <select value={`${anio}-${mes}`} onChange={(e) => { const [a,m] = e.target.value.split("-").map(Number); setAnio(a); setMes(m); }} className="px-3 py-2 rounded-lg border bg-card text-sm font-medium">
-          {Array.from({ length: 12 }).map((_, i) => {
-            const d = new Date(); d.setMonth(d.getMonth() - i); d.setDate(1);
-            const m = d.getMonth() + 1, a = d.getFullYear();
-            return <option key={`${a}-${m}`} value={`${a}-${m}`}>{MESES[m-1]} {a}</option>;
-          })}
+          {listaMeses().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => toast.info("Próximamente")}>
+        <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
+          if (!staff.length) return toast.info("Sin datos para exportar");
+          exportarPagosExcel({ mes, anio, rows: staff });
+        }}>
           📊 Exportar Excel
         </button>
-        <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => toast.info("Próximamente")}>
+        <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
+          if (!staff.length) return toast.info("Sin datos para exportar");
+          generarPagosPDF({ mes, anio, rows: staff });
+        }}>
           <FileText className="w-4 h-4" /> Generar PDF
         </button>
         <div className="flex-1" />
@@ -278,10 +280,10 @@ function Page() {
         <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
           <div aria-hidden className="absolute -top-10 -right-10 w-40 h-40 rounded-full" style={{ background: "radial-gradient(circle, rgba(124,107,255,.5), transparent 70%)" }} />
           <div className="text-[10px] uppercase tracking-wider opacity-70">Total a pagar · {MESES[mes-1]}</div>
-          <div className="text-3xl font-bold mt-1 tabular-nums">${tot.pagar.toFixed(0)}</div>
+          <div className="text-3xl font-bold mt-1 tabular-nums">${tot.pagar.toFixed(2)}</div>
           <div className="text-xs opacity-80 mt-1">{tot.pendCount} {tot.pendCount === 1 ? "profesor" : "profesores"} · pendiente</div>
         </div>
-        <KPI label="Horas totales" value={`${tot.horas}h`} sub={`${staff.length} miembros activos`} />
+        <KPI label="Tiempo dictado" value={formatHM(tot.minutos)} sub={`${staff.length} miembros activos`} />
         <KPI label="Sesiones 1:1" value={String(tot.sesiones)} sub="reservadas" />
         <KPI label="Calif. equipo" value={tot.califEq ? tot.califEq.toFixed(2) : "—"} sub={tot.califEq ? "promedio del equipo" : "Sin calificaciones"} />
       </div>
@@ -296,7 +298,7 @@ function Page() {
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
               <th className="text-left px-4 py-3 font-semibold">Profesor</th>
-              <th className="text-left px-3 py-3 font-semibold">Horas clase</th>
+              <th className="text-left px-3 py-3 font-semibold">Tiempo clase</th>
               <th className="text-left px-3 py-3 font-semibold">Sesiones 1:1</th>
               <th className="text-left px-3 py-3 font-semibold">Chats</th>
               <th className="text-left px-3 py-3 font-semibold">Calif.</th>
@@ -320,8 +322,8 @@ function Page() {
                     </div>
                   </button>
                 </td>
-                <td className="px-3 py-3">{s.horasClase}h <span className="text-muted-foreground text-xs">× ${s.tarifaHora}</span></td>
-                <td className="px-3 py-3">{s.sesiones1a1} <span className="text-muted-foreground text-xs">× ${s.tarifa1a1}</span></td>
+                <td className="px-3 py-3">{formatHM(s.minutosClase)} <span className="text-muted-foreground text-xs">× ${s.tarifaHora}/h</span></td>
+                <td className="px-3 py-3">{s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)} × ${s.tarifa1a1}/h</span></td>
                 <td className="px-3 py-3">{s.mensajesEstudiantes}</td>
                 <td className="px-3 py-3">
                   {s.califCount > 0 ? (
@@ -331,7 +333,7 @@ function Page() {
                     </span>
                   ) : <span className="text-muted-foreground text-xs">—</span>}
                 </td>
-                <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(0)}</td>
+                <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(2)}</td>
                 <td className="px-3 py-3">
                   {s.estado === "pagado"
                     ? <span className="px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Pagado</span>
@@ -349,7 +351,7 @@ function Page() {
               <tr className="bg-muted/40 border-t">
                 <td className="px-4 py-3" colSpan={5} />
                 <td className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold">Total a pagar</td>
-                <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(0)}</td>
+                <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(2)}</td>
                 <td />
               </tr>
             )}
@@ -378,8 +380,8 @@ function Page() {
                   <tr key={p.id} className="border-t">
                     <td className="px-4 py-2">{MESES[p.mes-1]} {p.anio}</td>
                     <td className="px-3 py-2">{profiles[p.profesor_id]?.nombre_completo || profiles[p.profesor_id]?.email || "—"}</td>
-                    <td className="px-3 py-2 text-right">{p.total_horas}h</td>
-                    <td className="px-3 py-2 text-right font-semibold">${Number(p.monto_total).toFixed(0)}</td>
+                    <td className="px-3 py-2 text-right">{formatHM(Number(p.total_horas) * 60)}</td>
+                    <td className="px-3 py-2 text-right font-semibold">${Number(p.monto_total).toFixed(2)}</td>
                     <td className="px-3 py-2">
                       {p.estado === "pagado"
                         ? <span className="text-xs text-emerald-600 dark:text-emerald-400">Pagado</span>
