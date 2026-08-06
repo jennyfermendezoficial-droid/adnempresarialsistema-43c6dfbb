@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Lock, Star, ChevronLeft, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
+import { generarPagosPDF, exportarPagosExcel, listaMeses } from "@/lib/pagos-export";
 
 export const Route = createFileRoute("/_authenticated/pagos")({ component: Page });
 
@@ -18,9 +20,10 @@ interface StaffRow {
   email: string;
   rol: string;
   tema: string;
-  horasClase: number;
+  minutosClase: number;
   tarifaHora: number;
   sesiones1a1: number;
+  minutos1a1: number;
   tarifa1a1: number;
   mensajesEstudiantes: number;
   califPromedio: number;
@@ -108,22 +111,25 @@ function Page() {
         if (!p) return null as unknown as StaffRow;
 
         const [clasesRes, sesionesRes, califRes, chatsRes, bonosRes] = await Promise.all([
-          supabase.from("clases_en_vivo").select("hora_inicio,hora_fin").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
-          supabase.from("sesiones_1a1").select("id", { count: "exact", head: true }).eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
+          supabase.from("clases_en_vivo").select("hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
+          supabase.from("sesiones_1a1").select("hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
           supabase.from("calificaciones_mensuales").select("claridad,didactica,practico,desenvolvimiento").eq("profesor_id", pid),
           supabase.from("chats_1a1").select("id,usuario_a_id,usuario_b_id").or(`usuario_a_id.eq.${pid},usuario_b_id.eq.${pid}`),
           supabase.from("bonos").select("monto").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
         ]);
 
-        // Horas clase = suma(hora_fin - hora_inicio)
-        let horasClase = 0;
-        ((clasesRes.data ?? []) as { hora_inicio: string; hora_fin: string }[]).forEach((c) => {
-          const [hi, mi] = c.hora_inicio.split(":").map(Number);
-          const [hf, mf] = c.hora_fin.split(":").map(Number);
-          const diff = (hf * 60 + mf) - (hi * 60 + mi);
-          if (diff > 0) horasClase += diff / 60;
+        // Minutos exactos de clases en vivo
+        let minutosClase = 0;
+        ((clasesRes.data ?? []) as { hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
+          minutosClase += c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
         });
-        horasClase = Math.round(horasClase * 10) / 10;
+
+        // Minutos exactos de sesiones 1 a 1
+        const sesionesData = (sesionesRes.data ?? []) as { hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[];
+        let minutos1a1 = 0;
+        sesionesData.forEach((s) => {
+          minutos1a1 += s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
+        });
 
         // Calificación promedio
         const vals: number[] = [];
@@ -149,11 +155,11 @@ function Page() {
           mensajesEstudiantes = count ?? 0;
         }
 
-        const sesiones1a1 = sesionesRes.count ?? 0;
+        const sesiones1a1 = sesionesData.length;
         const tH = tarifaHora(califPromedio);
         const t1 = tarifaSesion(califPromedio);
         const bonos = ((bonosRes.data ?? []) as { monto: number }[]).reduce((a,b)=>a + Number(b.monto), 0);
-        const total = horasClase * tH + sesiones1a1 * t1 + bonos;
+        const total = Math.round(((minutosClase / 60) * tH + (minutos1a1 / 60) * t1 + bonos) * 100) / 100;
 
         const pago = pagoMap.get(pid);
 
@@ -163,8 +169,8 @@ function Page() {
           email: p.email,
           rol: map.get(pid) ?? "soporte",
           tema: temaDe(p),
-          horasClase, tarifaHora: tH,
-          sesiones1a1, tarifa1a1: t1,
+          minutosClase, tarifaHora: tH,
+          sesiones1a1, minutos1a1, tarifa1a1: t1,
           mensajesEstudiantes,
           califPromedio, califCount,
           bonos,
@@ -187,20 +193,20 @@ function Page() {
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [mes, anio]);
 
   const tot = useMemo(() => {
-    const horas = staff.reduce((a,b) => a + b.horasClase, 0);
+    const minutos = staff.reduce((a,b) => a + b.minutosClase + b.minutos1a1, 0);
     const sesiones = staff.reduce((a,b) => a + b.sesiones1a1, 0);
     const pagar = staff.filter(s => s.estado === "por_pagar").reduce((a,b) => a + b.total, 0);
     const pendCount = staff.filter(s => s.estado === "por_pagar").length;
     const califs = staff.filter(s => s.califCount > 0).map(s => s.califPromedio);
     const califEq = califs.length ? califs.reduce((a,b)=>a+b,0)/califs.length : 0;
-    return { horas: Math.round(horas*10)/10, sesiones, pagar, pendCount, califEq };
+    return { minutos, sesiones, pagar, pendCount, califEq };
   }, [staff]);
 
   const marcarPagado = async (row: StaffRow) => {
     if (!confirm(`¿Marcar como pagado a ${row.nombre} por $${row.total.toFixed(2)}?`)) return;
     const payload = {
       profesor_id: row.id, mes, anio,
-      total_horas: row.horasClase, total_bonos: row.bonos,
+      total_horas: horasDecimal(row.minutosClase + row.minutos1a1), total_bonos: row.bonos,
       monto_total: row.total, estado: "pagado",
       fecha_pago: new Date().toISOString(),
     };
@@ -224,7 +230,7 @@ function Page() {
       if (r.pagoId) continue;
       await supabase.from("pagos_mensuales").insert({
         profesor_id: r.id, mes, anio,
-        total_horas: r.horasClase, total_bonos: r.bonos,
+        total_horas: horasDecimal(r.minutosClase + r.minutos1a1), total_bonos: r.bonos,
         monto_total: r.total, estado: "por_pagar",
       });
     }
@@ -247,16 +253,18 @@ function Page() {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 mb-5">
         <select value={`${anio}-${mes}`} onChange={(e) => { const [a,m] = e.target.value.split("-").map(Number); setAnio(a); setMes(m); }} className="px-3 py-2 rounded-lg border bg-card text-sm font-medium">
-          {Array.from({ length: 12 }).map((_, i) => {
-            const d = new Date(); d.setMonth(d.getMonth() - i); d.setDate(1);
-            const m = d.getMonth() + 1, a = d.getFullYear();
-            return <option key={`${a}-${m}`} value={`${a}-${m}`}>{MESES[m-1]} {a}</option>;
-          })}
+          {listaMeses().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => toast.info("Próximamente")}>
+        <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
+          if (!staff.length) return toast.info("Sin datos para exportar");
+          exportarPagosExcel({ mes, anio, rows: staff });
+        }}>
           📊 Exportar Excel
         </button>
-        <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => toast.info("Próximamente")}>
+        <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
+          if (!staff.length) return toast.info("Sin datos para exportar");
+          generarPagosPDF({ mes, anio, rows: staff });
+        }}>
           <FileText className="w-4 h-4" /> Generar PDF
         </button>
         <div className="flex-1" />
@@ -272,10 +280,10 @@ function Page() {
         <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
           <div aria-hidden className="absolute -top-10 -right-10 w-40 h-40 rounded-full" style={{ background: "radial-gradient(circle, rgba(124,107,255,.5), transparent 70%)" }} />
           <div className="text-[10px] uppercase tracking-wider opacity-70">Total a pagar · {MESES[mes-1]}</div>
-          <div className="text-3xl font-bold mt-1 tabular-nums">${tot.pagar.toFixed(0)}</div>
+          <div className="text-3xl font-bold mt-1 tabular-nums">${tot.pagar.toFixed(2)}</div>
           <div className="text-xs opacity-80 mt-1">{tot.pendCount} {tot.pendCount === 1 ? "profesor" : "profesores"} · pendiente</div>
         </div>
-        <KPI label="Horas totales" value={`${tot.horas}h`} sub={`${staff.length} miembros activos`} />
+        <KPI label="Tiempo dictado" value={formatHM(tot.minutos)} sub={`${staff.length} miembros activos`} />
         <KPI label="Sesiones 1:1" value={String(tot.sesiones)} sub="reservadas" />
         <KPI label="Calif. equipo" value={tot.califEq ? tot.califEq.toFixed(2) : "—"} sub={tot.califEq ? "promedio del equipo" : "Sin calificaciones"} />
       </div>
@@ -290,7 +298,7 @@ function Page() {
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
               <th className="text-left px-4 py-3 font-semibold">Profesor</th>
-              <th className="text-left px-3 py-3 font-semibold">Horas clase</th>
+              <th className="text-left px-3 py-3 font-semibold">Tiempo clase</th>
               <th className="text-left px-3 py-3 font-semibold">Sesiones 1:1</th>
               <th className="text-left px-3 py-3 font-semibold">Chats</th>
               <th className="text-left px-3 py-3 font-semibold">Calif.</th>
@@ -314,8 +322,8 @@ function Page() {
                     </div>
                   </button>
                 </td>
-                <td className="px-3 py-3">{s.horasClase}h <span className="text-muted-foreground text-xs">× ${s.tarifaHora}</span></td>
-                <td className="px-3 py-3">{s.sesiones1a1} <span className="text-muted-foreground text-xs">× ${s.tarifa1a1}</span></td>
+                <td className="px-3 py-3">{formatHM(s.minutosClase)} <span className="text-muted-foreground text-xs">× ${s.tarifaHora}/h</span></td>
+                <td className="px-3 py-3">{s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)} × ${s.tarifa1a1}/h</span></td>
                 <td className="px-3 py-3">{s.mensajesEstudiantes}</td>
                 <td className="px-3 py-3">
                   {s.califCount > 0 ? (
@@ -325,7 +333,7 @@ function Page() {
                     </span>
                   ) : <span className="text-muted-foreground text-xs">—</span>}
                 </td>
-                <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(0)}</td>
+                <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(2)}</td>
                 <td className="px-3 py-3">
                   {s.estado === "pagado"
                     ? <span className="px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Pagado</span>
@@ -343,7 +351,7 @@ function Page() {
               <tr className="bg-muted/40 border-t">
                 <td className="px-4 py-3" colSpan={5} />
                 <td className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold">Total a pagar</td>
-                <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(0)}</td>
+                <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(2)}</td>
                 <td />
               </tr>
             )}
@@ -372,8 +380,8 @@ function Page() {
                   <tr key={p.id} className="border-t">
                     <td className="px-4 py-2">{MESES[p.mes-1]} {p.anio}</td>
                     <td className="px-3 py-2">{profiles[p.profesor_id]?.nombre_completo || profiles[p.profesor_id]?.email || "—"}</td>
-                    <td className="px-3 py-2 text-right">{p.total_horas}h</td>
-                    <td className="px-3 py-2 text-right font-semibold">${Number(p.monto_total).toFixed(0)}</td>
+                    <td className="px-3 py-2 text-right">{formatHM(Number(p.total_horas) * 60)}</td>
+                    <td className="px-3 py-2 text-right font-semibold">${Number(p.monto_total).toFixed(2)}</td>
                     <td className="px-3 py-2">
                       {p.estado === "pagado"
                         ? <span className="text-xs text-emerald-600 dark:text-emerald-400">Pagado</span>
@@ -431,23 +439,22 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
 
       // Bitácora: clases + sesiones del mes
       const [clasesRes, sesionesRes] = await Promise.all([
-        supabase.from("clases_en_vivo").select("fecha,titulo,hora_inicio,hora_fin").eq("profesor_id", row.id).gte("fecha", ini).lte("fecha", fin),
-        supabase.from("sesiones_1a1").select("fecha,alumna_id,hora_inicio,hora_fin").eq("profesor_id", row.id).gte("fecha", ini).lte("fecha", fin),
+        supabase.from("clases_en_vivo").select("fecha,titulo,hora_inicio,hora_fin,duracion_min").eq("profesor_id", row.id).gte("fecha", ini).lte("fecha", fin),
+        supabase.from("sesiones_1a1").select("fecha,alumna_id,hora_inicio,hora_fin,duracion_min").eq("profesor_id", row.id).gte("fecha", ini).lte("fecha", fin),
       ]);
       const items: Array<{ fecha: string; tipo: string; detalle: string; monto: number }> = [];
-      ((clasesRes.data ?? []) as { fecha: string; titulo: string; hora_inicio: string; hora_fin: string }[]).forEach((c) => {
-        const [hi,mi] = c.hora_inicio.split(":").map(Number);
-        const [hf,mf] = c.hora_fin.split(":").map(Number);
-        const h = Math.max(0, ((hf*60+mf)-(hi*60+mi))/60);
-        items.push({ fecha: c.fecha, tipo: "Clase en vivo", detalle: c.titulo, monto: h * row.tarifaHora });
+      ((clasesRes.data ?? []) as { fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
+        const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
+        items.push({ fecha: c.fecha, tipo: "Clase en vivo", detalle: `${c.titulo} · ${formatHM(min)}`, monto: (min / 60) * row.tarifaHora });
       });
       const aidSess = Array.from(new Set(((sesionesRes.data ?? []) as { alumna_id: string }[]).map((s) => s.alumna_id)));
       if (aidSess.length) {
         const { data: ps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", aidSess);
         const m: Record<string,string> = {};
         ((ps ?? []) as Profile[]).forEach((p) => { m[p.id] = p.nombre_completo || p.email; });
-        ((sesionesRes.data ?? []) as { fecha: string; alumna_id: string }[]).forEach((s) => {
-          items.push({ fecha: s.fecha, tipo: "Sesión 1:1", detalle: m[s.alumna_id] || "Estudiante", monto: row.tarifa1a1 });
+        ((sesionesRes.data ?? []) as { fecha: string; alumna_id: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((s) => {
+          const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
+          items.push({ fecha: s.fecha, tipo: "Sesión 1:1", detalle: `${m[s.alumna_id] || "Estudiante"} · ${formatHM(min)}`, monto: (min / 60) * row.tarifa1a1 });
         });
       }
       items.sort((a,b) => b.fecha.localeCompare(a.fecha));
@@ -489,12 +496,12 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Resumen económico</div>
           <div className="space-y-3">
-            <Linea titulo="Clases grupales" sub={`${row.horasClase}h × $${row.tarifaHora}/h`} monto={row.horasClase * row.tarifaHora} />
-            <Linea titulo="Sesiones 1:1" sub={`${row.sesiones1a1} sesiones × $${row.tarifa1a1}`} monto={row.sesiones1a1 * row.tarifa1a1} />
+            <Linea titulo="Clases grupales" sub={`${formatHM(row.minutosClase)} × $${row.tarifaHora}/h`} monto={(row.minutosClase / 60) * row.tarifaHora} />
+            <Linea titulo="Sesiones 1:1" sub={`${row.sesiones1a1} sesiones · ${formatHM(row.minutos1a1)} × $${row.tarifa1a1}/h`} monto={(row.minutos1a1 / 60) * row.tarifa1a1} />
             {row.bonos > 0 && <Linea titulo="Bonos del mes" sub="otorgados por admin" monto={row.bonos} />}
             <div className="border-t pt-3 flex items-baseline justify-between">
               <div className="text-sm font-semibold">Total a pagar</div>
-              <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--violet)" }}>${row.total.toFixed(0)}</div>
+              <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--violet)" }}>${row.total.toFixed(2)}</div>
             </div>
           </div>
         </div>
@@ -502,8 +509,8 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Actividad del mes</div>
           <div className="space-y-3">
-            <Item icon="🎓" titulo={`${bitacora.filter(b=>b.tipo==="Clase en vivo").length} clases impartidas`} sub={`${row.horasClase}h totales`} />
-            <Item icon="📅" titulo={`${row.sesiones1a1} sesiones 1:1 realizadas`} sub="reservas del mes" />
+            <Item icon="🎓" titulo={`${bitacora.filter(b=>b.tipo==="Clase en vivo").length} clases impartidas`} sub={`${formatHM(row.minutosClase)} en total`} />
+            <Item icon="📅" titulo={`${row.sesiones1a1} sesiones 1:1 realizadas`} sub={`${formatHM(row.minutos1a1)} en total`} />
             <Item icon="💬" titulo={`${row.mensajesEstudiantes} mensajes a estudiantes`} sub="canal privado" />
             <Item icon="⭐" titulo={`${row.califCount} calificaciones recibidas`} sub={row.califCount ? `Promedio ${row.califPromedio.toFixed(2)}` : "Sin respuestas"} />
           </div>
@@ -537,7 +544,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
                 <div className="flex-1">
                   <div className="font-medium">{b.tipo} · <span className="text-muted-foreground font-normal">{b.detalle}</span></div>
                 </div>
-                <div className="font-semibold text-emerald-600 tabular-nums">+${b.monto.toFixed(0)}</div>
+                <div className="font-semibold text-emerald-600 tabular-nums">+${b.monto.toFixed(2)}</div>
               </div>
             ))}
             {bitacora.length === 0 && <div className="text-xs text-muted-foreground">Sin movimientos este mes.</div>}
@@ -566,7 +573,7 @@ function Linea({ titulo, sub, monto }: { titulo: string; sub: string; monto: num
         <div className="font-semibold">{titulo}</div>
         <div className="text-xs text-muted-foreground">{sub}</div>
       </div>
-      <div className="text-lg font-bold tabular-nums">${monto.toFixed(0)}</div>
+      <div className="text-lg font-bold tabular-nums">${monto.toFixed(2)}</div>
     </div>
   );
 }

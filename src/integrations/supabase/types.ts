@@ -1077,6 +1077,7 @@ export type Database = {
           id: string
           motivo: string | null
           profesor_id: string
+          recordatorio_enviado: boolean
           zoom_link: string | null
           zoom_meeting_id: string | null
         }
@@ -1092,6 +1093,7 @@ export type Database = {
           id?: string
           motivo?: string | null
           profesor_id: string
+          recordatorio_enviado?: boolean
           zoom_link?: string | null
           zoom_meeting_id?: string | null
         }
@@ -1107,6 +1109,7 @@ export type Database = {
           id?: string
           motivo?: string | null
           profesor_id?: string
+          recordatorio_enviado?: boolean
           zoom_link?: string | null
           zoom_meeting_id?: string | null
         }
@@ -1287,6 +1290,7 @@ export type Database = {
     }
     Functions: {
       cerrar_sesion: { Args: { _session_id: string }; Returns: undefined }
+      enviar_recordatorios: { Args: never; Returns: number }
       get_my_tarifas: {
         Args: never
         Returns: {
