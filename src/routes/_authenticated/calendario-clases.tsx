@@ -228,7 +228,7 @@ function Page() {
           horaInicio={duracionModal.hora_inicio}
           duracionInicial={duracionModal.duracion_min ?? null}
           onClose={() => setDuracionModal(null)}
-          onSaved={(min, fin) => setClases((arr) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_fin: fin + ":00" } : x))}
+          onSaved={(min, fin, ini) => setClases((arr) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_inicio: ini + ":00", hora_fin: fin + ":00" } : x))}
         />
       )}
     </div>
