@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Download, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { generarReporteMensualPDF, downloadBlob, type MovRow, type ActRow } from "@/lib/pdf-reports";
+import { listaMeses } from "@/lib/pagos-export";
 import { AeHeader } from "@/components/AeHeader";
 
 export const Route = createFileRoute("/_authenticated/mis-reportes")({ component: Page });
@@ -104,7 +105,14 @@ function Page() {
     }
   };
 
-  const cambiar = (n: number) => { const d = new Date(cursor); d.setMonth(d.getMonth() + n); setCursor(d); };
+  const cambiar = (n: number) => {
+    const d = new Date(cursor);
+    d.setMonth(d.getMonth() + n);
+    const hoy = new Date();
+    const tope = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    if (d > tope) return;
+    setCursor(d);
+  };
 
   return (
     <div className="ae-app">
@@ -122,11 +130,9 @@ function Page() {
             className="text-xl font-semibold capitalize bg-transparent text-center outline-none cursor-pointer"
             style={{ fontFamily: "Fraunces, serif" }}
           >
-            {Array.from({ length: new Date().getFullYear() - 2024 }).flatMap((_, k) => {
-              const a = new Date().getFullYear() - k;
-              return MESES.map((nombre, i) => (
-                <option key={`${a}-${i}`} value={`${a}-${i}`}>{nombre} {a}</option>
-              )).reverse();
+            {listaMeses().map((o) => {
+              const [a, m] = o.value.split("-").map(Number);
+              return <option key={o.value} value={`${a}-${m - 1}`}>{o.label}</option>;
             })}
           </select>
         </div>
