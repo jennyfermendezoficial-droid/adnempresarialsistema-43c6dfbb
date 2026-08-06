@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Clock } from "lucide-react";
@@ -13,9 +13,14 @@ interface Props {
   onSaved: (duracionMin: number, horaFin: string, horaInicio: string) => void;
 }
 
-function toMin(hhmm: string) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
+const HHMM = /^(\d{1,2}):(\d{2})$/;
+function toMin(hhmm: string): number | null {
+  const match = HHMM.exec((hhmm ?? "").trim());
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(m) || h > 23 || m > 59) return null;
+  return h * 60 + m;
 }
 function toHHMM(min: number) {
   const m = ((min % 1440) + 1440) % 1440;
@@ -30,14 +35,25 @@ function fmt(min: number) {
 }
 
 export function RegistrarDuracionModal({ sesionId, tipo = "1a1", horaInicio, duracionInicial, onClose, onSaved }: Props) {
-  const inicioBase = horaInicio.slice(0, 5);
+  const inicioBase = (horaInicio ?? "").slice(0, 5);
   const inicial = duracionInicial && duracionInicial > 0 ? duracionInicial : 60;
   const [inicio, setInicio] = useState(inicioBase);
-  const [fin, setFin] = useState(toHHMM(toMin(inicioBase) + inicial));
+  const [fin, setFin] = useState(() => {
+    const base = toMin(inicioBase);
+    return base === null ? "" : toHHMM(base + inicial);
+  });
   const [saving, setSaving] = useState(false);
 
-  const duracion = toMin(fin) - toMin(inicio);
-  const valido = /^\d{2}:\d{2}$/.test(inicio) && /^\d{2}:\d{2}$/.test(fin) && duracion > 0 && duracion <= 600;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const minInicio = toMin(inicio);
+  const minFin = toMin(fin);
+  const duracion = minInicio !== null && minFin !== null ? minFin - minInicio : 0;
+  const valido = minInicio !== null && minFin !== null && duracion > 0 && duracion <= 600;
 
   const guardar = async () => {
     if (!valido) {
@@ -58,8 +74,11 @@ export function RegistrarDuracionModal({ sesionId, tipo = "1a1", horaInicio, dur
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" onClick={onClose}>
-      <div className="bg-card p-6 rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-card p-6 rounded-2xl max-w-md w-full" onMouseDown={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold mb-1 flex items-center gap-2"><Clock className="w-4 h-4" /> Registrar duración</h3>
         <p className="text-xs text-muted-foreground mb-4">
           Indica a qué hora empezó y a qué hora terminó {tipo === "clase" ? "la clase" : "la reunión"}. Solo el profesor que la dio puede registrarla.

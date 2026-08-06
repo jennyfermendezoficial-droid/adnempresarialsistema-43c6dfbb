@@ -105,7 +105,14 @@ function Page() {
     }
   };
 
-  const cambiar = (n: number) => { const d = new Date(cursor); d.setMonth(d.getMonth() + n); setCursor(d); };
+  const cambiar = (n: number) => {
+    const d = new Date(cursor);
+    d.setMonth(d.getMonth() + n);
+    const hoy = new Date();
+    const tope = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    if (d > tope) return;
+    setCursor(d);
+  };
 
   return (
     <div className="ae-app">
