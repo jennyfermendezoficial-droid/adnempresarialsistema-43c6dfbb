@@ -544,7 +544,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
                 <div className="flex-1">
                   <div className="font-medium">{b.tipo} · <span className="text-muted-foreground font-normal">{b.detalle}</span></div>
                 </div>
-                <div className="font-semibold text-emerald-600 tabular-nums">+${b.monto.toFixed(0)}</div>
+                <div className="font-semibold text-emerald-600 tabular-nums">+${b.monto.toFixed(2)}</div>
               </div>
             ))}
             {bitacora.length === 0 && <div className="text-xs text-muted-foreground">Sin movimientos este mes.</div>}
