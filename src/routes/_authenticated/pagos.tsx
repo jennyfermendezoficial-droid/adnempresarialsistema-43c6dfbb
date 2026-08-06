@@ -439,23 +439,22 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
 
       // Bitácora: clases + sesiones del mes
       const [clasesRes, sesionesRes] = await Promise.all([
-        supabase.from("clases_en_vivo").select("fecha,titulo,hora_inicio,hora_fin").eq("profesor_id", row.id).gte("fecha", ini).lte("fecha", fin),
-        supabase.from("sesiones_1a1").select("fecha,alumna_id,hora_inicio,hora_fin").eq("profesor_id", row.id).gte("fecha", ini).lte("fecha", fin),
+        supabase.from("clases_en_vivo").select("fecha,titulo,hora_inicio,hora_fin,duracion_min").eq("profesor_id", row.id).gte("fecha", ini).lte("fecha", fin),
+        supabase.from("sesiones_1a1").select("fecha,alumna_id,hora_inicio,hora_fin,duracion_min").eq("profesor_id", row.id).gte("fecha", ini).lte("fecha", fin),
       ]);
       const items: Array<{ fecha: string; tipo: string; detalle: string; monto: number }> = [];
-      ((clasesRes.data ?? []) as { fecha: string; titulo: string; hora_inicio: string; hora_fin: string }[]).forEach((c) => {
-        const [hi,mi] = c.hora_inicio.split(":").map(Number);
-        const [hf,mf] = c.hora_fin.split(":").map(Number);
-        const h = Math.max(0, ((hf*60+mf)-(hi*60+mi))/60);
-        items.push({ fecha: c.fecha, tipo: "Clase en vivo", detalle: c.titulo, monto: h * row.tarifaHora });
+      ((clasesRes.data ?? []) as { fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
+        const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
+        items.push({ fecha: c.fecha, tipo: "Clase en vivo", detalle: `${c.titulo} · ${formatHM(min)}`, monto: (min / 60) * row.tarifaHora });
       });
       const aidSess = Array.from(new Set(((sesionesRes.data ?? []) as { alumna_id: string }[]).map((s) => s.alumna_id)));
       if (aidSess.length) {
         const { data: ps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", aidSess);
         const m: Record<string,string> = {};
         ((ps ?? []) as Profile[]).forEach((p) => { m[p.id] = p.nombre_completo || p.email; });
-        ((sesionesRes.data ?? []) as { fecha: string; alumna_id: string }[]).forEach((s) => {
-          items.push({ fecha: s.fecha, tipo: "Sesión 1:1", detalle: m[s.alumna_id] || "Estudiante", monto: row.tarifa1a1 });
+        ((sesionesRes.data ?? []) as { fecha: string; alumna_id: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((s) => {
+          const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
+          items.push({ fecha: s.fecha, tipo: "Sesión 1:1", detalle: `${m[s.alumna_id] || "Estudiante"} · ${formatHM(min)}`, monto: (min / 60) * row.tarifa1a1 });
         });
       }
       items.sort((a,b) => b.fecha.localeCompare(a.fecha));
@@ -497,12 +496,12 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Resumen económico</div>
           <div className="space-y-3">
-            <Linea titulo="Clases grupales" sub={`${row.horasClase}h × $${row.tarifaHora}/h`} monto={row.horasClase * row.tarifaHora} />
-            <Linea titulo="Sesiones 1:1" sub={`${row.sesiones1a1} sesiones × $${row.tarifa1a1}`} monto={row.sesiones1a1 * row.tarifa1a1} />
+            <Linea titulo="Clases grupales" sub={`${formatHM(row.minutosClase)} × $${row.tarifaHora}/h`} monto={(row.minutosClase / 60) * row.tarifaHora} />
+            <Linea titulo="Sesiones 1:1" sub={`${row.sesiones1a1} sesiones · ${formatHM(row.minutos1a1)} × $${row.tarifa1a1}/h`} monto={(row.minutos1a1 / 60) * row.tarifa1a1} />
             {row.bonos > 0 && <Linea titulo="Bonos del mes" sub="otorgados por admin" monto={row.bonos} />}
             <div className="border-t pt-3 flex items-baseline justify-between">
               <div className="text-sm font-semibold">Total a pagar</div>
-              <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--violet)" }}>${row.total.toFixed(0)}</div>
+              <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--violet)" }}>${row.total.toFixed(2)}</div>
             </div>
           </div>
         </div>
@@ -510,8 +509,8 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Actividad del mes</div>
           <div className="space-y-3">
-            <Item icon="🎓" titulo={`${bitacora.filter(b=>b.tipo==="Clase en vivo").length} clases impartidas`} sub={`${row.horasClase}h totales`} />
-            <Item icon="📅" titulo={`${row.sesiones1a1} sesiones 1:1 realizadas`} sub="reservas del mes" />
+            <Item icon="🎓" titulo={`${bitacora.filter(b=>b.tipo==="Clase en vivo").length} clases impartidas`} sub={`${formatHM(row.minutosClase)} en total`} />
+            <Item icon="📅" titulo={`${row.sesiones1a1} sesiones 1:1 realizadas`} sub={`${formatHM(row.minutos1a1)} en total`} />
             <Item icon="💬" titulo={`${row.mensajesEstudiantes} mensajes a estudiantes`} sub="canal privado" />
             <Item icon="⭐" titulo={`${row.califCount} calificaciones recibidas`} sub={row.califCount ? `Promedio ${row.califPromedio.toFixed(2)}` : "Sin respuestas"} />
           </div>
@@ -574,7 +573,7 @@ function Linea({ titulo, sub, monto }: { titulo: string; sub: string; monto: num
         <div className="font-semibold">{titulo}</div>
         <div className="text-xs text-muted-foreground">{sub}</div>
       </div>
-      <div className="text-lg font-bold tabular-nums">${monto.toFixed(0)}</div>
+      <div className="text-lg font-bold tabular-nums">${monto.toFixed(2)}</div>
     </div>
   );
 }
