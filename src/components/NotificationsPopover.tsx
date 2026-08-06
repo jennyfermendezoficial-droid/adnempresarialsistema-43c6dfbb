@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  Bell, MessageSquare, Users, CalendarClock, Video, ClipboardList, Star, CheckCircle2,
+  Bell, MessageSquare, Users, CalendarClock, Video, ClipboardList, Star, CheckCircle2, AlarmClock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -22,6 +22,7 @@ const ICONS: Record<string, typeof Bell> = {
   chat: MessageSquare,
   chat_profesores: MessageSquare,
   sesion_nueva: CalendarClock,
+  recordatorio: AlarmClock,
   sesion_finalizada: Star,
   clase_nueva: Video,
   tarea_nueva: ClipboardList,
