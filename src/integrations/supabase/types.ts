@@ -622,6 +622,7 @@ export type Database = {
           image_url: string | null
           nombre: string
           orden: number
+          tipo: string
         }
         Insert: {
           color_cover?: string | null
@@ -631,6 +632,7 @@ export type Database = {
           image_url?: string | null
           nombre: string
           orden?: number
+          tipo?: string
         }
         Update: {
           color_cover?: string | null
@@ -640,6 +642,7 @@ export type Database = {
           image_url?: string | null
           nombre?: string
           orden?: number
+          tipo?: string
         }
         Relationships: []
       }
@@ -1318,14 +1321,32 @@ export type Database = {
         }
         Returns: undefined
       }
-      registrar_duracion_clase: {
-        Args: { _clase_id: string; _duracion_min: number }
-        Returns: undefined
-      }
-      registrar_duracion_sesion: {
-        Args: { _duracion_min: number; _sesion_id: string }
-        Returns: undefined
-      }
+      registrar_duracion_clase:
+        | {
+            Args: { _clase_id: string; _duracion_min: number }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _clase_id: string
+              _duracion_min: number
+              _hora_inicio?: string
+            }
+            Returns: undefined
+          }
+      registrar_duracion_sesion:
+        | {
+            Args: { _duracion_min: number; _sesion_id: string }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _duracion_min: number
+              _hora_inicio?: string
+              _sesion_id: string
+            }
+            Returns: undefined
+          }
       registrar_sesion: {
         Args: { _dispositivo: string; _session_id: string }
         Returns: undefined
