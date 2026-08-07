@@ -44,6 +44,30 @@ export function CursoDetalle({ cursoId, volver }: { cursoId: string; volver?: bo
 
   useEffect(() => { getBunnyCfg().then(setBunnyCfg).catch(() => {}); }, []); // eslint-disable-line
 
+  // Abre el módulo de la clase que se está viendo
+  useEffect(() => {
+    if (active?.modulo_id) setAbiertos((s) => (s.has(active.modulo_id) ? s : new Set(s).add(active.modulo_id)));
+  }, [active?.modulo_id]);
+
+  const miniatura = (l: Leccion) => {
+    const v = l.bunny_video_id;
+    if (!v) return null;
+    const yt = v.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{6,})/);
+    if (yt) return `https://img.youtube.com/vi/${yt[1]}/mqdefault.jpg`;
+    if (/^[0-9a-f-]{20,}$/i.test(v) && bunnyCfg) return `https://${bunnyCfg.cdnHostname}/${v}/thumbnail.jpg`;
+    return null;
+  };
+
+  const formatoDuracion = (min: number) => {
+    const total = Math.max(0, Math.round(min * 60));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return h > 0
+      ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+      : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
   // Silencia errores conocidos de player.js cuando el iframe se desmonta
   // al cambiar de clase (postMessage sobre contentWindow null).
   useEffect(() => {
