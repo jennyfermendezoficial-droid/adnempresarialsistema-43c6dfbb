@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil, Youtube } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil, Youtube, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo, getBunnyVideoStatus } from "@/lib/bunny.functions";
@@ -34,6 +34,8 @@ export function CursoDetalle({ cursoId, volver }: { cursoId: string; volver?: bo
   const [savingLec, setSavingLec] = useState(false);
   const [uploadingRecurso, setUploadingRecurso] = useState(false);
   const [videoStatus, setVideoStatus] = useState<{ ready: boolean; failed: boolean; encodeProgress: number; status: number } | null>(null);
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  const [busqueda, setBusqueda] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingModId = useRef<string | null>(null);
