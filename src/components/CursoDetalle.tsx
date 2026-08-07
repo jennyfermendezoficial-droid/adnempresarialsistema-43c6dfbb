@@ -494,7 +494,7 @@ export function CursoDetalle({ cursoId, volver }: { cursoId: string; volver?: bo
         </div>
 
         {/* Sidebar de módulos */}
-        <aside className="space-y-4">
+        <aside className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Contenido del curso</h3>
             {isStaff && (
@@ -504,6 +504,16 @@ export function CursoDetalle({ cursoId, volver }: { cursoId: string; volver?: bo
             )}
           </div>
 
+          <div className="relative">
+            <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 opacity-40" />
+            <input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar contenido"
+              className="w-full pl-3 pr-9 py-2.5 rounded-xl border bg-card text-sm outline-none focus:border-violet-400"
+            />
+          </div>
+
           {modulos.length === 0 && (
             <div className="text-center text-sm text-muted-foreground border border-dashed rounded-xl p-6">
               Aún no hay módulos.
@@ -511,18 +521,36 @@ export function CursoDetalle({ cursoId, volver }: { cursoId: string; volver?: bo
           )}
 
           {modulos.map((m, idx) => {
-            const lecs = lecciones.filter((l) => l.modulo_id === m.id);
-            const done = lecs.filter((l) => completadas.has(l.id)).length;
+            const todas = lecciones.filter((l) => l.modulo_id === m.id);
+            const q = busqueda.trim().toLowerCase();
+            const lecs = q ? todas.filter((l) => l.nombre.toLowerCase().includes(q)) : todas;
+            if (q && lecs.length === 0) return null;
+            const done = todas.filter((l) => completadas.has(l.id)).length;
+            const pct = todas.length ? Math.round((done / todas.length) * 100) : 0;
+            const abierto = q ? true : abiertos.has(m.id);
             return (
               <div key={m.id} className="rounded-xl border bg-card overflow-hidden">
-                <div className="px-4 py-3 border-b flex items-center justify-between bg-muted/30">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider opacity-60">Módulo {idx + 1}</div>
-                    <div className="font-semibold text-sm">{m.nombre}</div>
-                    <div className="text-xs opacity-60">{done}/{lecs.length} clases</div>
-                  </div>
+                <div className="px-3 py-3 flex items-center gap-3 bg-muted/30">
+                  <button
+                    onClick={() => setAbiertos((s) => { const n = new Set(s); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n; })}
+                    className="flex-1 min-w-0 flex items-center gap-3 text-left"
+                  >
+                    <span className="w-8 h-8 shrink-0 rounded-full border grid place-items-center text-xs font-semibold opacity-80">
+                      {idx + 1}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-semibold text-sm truncate">{m.nombre}</span>
+                      <span className="flex items-center gap-2 mt-1">
+                        <span className="text-[11px] opacity-60 w-8">{pct}%</span>
+                        <span className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                          <span className="block h-full bg-violet-gradient" style={{ width: `${pct}%` }} />
+                        </span>
+                      </span>
+                    </span>
+                    {abierto ? <ChevronUp className="w-4 h-4 opacity-60 shrink-0"/> : <ChevronDown className="w-4 h-4 opacity-60 shrink-0"/>}
+                  </button>
                   {isStaff && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         disabled={uploadingFor !== null}
                         onClick={() => subirLeccion(m.id)}
@@ -545,31 +573,60 @@ export function CursoDetalle({ cursoId, volver }: { cursoId: string; volver?: bo
                   )}
                 </div>
                 {uploadingFor === m.id && (
-                  <div className="px-4 py-1 text-xs text-muted-foreground border-b">Subiendo… {uploadPct}%</div>
+                  <div className="px-4 py-1 text-xs text-muted-foreground border-t">Subiendo… {uploadPct}%</div>
                 )}
-                <ul>
-                  {lecs.map((l, i) => {
-                    const isActive = active?.id === l.id;
-                    const ok = completadas.has(l.id);
-                    return (
-                      <li key={l.id} className={`flex items-center gap-1 px-3 py-2 hover:bg-muted/50 ${isActive ? "bg-muted" : ""}`}>
-                        <button onClick={() => setActive(l)} className="flex-1 text-left flex items-center gap-2 text-sm">
-                          {ok ? <CheckCircle2 className="w-4 h-4 text-violet shrink-0"/> : <Play className="w-4 h-4 opacity-60 shrink-0"/>}
-                          <span className="opacity-60 text-xs w-5">{i + 1}.</span>
-                          <span className="truncate">{l.nombre}</span>
-                        </button>
-                        {isStaff && (
-                          <button onClick={() => borrarLeccion(l)} className="p-1 opacity-40 hover:opacity-100">
-                            <Trash2 className="w-3 h-3"/>
+                {abierto && (
+                  <ul className="p-2 space-y-2 border-t">
+                    {lecs.map((l) => {
+                      const isActive = active?.id === l.id;
+                      const ok = completadas.has(l.id);
+                      const thumb = miniatura(l);
+                      return (
+                        <li key={l.id} className={`flex items-center gap-2 p-2 rounded-xl transition-colors ${isActive ? "bg-muted" : "hover:bg-muted/50"}`}>
+                          <button onClick={() => setActive(l)} className="flex-1 min-w-0 text-left flex items-center gap-3">
+                            <span className="relative w-[86px] h-[52px] shrink-0 rounded-lg overflow-hidden bg-muted grid place-items-center">
+                              {thumb ? (
+                                <img
+                                  src={thumb}
+                                  alt=""
+                                  loading="lazy"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                                />
+                              ) : (
+                                <Play className="w-5 h-5 opacity-40" />
+                              )}
+                              {isActive ? (
+                                <span className="absolute inset-0 bg-black/55 grid place-items-center gap-0.5 text-white text-[10px] font-semibold">
+                                  <Play className="w-4 h-4 fill-current" />
+                                  Tocando ahora
+                                </span>
+                              ) : l.duracion_min ? (
+                                <span className="absolute bottom-1 right-1 px-1 rounded bg-black/70 text-white text-[10px]">
+                                  {formatoDuracion(l.duracion_min)}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="flex-1 min-w-0 text-sm leading-snug line-clamp-2">{l.nombre}</span>
                           </button>
-                        )}
-                      </li>
-                    );
-                  })}
-                  {lecs.length === 0 && (
-                    <li className="px-4 py-3 text-xs text-muted-foreground italic">Sin clases todavía</li>
-                  )}
-                </ul>
+                          {ok ? (
+                            <CheckCircle2 className="w-4 h-4 text-violet shrink-0"/>
+                          ) : (
+                            <Circle className="w-4 h-4 opacity-30 shrink-0"/>
+                          )}
+                          {isStaff && (
+                            <button onClick={() => borrarLeccion(l)} className="p-1 opacity-40 hover:opacity-100">
+                              <Trash2 className="w-3 h-3"/>
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                    {lecs.length === 0 && (
+                      <li className="px-4 py-3 text-xs text-muted-foreground italic">Sin clases todavía</li>
+                    )}
+                  </ul>
+                )}
               </div>
             );
           })}
