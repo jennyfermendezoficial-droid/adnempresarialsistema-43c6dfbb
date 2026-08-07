@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -7,15 +7,12 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo, getBunnyVideoStatus } from "@/lib/bunny.functions";
 
-export const Route = createFileRoute("/_authenticated/cursos/$cursoId")({ component: Page });
-
 interface Curso { id: string; nombre: string; descripcion: string | null; image_url: string | null; color_cover: string | null }
 interface Modulo { id: string; curso_id: string; nombre: string; descripcion: string | null; orden: number }
 interface Recurso { tipo: "link" | "archivo"; nombre: string; url: string }
 interface Leccion { id: string; modulo_id: string; nombre: string; descripcion: string | null; bunny_video_id: string | null; orden: number; duracion_min: number | null; recursos_adjuntos: Recurso[] | null }
 
-function Page() {
-  const { cursoId } = Route.useParams();
+export function CursoDetalle({ cursoId, volver }: { cursoId: string; volver?: boolean }) {
   const { session, role } = useAuth();
   const isStaff = role === "admin" || role === "soporte";
   const uid = session?.user.id;
@@ -357,9 +354,11 @@ function Page() {
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
         <div className="absolute inset-x-0 bottom-0 p-6 max-w-6xl mx-auto">
-          <Link to="/cursos" className="inline-flex items-center gap-1 text-sm text-white/90 hover:text-white mb-2">
-            <ArrowLeft className="w-4 h-4" /> Volver a cursos
-          </Link>
+          {volver && (
+            <Link to="/cursos" className="inline-flex items-center gap-1 text-sm text-white/90 hover:text-white mb-2">
+              <ArrowLeft className="w-4 h-4" /> Volver a cursos
+            </Link>
+          )}
           <h1 className="text-3xl md:text-4xl font-bold text-white drop-shadow">{curso?.nombre || "Curso"}</h1>
           {curso?.descripcion && <p className="text-white/80 text-sm mt-1 max-w-2xl">{curso.descripcion}</p>}
           <div className="mt-3 flex items-center gap-3 text-xs text-white/90">
