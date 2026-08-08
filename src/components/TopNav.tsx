@@ -1,3 +1,4 @@
+import { formatNombre } from "@/lib/nombres";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronDown, LogOut, User } from "lucide-react";
 import { useRef, useState } from "react";
@@ -89,7 +90,7 @@ export function TopNav() {
       : []),
   ];
 
-  const initial = (profile?.nombre_completo || profile?.email || "?").slice(0, 1).toUpperCase();
+  const initial = (formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase();
 
   return (
     <header
@@ -127,7 +128,7 @@ export function TopNav() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-2 py-1.5">
-                    <div className="text-sm font-semibold truncate">{profile?.nombre_completo || "Mi cuenta"}</div>
+                    <div className="text-sm font-semibold truncate">{formatNombre(profile?.nombre_completo) || "Mi cuenta"}</div>
                     <div className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">
                       {role || "usuario"}
                     </div>

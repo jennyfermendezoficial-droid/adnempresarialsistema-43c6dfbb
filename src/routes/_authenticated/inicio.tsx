@@ -1,3 +1,4 @@
+import { formatNombre } from "@/lib/nombres";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -109,7 +110,7 @@ function Page() {
         const s = ses[0] as { fecha: string; hora_inicio: string; zoom_link: string | null; profesor_id: string; alumna_id: string };
         const otroId = s.profesor_id === uid ? s.alumna_id : s.profesor_id;
         const { data: prof } = await supabase.from("profiles").select("nombre_completo,email").eq("id", otroId).maybeSingle();
-        setProxSesion({ fecha: s.fecha, hora_inicio: s.hora_inicio, zoom_link: s.zoom_link, otroNombre: prof?.nombre_completo || prof?.email || "—" });
+        setProxSesion({ fecha: s.fecha, hora_inicio: s.hora_inicio, zoom_link: s.zoom_link, otroNombre: formatNombre(prof?.nombre_completo) || prof?.email || "—" });
       }
 
       // Mensajes sin leer (1a1 + soporte)
@@ -224,7 +225,7 @@ function Page() {
     return m ? `https://www.youtube.com/embed/${m[1]}` : u;
   };
 
-  const nombrePila = (profile?.nombre_completo || "").split(" ")[0] || "";
+  const nombrePila = formatNombre(profile?.nombre_completo).split(" ")[0] || "";
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">

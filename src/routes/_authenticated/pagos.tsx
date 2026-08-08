@@ -6,6 +6,7 @@ import { Lock, Star, ChevronLeft, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
 import { generarPagosPDF, exportarPagosExcel, listaMeses } from "@/lib/pagos-export";
+import { formatNombre } from "@/lib/nombres";
 
 export const Route = createFileRoute("/_authenticated/pagos")({ component: Page });
 
@@ -165,7 +166,7 @@ function Page() {
 
         return {
           id: pid,
-          nombre: p.nombre_completo || p.email,
+          nombre: formatNombre(p.nombre_completo) || p.email,
           email: p.email,
           rol: map.get(pid) ?? "soporte",
           tema: temaDe(p),
@@ -379,7 +380,7 @@ function Page() {
                 {historial.map((p) => (
                   <tr key={p.id} className="border-t">
                     <td className="px-4 py-2">{MESES[p.mes-1]} {p.anio}</td>
-                    <td className="px-3 py-2">{profiles[p.profesor_id]?.nombre_completo || profiles[p.profesor_id]?.email || "—"}</td>
+                    <td className="px-3 py-2">{formatNombre(profiles[p.profesor_id]?.nombre_completo) || profiles[p.profesor_id]?.email || "—"}</td>
                     <td className="px-3 py-2 text-right">{formatHM(Number(p.total_horas) * 60)}</td>
                     <td className="px-3 py-2 text-right font-semibold">${Number(p.monto_total).toFixed(2)}</td>
                     <td className="px-3 py-2">
@@ -433,7 +434,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
       if (aids.length) {
         const { data: ps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", aids);
         const m: Record<string,string> = {};
-        ((ps ?? []) as Profile[]).forEach((p) => { m[p.id] = p.nombre_completo || p.email; });
+        ((ps ?? []) as Profile[]).forEach((p) => { m[p.id] = formatNombre(p.nombre_completo) || p.email; });
         setAlumnaNombres(m);
       }
 
@@ -451,7 +452,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
       if (aidSess.length) {
         const { data: ps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", aidSess);
         const m: Record<string,string> = {};
-        ((ps ?? []) as Profile[]).forEach((p) => { m[p.id] = p.nombre_completo || p.email; });
+        ((ps ?? []) as Profile[]).forEach((p) => { m[p.id] = formatNombre(p.nombre_completo) || p.email; });
         ((sesionesRes.data ?? []) as { fecha: string; alumna_id: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((s) => {
           const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
           items.push({ fecha: s.fecha, tipo: "Sesión 1:1", detalle: `${m[s.alumna_id] || "Estudiante"} · ${formatHM(min)}`, monto: (min / 60) * row.tarifa1a1 });
