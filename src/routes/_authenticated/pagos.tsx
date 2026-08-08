@@ -448,9 +448,10 @@ function KPI({ label, value, sub }: { label: string; value: string; sub?: string
 
 // ===================== DETALLE PROFESOR =====================
 
-function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
+function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, canceladas = [] }: {
   row: StaffRow; profile?: Profile; mes: number; anio: number;
   onBack: () => void; onSelect: (id: string) => void; staff: StaffRow[];
+  canceladas?: Array<{ fecha: string; tipo: string; con: string; estado: string; razon: string }>;
 }) {
   const [califs, setCalifs] = useState<Array<{ claridad: number|null; didactica: number|null; practico: number|null; desenvolvimiento: number|null; comentario: string|null; created_at: string; alumna_id: string }>>([]);
   const [bitacora, setBitacora] = useState<Array<{ fecha: string; tipo: string; detalle: string; monto: number }>>([]);
