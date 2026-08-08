@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Video, Calendar, AlertCircle, Clock, Trash2 } from "lucide-react";
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
+import { formatNombre } from "@/lib/nombres";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -51,13 +52,14 @@ function Page() {
       const desde = isStaff
         ? new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
         : hoy;
-      const clasesQuery = supabase.from("clases_en_vivo").select("*").gte("fecha", desde).order("fecha").order("hora_inicio");
       const [{ data: c }, { data: s }] = await Promise.all([
-        isStaff ? clasesQuery.eq("profesor_id", uid) : clasesQuery,
+        supabase.from("clases_en_vivo").select("*").gte("fecha", desde)
+          .eq("profesor_id", uid).order("fecha").order("hora_inicio"),
         supabase.from("sesiones_1a1").select("*").or(`alumna_id.eq.${uid},profesor_id.eq.${uid}`).order("fecha", { ascending: false }).order("hora_inicio"),
       ]);
-      const cl = (c as Clase[]) ?? [];
-      const se = (s as Sesion[]) ?? [];
+      // Solo lo mío: nunca clases ni sesiones de otras personas, aunque el rol permita verlas
+      const cl = ((c as Clase[]) ?? []).filter((x) => x.profesor_id === uid);
+      const se = ((s as Sesion[]) ?? []).filter((x) => x.profesor_id === uid || x.alumna_id === uid);
       setClases(cl);
       setSesiones(se);
       const ids = Array.from(new Set(se.flatMap((x) => [x.alumna_id, x.profesor_id]).filter((id) => id !== uid)));
@@ -89,13 +91,14 @@ function Page() {
     })),
     ...sesiones.map<Item>((s) => {
       const soyAlumna = s.alumna_id === uid;
+      const soyProfesor = s.profesor_id === uid;
       const persona = personas[soyAlumna ? s.profesor_id : s.alumna_id];
-      const nombre = persona?.nombre_completo || persona?.email || (soyAlumna ? "mentor" : "estudiante");
+      const nombre = formatNombre(persona?.nombre_completo) || persona?.email || (soyAlumna ? "mentor" : "estudiante");
       return {
         tipo: "1a1", id: s.id, fecha: s.fecha, hora: s.hora_inicio,
         titulo: soyAlumna ? `1 a 1 con ${nombre}` : `1 a 1 · ${nombre}`,
         sub: s.duracion_min ? `Sesión privada · ${s.hora_inicio.slice(0,5)} – ${s.hora_fin?.slice(0,5)} · ${s.duracion_min} min` : "Sesión privada · duración por definir",
-        link: s.zoom_link, motivo: s.motivo, soyProfe: !soyAlumna, sesion: s,
+        link: s.zoom_link, motivo: s.motivo, soyProfe: soyProfesor, sesion: s,
       };
     }),
   ].sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
@@ -162,13 +165,13 @@ function Page() {
                     <Clock className="w-3.5 h-3.5" /> {it.sesion.duracion_min ? "Editar duración" : "Registrar duración"}
                   </button>
                 )}
-                {it.tipo === "1a1" && it.sesion && it.sesion.estado !== "finalizada" && (it.soyProfe || role === "admin") && (
+                {it.tipo === "1a1" && it.sesion && it.sesion.estado !== "finalizada" && it.soyProfe && (
                   <button onClick={() => setBorrarSesion(it.sesion!)} title="Eliminar sesión"
                     className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold border text-destructive border-destructive/40 hover:bg-destructive/10">
                     <Trash2 className="w-3.5 h-3.5" /> Eliminar
                   </button>
                 )}
-                {it.tipo === "clase" && it.clase && (it.clase.profesor_id === uid || role === "admin") && new Date(`${it.fecha}T${it.hora}`) <= ahora && (
+                {it.tipo === "clase" && it.clase && it.clase.profesor_id === uid && new Date(`${it.fecha}T${it.hora}`) <= ahora && (
                   <button onClick={() => setClaseModal(it.clase!)}
                     className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold border">
                     <Clock className="w-3.5 h-3.5" /> {it.clase.duracion_min ? "Editar duración" : "Registrar duración"}
