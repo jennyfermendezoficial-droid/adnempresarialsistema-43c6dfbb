@@ -14,6 +14,10 @@ const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto"
 
 interface Profile { id: string; nombre_completo: string; email: string; avatar_url?: string | null }
 interface PagoHist { id: string; profesor_id: string; mes: number; anio: number; total_horas: number; total_bonos: number; monto_total: number; estado: string; fecha_pago: string | null }
+interface Cancelada {
+  id: string; tipo: string; profesor_id: string; contraparte_id: string | null;
+  titulo: string | null; fecha: string; estado: string; razon: string | null;
+}
 
 interface StaffRow {
   id: string;
@@ -76,6 +80,8 @@ function Page() {
   const [historial, setHistorial] = useState<PagoHist[]>([]);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [canceladas, setCanceladas] = useState<Cancelada[]>([]);
+  const [nombresCancel, setNombresCancel] = useState<Record<string, string>>({});
 
   const cargar = async () => {
     setLoading(true);
@@ -104,6 +110,21 @@ function Page() {
       // Pagos ya generados para este mes
       const { data: pagosMes } = await supabase.from("pagos_mensuales")
         .select("*").eq("mes", mes).eq("anio", anio);
+
+      // Sesiones canceladas / no registradas del mes
+      const { data: canc } = await supabase.from("sesiones_canceladas")
+        .select("id,tipo,profesor_id,contraparte_id,titulo,fecha,estado,razon")
+        .gte("fecha", ini).lte("fecha", fin).order("fecha", { ascending: false });
+      const cancRows = ((canc ?? []) as Cancelada[]);
+      setCanceladas(cancRows);
+      const cids = Array.from(new Set(cancRows.map((c) => c.contraparte_id).filter(Boolean) as string[]));
+      if (cids.length) {
+        const { data: cps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", cids);
+        const nm: Record<string, string> = {};
+        ((cps ?? []) as Profile[]).forEach((p) => { nm[p.id] = formatNombre(p.nombre_completo) || p.email; });
+        setNombresCancel(nm);
+      } else setNombresCancel({});
+
       const pagoMap = new Map<string, PagoHist>();
       ((pagosMes ?? []) as PagoHist[]).forEach((p) => pagoMap.set(p.profesor_id, p));
 
