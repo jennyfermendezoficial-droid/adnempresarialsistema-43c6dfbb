@@ -29,19 +29,25 @@ function Page() {
   const [claseModal, setClaseModal] = useState<Clase | null>(null);
   const [borrarSesion, setBorrarSesion] = useState<Sesion | null>(null);
   const [borrando, setBorrando] = useState(false);
+  const [razon, setRazon] = useState("");
 
   const eliminarSesion = async () => {
     if (!borrarSesion) return;
+    if (razon.trim().length < 5) {
+      toast.error("Escribe la razón (mínimo 5 caracteres)");
+      return;
+    }
     setBorrando(true);
-    const { error } = await supabase.from("sesiones_1a1").delete().eq("id", borrarSesion.id);
+    const { error } = await supabase.rpc("cancelar_sesion_1a1", { _id: borrarSesion.id, _razon: razon.trim() });
     setBorrando(false);
     if (error) {
-      toast.error("No se pudo eliminar la sesión");
+      toast.error(error.message || "No se pudo eliminar la sesión");
       return;
     }
     setSesiones((arr) => arr.filter((x) => x.id !== borrarSesion.id));
     setBorrarSesion(null);
-    toast.success("Sesión eliminada");
+    setRazon("");
+    toast.success("Sesión eliminada · queda registrada en informes");
   };
 
   useEffect(() => {
@@ -166,7 +172,7 @@ function Page() {
                   </button>
                 )}
                 {it.tipo === "1a1" && it.sesion && it.sesion.estado !== "finalizada" && it.soyProfe && (
-                  <button onClick={() => setBorrarSesion(it.sesion!)} title="Eliminar sesión"
+                  <button onClick={() => { setBorrarSesion(it.sesion!); setRazon(""); }} title="Eliminar sesión"
                     className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold border text-destructive border-destructive/40 hover:bg-destructive/10">
                     <Trash2 className="w-3.5 h-3.5" /> Eliminar
                   </button>
@@ -203,17 +209,20 @@ function Page() {
         />
       )}
 
-      <AlertDialog open={!!borrarSesion} onOpenChange={(o) => !o && setBorrarSesion(null)}>
+      <AlertDialog open={!!borrarSesion} onOpenChange={(o) => { if (!o) { setBorrarSesion(null); setRazon(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar esta sesión?</AlertDialogTitle>
             <AlertDialogDescription>
-              La alumna dejará de verla en su agenda. Úsalo solo si la sesión no se realizó.
+              La alumna dejará de verla en su agenda. Escribe la razón (por ejemplo: "no se realizó la clase");
+              quedará registrada en Pagos e informes y no cuenta horas.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <textarea value={razon} onChange={(e) => setRazon(e.target.value.slice(0, 300))} rows={3} maxLength={300}
+            placeholder="Razón…" className="w-full px-3 py-2 rounded-lg border bg-background text-sm" />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={borrando}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); void eliminarSesion(); }} disabled={borrando}>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void eliminarSesion(); }} disabled={borrando || razon.trim().length < 5}>
               {borrando ? "Eliminando…" : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>

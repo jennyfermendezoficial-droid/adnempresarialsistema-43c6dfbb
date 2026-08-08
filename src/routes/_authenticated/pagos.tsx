@@ -14,6 +14,10 @@ const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto"
 
 interface Profile { id: string; nombre_completo: string; email: string; avatar_url?: string | null }
 interface PagoHist { id: string; profesor_id: string; mes: number; anio: number; total_horas: number; total_bonos: number; monto_total: number; estado: string; fecha_pago: string | null }
+interface Cancelada {
+  id: string; tipo: string; profesor_id: string; contraparte_id: string | null;
+  titulo: string | null; fecha: string; estado: string; razon: string | null;
+}
 
 interface StaffRow {
   id: string;
@@ -76,6 +80,8 @@ function Page() {
   const [historial, setHistorial] = useState<PagoHist[]>([]);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [canceladas, setCanceladas] = useState<Cancelada[]>([]);
+  const [nombresCancel, setNombresCancel] = useState<Record<string, string>>({});
 
   const cargar = async () => {
     setLoading(true);
@@ -104,6 +110,21 @@ function Page() {
       // Pagos ya generados para este mes
       const { data: pagosMes } = await supabase.from("pagos_mensuales")
         .select("*").eq("mes", mes).eq("anio", anio);
+
+      // Sesiones canceladas / no registradas del mes
+      const { data: canc } = await supabase.from("sesiones_canceladas")
+        .select("id,tipo,profesor_id,contraparte_id,titulo,fecha,estado,razon")
+        .gte("fecha", ini).lte("fecha", fin).order("fecha", { ascending: false });
+      const cancRows = ((canc ?? []) as Cancelada[]);
+      setCanceladas(cancRows);
+      const cids = Array.from(new Set(cancRows.map((c) => c.contraparte_id).filter(Boolean) as string[]));
+      if (cids.length) {
+        const { data: cps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", cids);
+        const nm: Record<string, string> = {};
+        ((cps ?? []) as Profile[]).forEach((p) => { nm[p.id] = formatNombre(p.nombre_completo) || p.email; });
+        setNombresCancel(nm);
+      } else setNombresCancel({});
+
       const pagoMap = new Map<string, PagoHist>();
       ((pagosMes ?? []) as PagoHist[]).forEach((p) => pagoMap.set(p.profesor_id, p));
 
@@ -239,6 +260,15 @@ function Page() {
     cargar();
   };
 
+  const filasCanceladas = useMemo(() => canceladas.map((c) => ({
+    profesor: formatNombre(profiles[c.profesor_id]?.nombre_completo) || profiles[c.profesor_id]?.email || "—",
+    fecha: c.fecha,
+    tipo: c.tipo === "clase" ? "Clase en vivo" : "1 a 1",
+    con: c.tipo === "clase" ? (c.titulo || "Clase") : (c.contraparte_id ? nombresCancel[c.contraparte_id] || "Estudiante" : "Estudiante"),
+    estado: c.estado === "cancelada" ? "Cancelada" : "No registrada",
+    razon: c.razon || "",
+  })), [canceladas, profiles, nombresCancel]);
+
   if (role !== "admin" && role !== "soporte") {
     return <div className="p-8 text-center text-muted-foreground">Solo el equipo puede ver esta sección.</div>;
   }
@@ -246,7 +276,13 @@ function Page() {
   if (detalleId) {
     const row = staff.find(s => s.id === detalleId);
     if (!row) return null;
-    return <DetalleProfesor row={row} profile={profiles[detalleId]} mes={mes} anio={anio} onBack={() => setDetalleId(null)} onSelect={(id) => setDetalleId(id)} staff={staff} />;
+    return <DetalleProfesor row={row} profile={profiles[detalleId]} mes={mes} anio={anio} onBack={() => setDetalleId(null)} onSelect={(id) => setDetalleId(id)} staff={staff}
+      canceladas={canceladas.filter((c) => c.profesor_id === detalleId).map((c) => ({
+        fecha: c.fecha, tipo: c.tipo === "clase" ? "Clase en vivo" : "1 a 1",
+        con: c.tipo === "clase" ? (c.titulo || "Clase") : (c.contraparte_id ? nombresCancel[c.contraparte_id] || "Estudiante" : "Estudiante"),
+        estado: c.estado === "cancelada" ? "Cancelada" : "No registrada",
+        razon: c.razon || "",
+      }))} />;
   }
 
   return (
@@ -258,13 +294,13 @@ function Page() {
         </select>
         <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
           if (!staff.length) return toast.info("Sin datos para exportar");
-          exportarPagosExcel({ mes, anio, rows: staff });
+          exportarPagosExcel({ mes, anio, rows: staff, canceladas: filasCanceladas });
         }}>
           📊 Exportar Excel
         </button>
         <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
           if (!staff.length) return toast.info("Sin datos para exportar");
-          generarPagosPDF({ mes, anio, rows: staff });
+          generarPagosPDF({ mes, anio, rows: staff, canceladas: filasCanceladas });
         }}>
           <FileText className="w-4 h-4" /> Generar PDF
         </button>
@@ -412,9 +448,10 @@ function KPI({ label, value, sub }: { label: string; value: string; sub?: string
 
 // ===================== DETALLE PROFESOR =====================
 
-function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
+function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, canceladas = [] }: {
   row: StaffRow; profile?: Profile; mes: number; anio: number;
   onBack: () => void; onSelect: (id: string) => void; staff: StaffRow[];
+  canceladas?: Array<{ fecha: string; tipo: string; con: string; estado: string; razon: string }>;
 }) {
   const [califs, setCalifs] = useState<Array<{ claridad: number|null; didactica: number|null; practico: number|null; desenvolvimiento: number|null; comentario: string|null; created_at: string; alumna_id: string }>>([]);
   const [bitacora, setBitacora] = useState<Array<{ fecha: string; tipo: string; detalle: string; monto: number }>>([]);
@@ -551,6 +588,33 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff }: {
             {bitacora.length === 0 && <div className="text-xs text-muted-foreground">Sin movimientos este mes.</div>}
           </div>
         </div>
+      </div>
+
+      {/* Canceladas / no registradas */}
+      <div className="rounded-2xl border bg-card p-5 mb-6">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">
+          Sesiones canceladas o no registradas · no cuentan horas
+        </div>
+        {canceladas.length === 0 ? (
+          <div className="text-xs text-muted-foreground">Ninguna este mes.</div>
+        ) : (
+          <div className="space-y-2">
+            {canceladas.map((c, i) => (
+              <div key={i} className="flex items-start gap-3 text-sm border-b last:border-0 pb-2 last:pb-0">
+                <div className="text-[11px] uppercase opacity-60 w-14 pt-0.5">
+                  {new Date(c.fecha + "T00:00:00").toLocaleDateString("es-PE", { day: "numeric", month: "short" })}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium">{c.tipo} · <span className="text-muted-foreground font-normal">{c.con}</span></div>
+                  <div className="text-xs text-muted-foreground">{c.razon || "Sin razón registrada (pasaron 7 días sin registrar la duración)"}</div>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(239,68,68,.12)", color: "#dc2626" }}>{c.estado}</span>
+                <div className="font-semibold tabular-nums text-muted-foreground">$0.00</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Selector otros profes */}
