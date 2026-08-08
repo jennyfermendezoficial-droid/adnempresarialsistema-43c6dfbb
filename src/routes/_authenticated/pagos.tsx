@@ -260,6 +260,15 @@ function Page() {
     cargar();
   };
 
+  const filasCanceladas = useMemo(() => canceladas.map((c) => ({
+    profesor: formatNombre(profiles[c.profesor_id]?.nombre_completo) || profiles[c.profesor_id]?.email || "—",
+    fecha: c.fecha,
+    tipo: c.tipo === "clase" ? "Clase en vivo" : "1 a 1",
+    con: c.tipo === "clase" ? (c.titulo || "Clase") : (c.contraparte_id ? nombresCancel[c.contraparte_id] || "Estudiante" : "Estudiante"),
+    estado: c.estado === "cancelada" ? "Cancelada" : "No registrada",
+    razon: c.razon || "",
+  })), [canceladas, profiles, nombresCancel]);
+
   if (role !== "admin" && role !== "soporte") {
     return <div className="p-8 text-center text-muted-foreground">Solo el equipo puede ver esta sección.</div>;
   }
