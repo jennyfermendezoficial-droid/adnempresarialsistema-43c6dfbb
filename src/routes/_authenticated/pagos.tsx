@@ -590,6 +590,33 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       </div>
 
+      {/* Canceladas / no registradas */}
+      <div className="rounded-2xl border bg-card p-5 mb-6">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">
+          Sesiones canceladas o no registradas · no cuentan horas
+        </div>
+        {canceladas.length === 0 ? (
+          <div className="text-xs text-muted-foreground">Ninguna este mes.</div>
+        ) : (
+          <div className="space-y-2">
+            {canceladas.map((c, i) => (
+              <div key={i} className="flex items-start gap-3 text-sm border-b last:border-0 pb-2 last:pb-0">
+                <div className="text-[11px] uppercase opacity-60 w-14 pt-0.5">
+                  {new Date(c.fecha + "T00:00:00").toLocaleDateString("es-PE", { day: "numeric", month: "short" })}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium">{c.tipo} · <span className="text-muted-foreground font-normal">{c.con}</span></div>
+                  <div className="text-xs text-muted-foreground">{c.razon || "Sin razón registrada (pasaron 7 días sin registrar la duración)"}</div>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(239,68,68,.12)", color: "#dc2626" }}>{c.estado}</span>
+                <div className="font-semibold tabular-nums text-muted-foreground">$0.00</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Selector otros profes */}
       <div className="mb-2 text-sm font-semibold">Ver informe de otro profesor</div>
       <div className="flex gap-2 flex-wrap">
