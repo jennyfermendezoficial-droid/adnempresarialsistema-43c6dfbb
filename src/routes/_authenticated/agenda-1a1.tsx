@@ -7,6 +7,7 @@ import { createZoomMeeting } from "@/lib/zoom.functions";
 import { ChevronLeft, ChevronRight, Video, X as XIcon, Star, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
+import { formatNombre } from "@/lib/nombres";
 
 export const Route = createFileRoute("/_authenticated/agenda-1a1")({ component: Page });
 
@@ -134,7 +135,7 @@ function Page() {
 
   const nombreDe = (id: string) => {
     const p = personas[id] ?? profesores.find((x) => x.id === id);
-    return p?.nombre_completo || p?.email || null;
+    return formatNombre(p?.nombre_completo) || p?.email || null;
   };
 
   useEffect(() => {
@@ -202,7 +203,7 @@ function Page() {
 
       const start_time = `${fecha}T${hora}:00`;
       const profActual = profesores.find((p) => p.id === profesorId);
-      const nombreProf = profActual?.nombre_completo || profActual?.email || "Profesor";
+      const nombreProf = formatNombre(profActual?.nombre_completo) || profActual?.email || "Profesor";
       const tema = profActual ? temaDe(profActual) : "Mentoría 1 a 1";
       const topic = `${nombreProf} – ${tema}`;
       const agenda = `Sesión 1 a 1 con ${nombreProf}\nTema: ${tema}`;
@@ -272,11 +273,11 @@ function Page() {
                       style={active
                         ? { background: "rgba(255,255,255,.22)", color: "white" }
                         : { background: "linear-gradient(135deg,var(--violet),var(--violet-2))", color: "white" }}>
-                      {(p.nombre_completo || p.email).slice(0,1).toUpperCase()}
+                      {(formatNombre(p.nombre_completo) || p.email).slice(0,1).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-semibold truncate" style={active ? { color: "white" } : undefined}>
-                        {p.nombre_completo || p.email}
+                        {formatNombre(p.nombre_completo) || p.email}
                       </div>
                     </div>
                   </div>
@@ -298,7 +299,7 @@ function Page() {
 
       {profesorActual && (
         <div className="mb-4 px-1 text-sm text-muted-foreground">
-          Mostrando agenda de <span className="font-semibold text-foreground">{profesorActual.nombre_completo || profesorActual.email}</span> · {temaDe(profesorActual)}
+          Mostrando agenda de <span className="font-semibold text-foreground">{formatNombre(profesorActual.nombre_completo) || profesorActual.email}</span> · {temaDe(profesorActual)}
           {ratingActual && <> · <Star className="inline w-3 h-3 -mt-0.5" fill="#FBBF24" stroke="#FBBF24" /> {ratingActual.avg.toFixed(1)} ({ratingActual.count})</>}
         </div>
       )}
@@ -418,7 +419,7 @@ function Page() {
             <h3 className="text-lg font-semibold mb-2">Confirmar reserva</h3>
             {profesorActual && (
               <p className="text-xs text-muted-foreground mb-3">
-                Con <span className="font-semibold text-foreground">{profesorActual.nombre_completo || profesorActual.email}</span> · {temaDe(profesorActual)}
+                Con <span className="font-semibold text-foreground">{formatNombre(profesorActual.nombre_completo) || profesorActual.email}</span> · {temaDe(profesorActual)}
               </p>
             )}
             <p className="text-sm text-muted-foreground mb-4">

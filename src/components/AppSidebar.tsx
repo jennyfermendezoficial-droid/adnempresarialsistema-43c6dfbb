@@ -4,6 +4,7 @@ import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
 import {
+import { formatNombre } from "@/lib/nombres";
   inicioItems, soporteItems, academiaItems, comunidadItems, adminItems,
 } from "@/lib/nav-items";
 
@@ -68,11 +69,11 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
               className="w-9 h-9 rounded-full grid place-items-center text-white text-sm font-semibold"
               style={{ background: "linear-gradient(135deg,var(--violet),var(--violet-2))" }}
             >
-              {(profile?.nombre_completo || profile?.email || "?").slice(0, 1).toUpperCase()}
+              {(formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-white truncate">
-                {profile?.nombre_completo || "Mi cuenta"}
+                {formatNombre(profile?.nombre_completo) || "Mi cuenta"}
               </div>
               <div className="text-[11px] uppercase tracking-wider opacity-70 truncate">
                 {role || "usuario"}

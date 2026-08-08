@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { Check, X, Pencil, Star, Video, Trash2 } from "lucide-react";
+import { formatNombre } from "@/lib/nombres";
 
 export const Route = createFileRoute("/_authenticated/permisos")({ component: Page });
 
@@ -90,7 +91,7 @@ function Page() {
               <tr key={p.id} className="border-t">
                 <td className="px-3 py-2">
                   <div className="font-medium flex items-center gap-1.5">
-                    {p.nombre_completo || "—"}
+                    {formatNombre(p.nombre_completo) || "—"}
                   </div>
                   <div className="text-xs opacity-60">{p.email}</div>
                   {p.actividad && <div className="text-[11px] mt-0.5 text-violet font-semibold">{p.actividad}</div>}
@@ -229,7 +230,7 @@ function ManageReviewsModal({ profile, onClose }: { profile: Profile; onClose: (
       <div className="bg-card rounded-2xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-start">
           <div>
-            <h3 className="text-lg font-semibold">{profile.nombre_completo || profile.email}</h3>
+            <h3 className="text-lg font-semibold">{formatNombre(profile.nombre_completo) || profile.email}</h3>
             <p className="text-xs text-muted-foreground">Gestionar reseñas y sesiones 1 a 1</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded hover:bg-muted"><X className="w-4 h-4" /></button>

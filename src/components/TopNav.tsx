@@ -10,6 +10,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+import { formatNombre } from "@/lib/nombres";
   inicioItems, soporteItems, academiaItems, comunidadItems, adminItems,
   type NavItem,
 } from "@/lib/nav-items";
@@ -89,7 +90,7 @@ export function TopNav() {
       : []),
   ];
 
-  const initial = (profile?.nombre_completo || profile?.email || "?").slice(0, 1).toUpperCase();
+  const initial = (formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase();
 
   return (
     <header
@@ -127,7 +128,7 @@ export function TopNav() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-2 py-1.5">
-                    <div className="text-sm font-semibold truncate">{profile?.nombre_completo || "Mi cuenta"}</div>
+                    <div className="text-sm font-semibold truncate">{formatNombre(profile?.nombre_completo) || "Mi cuenta"}</div>
                     <div className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">
                       {role || "usuario"}
                     </div>

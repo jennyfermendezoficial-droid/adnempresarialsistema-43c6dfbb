@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { Check, Search } from "lucide-react";
+import { formatNombre } from "@/lib/nombres";
 
 interface Profile { id: string; nombre_completo: string; email: string; avatar_url: string | null }
 interface Curso { id: string; nombre: string; color_cover: string | null }
@@ -124,11 +125,11 @@ export function AccesoCursosPanel({ tipo, titulo, plural }: Props) {
                     <img src={u.avatar_url} className="w-10 h-10 rounded-full object-cover" alt="" />
                   ) : (
                     <div className="w-10 h-10 rounded-full grid place-items-center text-white font-semibold bg-violet-gradient">
-                      {(u.nombre_completo || u.email).slice(0, 1).toUpperCase()}
+                      {(formatNombre(u.nombre_completo) || u.email).slice(0, 1).toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="font-semibold truncate">{u.nombre_completo || u.email}</div>
+                    <div className="font-semibold truncate">{formatNombre(u.nombre_completo) || u.email}</div>
                     <div className="text-xs opacity-70 truncate">
                       {u.email} · {userPerms.length}/{cursos.length}
                     </div>

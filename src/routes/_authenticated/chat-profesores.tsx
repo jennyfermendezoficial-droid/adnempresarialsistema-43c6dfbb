@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { ChatThread } from "@/components/ChatThread";
+import { formatNombre } from "@/lib/nombres";
 
 export const Route = createFileRoute("/_authenticated/chat-profesores")({ component: Page });
 
@@ -14,7 +15,7 @@ function Page() {
   useEffect(() => {
     supabase.from("profiles").select("id,nombre_completo,email,avatar_url").then(({ data }) => {
       const m: Record<string, { name: string; avatar?: string | null }> = {};
-      (data ?? []).forEach((p) => { m[p.id] = { name: p.nombre_completo || p.email, avatar: p.avatar_url }; });
+      (data ?? []).forEach((p) => { m[p.id] = { name: formatNombre(p.nombre_completo) || p.email, avatar: p.avatar_url }; });
       setAuthorMap(m);
     });
   }, []);

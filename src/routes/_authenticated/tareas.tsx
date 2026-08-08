@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import {
+import { formatNombre } from "@/lib/nombres";
   FileText, Plus, Upload, Trash2, Download, Loader2, X,
   CheckCircle2, Clock, ChevronDown, ChevronUp, Users, Pencil,
   Search, AlertCircle, Award, ClipboardList, TrendingUp,
@@ -607,7 +608,7 @@ function TareasTab({
                           <div key={p.id} className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border"
                             style={{ background: "var(--bg-2)", borderColor: "var(--line)" }}>
                             <Avatar profile={p} size={20} />
-                            <span className="text-xs" style={{ color: "var(--ink)" }}>{p.nombre_completo || p.email}</span>
+                            <span className="text-xs" style={{ color: "var(--ink)" }}>{formatNombre(p.nombre_completo) || p.email}</span>
                           </div>
                         ))}
                       </div>
@@ -721,7 +722,7 @@ function AlumnasTab({
               style={isSel ? { background: "rgba(124,107,255,.12)" } : {}}>
               <Avatar profile={a} size={32} />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate" style={{ color: "var(--ink)" }}>{a.nombre_completo || a.email}</div>
+                <div className="text-sm font-semibold truncate" style={{ color: "var(--ink)" }}>{formatNombre(a.nombre_completo) || a.email}</div>
                 <div className="text-[11px]" style={{ color: "var(--muted)" }}>{aEntregas.length} / {tareas.length} entregas</div>
               </div>
             </button>
@@ -741,7 +742,7 @@ function AlumnasTab({
             <div className="flex items-center gap-3 mb-4 pb-4 border-b" style={{ borderColor: "var(--line)" }}>
               <Avatar profile={sel} size={48} />
               <div className="flex-1 min-w-0">
-                <div className="font-bold" style={{ color: "var(--ink)" }}>{sel.nombre_completo || sel.email}</div>
+                <div className="font-bold" style={{ color: "var(--ink)" }}>{formatNombre(sel.nombre_completo) || sel.email}</div>
                 <div className="text-xs" style={{ color: "var(--muted)" }}>{sel.email}</div>
               </div>
             </div>
@@ -827,7 +828,7 @@ function EntregaRow({
         <div className="flex-1 min-w-0">
           {!compact && (
             <div className="text-sm font-semibold truncate" style={{ color: "var(--ink)" }}>
-              {profile?.nombre_completo || profile?.email || "Alumna"}
+              {formatNombre(profile?.nombre_completo) || profile?.email || "Alumna"}
             </div>
           )}
           {tareaTitulo && (
