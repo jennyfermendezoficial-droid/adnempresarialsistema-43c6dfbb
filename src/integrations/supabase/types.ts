@@ -1355,6 +1355,7 @@ export type Database = {
         Args: { _dispositivo: string; _session_id: string }
         Returns: undefined
       }
+      titlecase_nombre: { Args: { _txt: string }; Returns: string }
       validar_sesion: { Args: { _session_id: string }; Returns: boolean }
     }
     Enums: {
