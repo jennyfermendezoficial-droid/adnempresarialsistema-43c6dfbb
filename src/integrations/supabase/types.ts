@@ -1142,6 +1142,51 @@ export type Database = {
         }
         Relationships: []
       }
+      sesiones_canceladas: {
+        Row: {
+          contraparte_id: string | null
+          creado_por: string | null
+          created_at: string
+          estado: string
+          fecha: string
+          hora_inicio: string | null
+          id: string
+          profesor_id: string
+          razon: string | null
+          referencia_id: string | null
+          tipo: string
+          titulo: string | null
+        }
+        Insert: {
+          contraparte_id?: string | null
+          creado_por?: string | null
+          created_at?: string
+          estado: string
+          fecha: string
+          hora_inicio?: string | null
+          id?: string
+          profesor_id: string
+          razon?: string | null
+          referencia_id?: string | null
+          tipo: string
+          titulo?: string | null
+        }
+        Update: {
+          contraparte_id?: string | null
+          creado_por?: string | null
+          created_at?: string
+          estado?: string
+          fecha?: string
+          hora_inicio?: string | null
+          id?: string
+          profesor_id?: string
+          razon?: string | null
+          referencia_id?: string | null
+          tipo?: string
+          titulo?: string | null
+        }
+        Relationships: []
+      }
       soporte_privado_mensajes: {
         Row: {
           autor_id: string
@@ -1289,6 +1334,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancelar_clase: {
+        Args: { _id: string; _razon: string }
+        Returns: undefined
+      }
+      cancelar_sesion_1a1: {
+        Args: { _id: string; _razon: string }
+        Returns: undefined
+      }
       cerrar_sesion: { Args: { _session_id: string }; Returns: undefined }
       enviar_recordatorios: { Args: never; Returns: number }
       get_my_tarifas: {
@@ -1312,6 +1365,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      marcar_no_registradas: { Args: never; Returns: number }
       nombre_usuario: { Args: { _id: string }; Returns: string }
       notificar: {
         Args: {
@@ -1325,32 +1379,22 @@ export type Database = {
         }
         Returns: undefined
       }
-      registrar_duracion_clase:
-        | {
-            Args: { _clase_id: string; _duracion_min: number }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              _clase_id: string
-              _duracion_min: number
-              _hora_inicio?: string
-            }
-            Returns: undefined
-          }
-      registrar_duracion_sesion:
-        | {
-            Args: { _duracion_min: number; _sesion_id: string }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              _duracion_min: number
-              _hora_inicio?: string
-              _sesion_id: string
-            }
-            Returns: undefined
-          }
+      registrar_duracion_clase: {
+        Args: {
+          _clase_id: string
+          _duracion_min: number
+          _hora_inicio?: string
+        }
+        Returns: undefined
+      }
+      registrar_duracion_sesion: {
+        Args: {
+          _duracion_min: number
+          _hora_inicio?: string
+          _sesion_id: string
+        }
+        Returns: undefined
+      }
       registrar_sesion: {
         Args: { _dispositivo: string; _session_id: string }
         Returns: undefined
