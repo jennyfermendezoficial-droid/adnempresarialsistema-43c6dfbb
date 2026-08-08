@@ -1,3 +1,4 @@
+import { formatNombre } from "@/lib/nombres";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronDown, LogOut, User } from "lucide-react";
 import { useRef, useState } from "react";
@@ -10,7 +11,6 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-import { formatNombre } from "@/lib/nombres";
   inicioItems, soporteItems, academiaItems, comunidadItems, adminItems,
   type NavItem,
 } from "@/lib/nav-items";

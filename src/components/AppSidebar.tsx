@@ -1,10 +1,10 @@
+import { formatNombre } from "@/lib/nombres";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Home, LogOut } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
 import {
-import { formatNombre } from "@/lib/nombres";
   inicioItems, soporteItems, academiaItems, comunidadItems, adminItems,
 } from "@/lib/nav-items";
 

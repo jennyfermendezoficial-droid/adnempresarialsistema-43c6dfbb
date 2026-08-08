@@ -1,10 +1,10 @@
+import { formatNombre } from "@/lib/nombres";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import {
-import { formatNombre } from "@/lib/nombres";
   FileText, Plus, Upload, Trash2, Download, Loader2, X,
   CheckCircle2, Clock, ChevronDown, ChevronUp, Users, Pencil,
   Search, AlertCircle, Award, ClipboardList, TrendingUp,
