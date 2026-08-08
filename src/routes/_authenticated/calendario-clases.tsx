@@ -22,6 +22,9 @@ function Page() {
   const [staff, setStaff] = useState<{ id: string; nombre: string }[]>([]);
   const [creating, setCreating] = useState(false);
   const [duracionModal, setDuracionModal] = useState<Clase | null>(null);
+  const [cancelar, setCancelar] = useState<Clase | null>(null);
+  const [razon, setRazon] = useState("");
+  const [cancelando, setCancelando] = useState(false);
   const [form, setForm] = useState({
     titulo: "",
     descripcion: "",
@@ -116,11 +119,16 @@ function Page() {
     finally { setCreating(false); }
   };
 
-  const eliminar = async (id: string) => {
-    if (!confirm("¿Eliminar clase?")) return;
-    const { error } = await supabase.from("clases_en_vivo").delete().eq("id", id);
+  const confirmarCancelar = async () => {
+    if (!cancelar) return;
+    if (razon.trim().length < 5) return toast.error("Escribe la razón (mínimo 5 caracteres)");
+    setCancelando(true);
+    const { error } = await supabase.rpc("cancelar_clase", { _id: cancelar.id, _razon: razon.trim() });
+    setCancelando(false);
     if (error) return toast.error(error.message);
-    setClases((c) => c.filter((x) => x.id !== id));
+    setClases((c) => c.filter((x) => x.id !== cancelar.id));
+    setCancelar(null); setRazon("");
+    toast.success("Clase eliminada · queda registrada en informes");
   };
 
   return (
@@ -165,12 +173,14 @@ function Page() {
                   <div className="opacity-90">{c.hora_inicio.slice(0,5)} – {c.hora_fin?.slice(0,5)} · {c.duracion_min} min</div>
                 ) : null}
                 {c.zoom_link && <a href={c.zoom_link} target="_blank" rel="noreferrer" className="underline flex items-center gap-0.5"><Video className="w-2.5 h-2.5"/>Zoom</a>}
-                {(c.profesor_id === session?.user.id || role === "admin") && new Date(`${c.fecha}T${c.hora_inicio}`) <= new Date() && (
+                {c.profesor_id === session?.user.id && new Date(`${c.fecha}T${c.hora_inicio}`) <= new Date() && (
                   <button onClick={() => setDuracionModal(c)} className="underline mt-0.5 flex items-center gap-0.5">
                     <Clock className="w-2.5 h-2.5"/>{c.duracion_min ? "Editar duración" : "Registrar duración"}
                   </button>
                 )}
-                {isStaff && <button onClick={() => eliminar(c.id)} className="underline mt-0.5 flex items-center gap-0.5"><Trash2 className="w-2.5 h-2.5"/>Eliminar</button>}
+                {(c.profesor_id === session?.user.id || role === "admin") && !c.duracion_min && (
+                  <button onClick={() => { setCancelar(c); setRazon(""); }} className="underline mt-0.5 flex items-center gap-0.5"><Trash2 className="w-2.5 h-2.5"/>Eliminar</button>
+                )}
               </div>
             ))}
           </div>
@@ -230,6 +240,26 @@ function Page() {
           onClose={() => setDuracionModal(null)}
           onSaved={(min, fin, ini) => setClases((arr) => arr.map((x) => x.id === duracionModal.id ? { ...x, duracion_min: min, hora_inicio: ini + ":00", hora_fin: fin + ":00" } : x))}
         />
+      )}
+
+      {cancelar && (
+        <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setCancelar(null); }}>
+          <div className="bg-card p-6 rounded-2xl max-w-md w-full space-y-3">
+            <h3 className="text-lg font-semibold">¿Eliminar esta clase?</h3>
+            <p className="text-xs text-muted-foreground">
+              Escribe la razón (por ejemplo: "no se realizó la clase"). Quedará registrada en Pagos e informes y no cuenta horas.
+            </p>
+            <textarea value={razon} onChange={(e) => setRazon(e.target.value.slice(0, 300))} rows={3} maxLength={300}
+              placeholder="Razón…" className="w-full px-3 py-2 rounded-lg border bg-background text-sm" />
+            <div className="flex gap-2 justify-end">
+              <button disabled={cancelando} onClick={() => setCancelar(null)} className="px-4 py-2 rounded-lg border">Cancelar</button>
+              <button disabled={cancelando || razon.trim().length < 5} onClick={confirmarCancelar}
+                className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground disabled:opacity-60">
+                {cancelando ? "Eliminando…" : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

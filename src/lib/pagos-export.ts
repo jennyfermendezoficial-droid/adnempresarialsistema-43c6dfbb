@@ -26,6 +26,16 @@ export interface PagoExportInput {
   mes: number; // 1-12
   anio: number;
   rows: PagoExportRow[];
+  canceladas?: CanceladaExportRow[];
+}
+
+export interface CanceladaExportRow {
+  profesor: string;
+  fecha: string;
+  tipo: string;      // "1 a 1" | "Clase en vivo"
+  con: string;       // estudiante o titulo
+  estado: string;    // "Cancelada" | "No registrada"
+  razon: string;
 }
 
 function nombreArchivo(mes: number, anio: number, ext: string) {
@@ -40,7 +50,7 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export function generarPagosPDF({ mes, anio, rows }: PagoExportInput) {
+export function generarPagosPDF({ mes, anio, rows, canceladas = [] }: PagoExportInput) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
 
@@ -102,6 +112,22 @@ export function generarPagosPDF({ mes, anio, rows }: PagoExportInput) {
     margin: { left: 40, right: 40 },
   });
 
+  if (canceladas.length) {
+    const prevY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 220;
+    doc.setFontSize(11); doc.setTextColor(30, 28, 50); doc.setFont("helvetica", "bold");
+    doc.text("Sesiones canceladas / no registradas (no cuentan horas)", 40, prevY + 28);
+    doc.setFont("helvetica", "normal");
+    autoTable(doc, {
+      startY: prevY + 38,
+      head: [["Fecha", "Profesor", "Tipo", "Con / Titulo", "Estado", "Razon", "Monto"]],
+      body: canceladas.map((c) => [c.fecha, c.profesor, c.tipo, c.con, c.estado, c.razon || "-", "$0.00"]),
+      styles: { fontSize: 8, cellPadding: 4, textColor: [40, 38, 60] },
+      headStyles: { fillColor: [200, 70, 70], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [255, 248, 248] },
+      margin: { left: 40, right: 40 },
+    });
+  }
+
   doc.setFontSize(8); doc.setTextColor(140, 138, 160);
   doc.text(
     `Generado el ${new Date().toLocaleString("es-EC")} · ADN Empresarial`,
@@ -111,7 +137,7 @@ export function generarPagosPDF({ mes, anio, rows }: PagoExportInput) {
   doc.save(nombreArchivo(mes, anio, "pdf"));
 }
 
-export function exportarPagosExcel({ mes, anio, rows }: PagoExportInput) {
+export function exportarPagosExcel({ mes, anio, rows, canceladas = [] }: PagoExportInput) {
   const data = rows.map((r) => ({
     "Profesor": r.nombre,
     "Tema": r.tema,
@@ -155,6 +181,19 @@ export function exportarPagosExcel({ mes, anio, rows }: PagoExportInput) {
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, `${MESES[mes - 1]} ${anio}`);
+  if (canceladas.length) {
+    const ws2 = XLSX.utils.json_to_sheet(canceladas.map((c) => ({
+      "Fecha": c.fecha,
+      "Profesor": c.profesor,
+      "Tipo": c.tipo,
+      "Con / Título": c.con,
+      "Estado": c.estado,
+      "Razón": c.razon,
+      "Monto": 0,
+    })));
+    ws2["!cols"] = [{ wch: 12 }, { wch: 26 }, { wch: 14 }, { wch: 26 }, { wch: 16 }, { wch: 40 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, ws2, "Canceladas");
+  }
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
   downloadBlob(
     new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
