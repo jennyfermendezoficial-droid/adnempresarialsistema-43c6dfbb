@@ -267,7 +267,13 @@ function Page() {
   if (detalleId) {
     const row = staff.find(s => s.id === detalleId);
     if (!row) return null;
-    return <DetalleProfesor row={row} profile={profiles[detalleId]} mes={mes} anio={anio} onBack={() => setDetalleId(null)} onSelect={(id) => setDetalleId(id)} staff={staff} />;
+    return <DetalleProfesor row={row} profile={profiles[detalleId]} mes={mes} anio={anio} onBack={() => setDetalleId(null)} onSelect={(id) => setDetalleId(id)} staff={staff}
+      canceladas={canceladas.filter((c) => c.profesor_id === detalleId).map((c) => ({
+        fecha: c.fecha, tipo: c.tipo === "clase" ? "Clase en vivo" : "1 a 1",
+        con: c.tipo === "clase" ? (c.titulo || "Clase") : (c.contraparte_id ? nombresCancel[c.contraparte_id] || "Estudiante" : "Estudiante"),
+        estado: c.estado === "cancelada" ? "Cancelada" : "No registrada",
+        razon: c.razon || "",
+      }))} />;
   }
 
   return (
@@ -279,13 +285,13 @@ function Page() {
         </select>
         <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
           if (!staff.length) return toast.info("Sin datos para exportar");
-          exportarPagosExcel({ mes, anio, rows: staff });
+          exportarPagosExcel({ mes, anio, rows: staff, canceladas: filasCanceladas });
         }}>
           📊 Exportar Excel
         </button>
         <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
           if (!staff.length) return toast.info("Sin datos para exportar");
-          generarPagosPDF({ mes, anio, rows: staff });
+          generarPagosPDF({ mes, anio, rows: staff, canceladas: filasCanceladas });
         }}>
           <FileText className="w-4 h-4" /> Generar PDF
         </button>
