@@ -51,8 +51,8 @@ function Page() {
   // Cargar mentores (admin + soporte) para asignar quien dicta la clase
   useEffect(() => {
     (async () => {
-      const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("role", ["admin", "soporte"]);
-      const ids = Array.from(new Set((roles ?? []).map((r: { user_id: string }) => r.user_id)));
+      const { data: staffRows } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: { id: string }[] | null }>)("listar_profesores");
+      const ids = Array.from(new Set((staffRows ?? []).map((r) => r.id)));
       if (!ids.length) return;
       const { data: ps } = await supabase.from("profiles").select("id, nombre_completo, email").in("id", ids);
       setStaff((ps ?? []).map((p: { id: string; nombre_completo: string; email: string }) => ({ id: p.id, nombre: p.nombre_completo || p.email })));
