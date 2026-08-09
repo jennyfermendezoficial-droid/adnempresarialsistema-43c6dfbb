@@ -69,9 +69,8 @@ function Page() {
   useEffect(() => {
     // profesores = admin + soporte
     (async () => {
-      const { data: roles } = await supabase.from("user_roles")
-        .select("user_id, role").in("role", ["admin", "soporte"]);
-      const ids = Array.from(new Set(((roles ?? []) as { user_id: string }[]).map((r) => r.user_id)));
+      const { data: staffRows } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: { id: string }[] | null }>)("listar_profesores");
+      const ids = Array.from(new Set((staffRows ?? []).map((r) => r.id)));
       if (!ids.length) return;
       const { data: profs } = await supabase.from("profiles")
         .select("id,nombre_completo,email,avatar_url,actividad").in("id", ids);
