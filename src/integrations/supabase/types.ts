@@ -1343,6 +1343,10 @@ export type Database = {
         Returns: undefined
       }
       cerrar_sesion: { Args: { _session_id: string }; Returns: undefined }
+      entrega_grade_unchanged: {
+        Args: { _calif: number; _feedback: string; _id: string }
+        Returns: boolean
+      }
       enviar_recordatorios: { Args: never; Returns: number }
       get_my_tarifas: {
         Args: never
@@ -1365,6 +1369,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      listar_profesores: {
+        Args: never
+        Returns: {
+          actividad: string
+          avatar_url: string
+          email: string
+          id: string
+          nombre_completo: string
+        }[]
+      }
       marcar_no_registradas: { Args: never; Returns: number }
       nombre_usuario: { Args: { _id: string }; Returns: string }
       notificar: {
@@ -1378,6 +1392,15 @@ export type Database = {
           _usuarios: string[]
         }
         Returns: undefined
+      }
+      profile_privileged_unchanged: {
+        Args: {
+          _estado: Database["public"]["Enums"]["user_estado"]
+          _id: string
+          _t1: number
+          _t2: number
+        }
+        Returns: boolean
       }
       registrar_duracion_clase: {
         Args: {
