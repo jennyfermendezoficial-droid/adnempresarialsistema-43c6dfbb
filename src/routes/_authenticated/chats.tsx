@@ -34,19 +34,13 @@ function Page() {
       if (isStaff) {
         // Profesores (admin/soporte) SOLO pueden abrir chats con estudiantes (rol "usuario").
         // Entre staff usamos WhatsApp / chat-profesores.
-        const { data: staffRoles } = await supabase
-          .from("user_roles")
-          .select("user_id, role")
-          .in("role", ["admin", "soporte"]);
-        const staffIds = new Set(((staffRoles ?? []) as { user_id: string }[]).map((r) => r.user_id));
+        const { data: staffRows } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: { id: string }[] | null }>)("listar_profesores");
+        const staffIds = new Set((staffRows ?? []).map((r) => r.id));
         setAllUsers(list.filter((p) => p.id !== uid && !staffIds.has(p.id)));
       } else {
         // Estudiantes solo pueden chatear con admin o soporte (profesores).
-        const { data: roles } = await supabase
-          .from("user_roles")
-          .select("user_id, role")
-          .in("role", ["admin", "soporte"]);
-        const staffIds = new Set(((roles ?? []) as { user_id: string }[]).map((r) => r.user_id));
+        const { data: staffRows } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: { id: string }[] | null }>)("listar_profesores");
+        const staffIds = new Set((staffRows ?? []).map((r) => r.id));
         setAllUsers(list.filter((p) => p.id !== uid && staffIds.has(p.id)));
       }
     })();
