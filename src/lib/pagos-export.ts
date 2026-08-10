@@ -26,6 +26,17 @@ export interface PagoExportInput {
   anio: number;
   rows: PagoExportRow[];
   canceladas?: CanceladaExportRow[];
+  abonos?: AbonoExportRow[];
+}
+
+export interface AbonoExportRow {
+  fecha: string;
+  profesor: string;
+  monto: number;
+  tipo: string;
+  banco: string;
+  numero: string;
+  observacion: string;
 }
 
 export interface CanceladaExportRow {
@@ -49,7 +60,7 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export function generarPagosPDF({ mes, anio, rows, canceladas = [] }: PagoExportInput) {
+export function generarPagosPDF({ mes, anio, rows, canceladas = [], abonos = [] }: PagoExportInput) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
 
@@ -112,6 +123,24 @@ export function generarPagosPDF({ mes, anio, rows, canceladas = [] }: PagoExport
     margin: { left: 40, right: 40 },
   });
 
+  if (abonos.length) {
+    const prevA = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 220;
+    doc.setFontSize(11); doc.setTextColor(30, 28, 50); doc.setFont("helvetica", "bold");
+    doc.text("Pagos realizados", 40, prevA + 28);
+    doc.setFont("helvetica", "normal");
+    autoTable(doc, {
+      startY: prevA + 38,
+      head: [["Fecha", "Profesor", "Tipo", "Banco / Cuenta", "N. comprobante", "Observacion", "Monto"]],
+      body: abonos.map((a) => [a.fecha, a.profesor, a.tipo, a.banco || "-", a.numero || "-", a.observacion || "-", `$${a.monto.toFixed(2)}`]),
+      foot: [["", "", "", "", "", "Total abonado", `$${abonos.reduce((s, a) => s + a.monto, 0).toFixed(2)}`]],
+      styles: { fontSize: 8, cellPadding: 4, textColor: [40, 38, 60] },
+      headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: "bold" },
+      footStyles: { fillColor: [235, 247, 238], textColor: [30, 28, 50], fontStyle: "bold" },
+      columnStyles: { 6: { halign: "right" } },
+      margin: { left: 40, right: 40 },
+    });
+  }
+
   if (canceladas.length) {
     const prevY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 220;
     doc.setFontSize(11); doc.setTextColor(30, 28, 50); doc.setFont("helvetica", "bold");
@@ -137,7 +166,7 @@ export function generarPagosPDF({ mes, anio, rows, canceladas = [] }: PagoExport
   doc.save(nombreArchivo(mes, anio, "pdf"));
 }
 
-export function exportarPagosExcel({ mes, anio, rows, canceladas = [] }: PagoExportInput) {
+export function exportarPagosExcel({ mes, anio, rows, canceladas = [], abonos = [] }: PagoExportInput) {
   const data = rows.map((r) => ({
     "Profesor": r.nombre,
     "Tema": r.tema,
@@ -179,6 +208,19 @@ export function exportarPagosExcel({ mes, anio, rows, canceladas = [] }: PagoExp
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, `${MESES[mes - 1]} ${anio}`);
+  if (abonos.length) {
+    const ws3 = XLSX.utils.json_to_sheet(abonos.map((a) => ({
+      "Fecha": a.fecha,
+      "Profesor": a.profesor,
+      "Monto": Number(a.monto.toFixed(2)),
+      "Tipo de pago": a.tipo,
+      "Banco / Cuenta": a.banco,
+      "N° comprobante": a.numero,
+      "Observación": a.observacion,
+    })));
+    ws3["!cols"] = [{ wch: 12 }, { wch: 26 }, { wch: 12 }, { wch: 16 }, { wch: 34 }, { wch: 22 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, ws3, "Pagos realizados");
+  }
   if (canceladas.length) {
     const ws2 = XLSX.utils.json_to_sheet(canceladas.map((c) => ({
       "Fecha": c.fecha,
@@ -238,6 +280,7 @@ export interface InformeProfesorInput {
   items: InformeItem[];
   canceladas?: CanceladaExportRow[];
   reemplazos?: InformeReemplazo[];
+  abonos?: AbonoExportRow[];
   bonos: number;
   ajusteMin: number;
   total: number;
@@ -252,7 +295,7 @@ function diaDe(fecha: string) {
 }
 
 export function generarInformeProfesorPDF(input: InformeProfesorInput) {
-  const { nombre, tema, mes, anio, items, canceladas = [], reemplazos = [], bonos, ajusteMin, total, califPromedio, califCount } = input;
+  const { nombre, tema, mes, anio, items, canceladas = [], reemplazos = [], abonos = [], bonos, ajusteMin, total, califPromedio, califCount } = input;
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
 
@@ -326,6 +369,8 @@ export function generarInformeProfesorPDF(input: InformeProfesorInput) {
       ["Ajuste manual de tiempo", ajusteMin ? `${ajusteMin > 0 ? "+" : "-"}${formatHM(Math.abs(ajusteMin))}` : "Sin ajuste", "-"],
       ["Bonos", bonos ? "Otorgados por administracion" : "Sin bonos", `$${bonos.toFixed(2)}`],
       ["TOTAL A PAGAR", "", `$${total.toFixed(2)}`],
+      ["Total abonado", abonos.length ? `${abonos.length} pago(s) registrado(s)` : "Sin pagos registrados", `$${abonos.reduce((a, b) => a + b.monto, 0).toFixed(2)}`],
+      ["SALDO PENDIENTE", "", `$${(total - abonos.reduce((a, b) => a + b.monto, 0)).toFixed(2)}`],
     ],
     styles: { fontSize: 9, cellPadding: 5, textColor: [40, 38, 60] },
     headStyles: { fillColor: [30, 28, 60], textColor: 255, fontStyle: "bold" },
@@ -333,6 +378,22 @@ export function generarInformeProfesorPDF(input: InformeProfesorInput) {
     margin: { left: 40, right: 40 },
   });
   y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y;
+
+  if (abonos.length) {
+    doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 28, 50);
+    doc.text("Pagos realizados", 40, y + 28);
+    doc.setFont("helvetica", "normal");
+    autoTable(doc, {
+      startY: y + 38,
+      head: [["Fecha", "Tipo", "Banco / Cuenta", "N. comprobante", "Observacion", "Monto"]],
+      body: abonos.map((a) => [a.fecha, a.tipo, a.banco || "-", a.numero || "-", a.observacion || "-", `$${a.monto.toFixed(2)}`]),
+      styles: { fontSize: 8, cellPadding: 4, textColor: [40, 38, 60] },
+      headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: "bold" },
+      columnStyles: { 5: { halign: "right" } },
+      margin: { left: 40, right: 40 },
+    });
+    y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y;
+  }
 
   if (reemplazos.length) {
     doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 28, 50);
