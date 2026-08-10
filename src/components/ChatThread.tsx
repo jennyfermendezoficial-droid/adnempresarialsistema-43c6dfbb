@@ -317,6 +317,66 @@ export function ChatThread({
         })}
       </div>
 
+      {usaMenciones && (
+        <div className="border-t px-2 pt-2 bg-background">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => { setPickerOpen((v) => !v); setBuscar(""); }}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-semibold hover:bg-muted"
+              title="Etiquetar"
+            >
+              <AtSign className="w-3.5 h-3.5" /> Etiquetar
+            </button>
+            {everyone && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold"
+                style={{ background: "rgba(124,107,255,.14)", color: "var(--violet)" }}>
+                @everyone
+                <button onClick={() => setEveryone(false)}><X className="w-3 h-3" /></button>
+              </span>
+            )}
+            {!everyone && etiquetados.map((e) => (
+              <span key={e.id} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold"
+                style={{ background: "rgba(124,107,255,.14)", color: "var(--violet)" }}>
+                @{e.name}
+                <button onClick={() => setEtiquetados((a) => a.filter((x) => x.id !== e.id))}><X className="w-3 h-3" /></button>
+              </span>
+            ))}
+            {!everyone && etiquetados.length === 0 && (
+              <span className="text-[11px] text-muted-foreground">{mentionHint}</span>
+            )}
+          </div>
+          {pickerOpen && (
+            <div className="mt-2 rounded-xl border bg-card p-2 max-h-56 overflow-y-auto">
+              <input value={buscar} onChange={(e) => setBuscar(e.target.value)} placeholder="Buscar persona…"
+                className="w-full px-2 py-1.5 mb-2 rounded-lg border bg-background text-sm outline-none" />
+              <button
+                onClick={() => { setEveryone(true); setEtiquetados([]); setPickerOpen(false); }}
+                className="w-full text-left px-2 py-2 rounded-lg hover:bg-muted"
+              >
+                <div className="text-sm font-semibold">@everyone</div>
+                <div className="text-[11px] text-muted-foreground">Avisa a todas las personas del canal</div>
+              </button>
+              {(mentionables ?? [])
+                .filter((m) => m.name.toLowerCase().includes(buscar.toLowerCase()))
+                .map((m) => (
+                  <button key={m.id}
+                    onClick={() => {
+                      setEveryone(false);
+                      setEtiquetados((a) => (a.some((x) => x.id === m.id) ? a : [...a, m]));
+                      setPickerOpen(false);
+                    }}
+                    className="w-full text-left px-2 py-2 rounded-lg hover:bg-muted text-sm"
+                  >
+                    @{m.name}
+                  </button>
+                ))}
+              {(mentionables ?? []).length === 0 && (
+                <div className="px-2 py-2 text-xs text-muted-foreground">No hay personas para etiquetar.</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <div className="border-t p-2 flex items-end gap-2 bg-background">
         <input ref={fileRef} type="file" hidden onChange={onPickFile} accept="image/*,video/*,audio/*,application/pdf" />
         <button
