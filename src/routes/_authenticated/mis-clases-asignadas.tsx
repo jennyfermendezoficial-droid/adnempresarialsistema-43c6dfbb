@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Video, Calendar, AlertCircle, Clock, Trash2, UserPlus, FileText, List, CalendarDays } from "lucide-react";
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 import { formatNombre } from "@/lib/nombres";
+import { fetchPerfiles } from "@/lib/perfiles";
 import { toast } from "sonner";
 import { listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo } from "@/lib/pagos-export";
 import {
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/mis-clases-asignadas")({ c
 
 interface Clase { id: string; fecha: string; hora_inicio: string; hora_fin: string; titulo: string; descripcion: string | null; zoom_link: string | null; profesor_id: string | null; duracion_min: number | null }
 interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string | null; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string; motivo: string | null; duracion_min: number | null }
-interface Profile { id: string; nombre_completo: string; email: string }
+interface Profile { id: string; nombre_completo: string; email?: string | null }
 interface Reemplazo { id: string; tipo: string; referencia_id: string; profesor_reemplazado: string; fecha: string; nota: string | null }
 
 const hoyDate = new Date();
