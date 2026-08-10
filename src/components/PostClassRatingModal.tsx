@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Star, X } from "lucide-react";
 import { toast } from "sonner";
+import { fetchPerfiles } from "@/lib/perfiles";
 
 interface Pending {
   id: string;

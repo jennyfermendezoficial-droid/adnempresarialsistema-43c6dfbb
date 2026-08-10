@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Pencil, Save, X, Play, TrendingUp, CalendarClock, MessageSquare, Radio, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { fetchPerfiles } from "@/lib/perfiles";
 import {
   createBunnyVideoForUpload,
   getBunnyPublicConfig,

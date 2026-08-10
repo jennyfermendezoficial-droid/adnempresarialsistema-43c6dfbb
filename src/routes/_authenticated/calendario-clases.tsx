@@ -6,6 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { createZoomMeeting } from "@/lib/zoom.functions";
 import { ChevronLeft, ChevronRight, Plus, Video, Trash2, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { fetchPerfiles } from "@/lib/perfiles";
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 
 export const Route = createFileRoute("/_authenticated/calendario-clases")({ component: Page });
