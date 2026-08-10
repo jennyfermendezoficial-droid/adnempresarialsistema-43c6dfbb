@@ -109,7 +109,7 @@ function Page() {
       if (ses && ses.length) {
         const s = ses[0] as { fecha: string; hora_inicio: string; zoom_link: string | null; profesor_id: string; alumna_id: string };
         const otroId = s.profesor_id === uid ? s.alumna_id : s.profesor_id;
-        const { data: prof } = await supabase.from("profiles").select("nombre_completo,email").eq("id", otroId).maybeSingle();
+        const [prof] = await fetchPerfiles([otroId]);
         setProxSesion({ fecha: s.fecha, hora_inicio: s.hora_inicio, zoom_link: s.zoom_link, otroNombre: formatNombre(prof?.nombre_completo) || prof?.email || "—" });
       }
 
