@@ -271,11 +271,11 @@ function Page() {
                       style={active
                         ? { background: "rgba(255,255,255,.22)", color: "white" }
                         : { background: "linear-gradient(135deg,var(--violet),var(--violet-2))", color: "white" }}>
-                      {(formatNombre(p.nombre_completo) || p.email).slice(0,1).toUpperCase()}
+                      {(formatNombre(p.nombre_completo) || p.email || "?").slice(0,1).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-semibold truncate" style={active ? { color: "white" } : undefined}>
-                        {formatNombre(p.nombre_completo) || p.email}
+                        {formatNombre(p.nombre_completo) || p.email || "Mentor"}
                       </div>
                     </div>
                   </div>
