@@ -312,7 +312,9 @@ function Page() {
   }))).sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio)), [staff, nombresAlumnas]);
 
   const sincronizarPago = async (row: StaffRow) => {
-    const ab = abonos.filter((a) => a.profesor_id === row.id).reduce((a, b) => a + Number(b.monto), 0);
+    const { data } = await supabase.from("pagos_comprobantes")
+      .select("monto").eq("profesor_id", row.id).eq("mes", mes).eq("anio", anio);
+    const ab = ((data ?? []) as { monto: number }[]).reduce((a, b) => a + Number(b.monto), 0);
     const payload = {
       profesor_id: row.id, mes, anio,
       total_horas: horasDecimal(row.minutosClase + row.minutos1a1), total_bonos: row.bonos,
