@@ -289,6 +289,40 @@ function Page() {
     return { minutos, sesiones, pagar, pendCount, califEq };
   }, [staff]);
 
+  const abonadoPor = useMemo(() => {
+    const m: Record<string, number> = {};
+    abonos.forEach((a) => { m[a.profesor_id] = (m[a.profesor_id] ?? 0) + Number(a.monto); });
+    return m;
+  }, [abonos]);
+  const totalesPor = useMemo(() => Object.fromEntries(staff.map((s) => [s.id, s.total])), [staff]);
+  const nombresStaff = useMemo(() => Object.fromEntries(staff.map((s) => [s.id, s.nombre])), [staff]);
+  const estadoDe = (s: StaffRow): "pagado" | "parcial" | "por_pagar" => {
+    const ab = abonadoPor[s.id] ?? 0;
+    if (ab > 0 && ab + 0.009 >= s.total) return "pagado";
+    if (ab > 0) return "parcial";
+    return s.estado === "pagado" ? "pagado" : "por_pagar";
+  };
+
+  const filasPrecio: FilaPrecio[] = useMemo(() => staff.flatMap((s) => s.items.map((i) => ({
+    key: `${i.tipo}:${i.refId}`,
+    tipo: i.tipo, refId: i.refId, profesorId: s.id, profesor: s.nombre,
+    fecha: i.fecha, horaInicio: i.horaInicio, horaFin: i.horaFin, minutos: i.minutos,
+    detalle: i.tipo === "clase" ? (i.titulo || "Clase en vivo") : (i.alumnaId ? nombresAlumnas[i.alumnaId] || "Estudiante" : "Estudiante"),
+    monto: i.monto,
+  }))).sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio)), [staff, nombresAlumnas]);
+
+  const sincronizarPago = async (row: StaffRow) => {
+    const ab = abonos.filter((a) => a.profesor_id === row.id).reduce((a, b) => a + Number(b.monto), 0);
+    const payload = {
+      profesor_id: row.id, mes, anio,
+      total_horas: horasDecimal(row.minutosClase + row.minutos1a1), total_bonos: row.bonos,
+      monto_total: row.total, estado: ab + 0.009 >= row.total && ab > 0 ? "pagado" : "por_pagar",
+      fecha_pago: ab > 0 ? new Date().toISOString() : null,
+    };
+    if (row.pagoId) await supabase.from("pagos_mensuales").update(payload).eq("id", row.pagoId);
+    else await supabase.from("pagos_mensuales").insert(payload);
+  };
+
   const marcarPagado = async (row: StaffRow) => {
     if (!confirm(`¿Marcar como pagado a ${row.nombre} por $${row.total.toFixed(2)}?`)) return;
     const payload = {
