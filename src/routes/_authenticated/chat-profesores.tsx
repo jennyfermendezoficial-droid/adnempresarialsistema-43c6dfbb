@@ -13,9 +13,9 @@ function Page() {
   const [authorMap, setAuthorMap] = useState<Record<string, { name: string; avatar?: string | null }>>({});
 
   useEffect(() => {
-    supabase.from("profiles").select("id,nombre_completo,email,avatar_url").then(({ data }) => {
+    fetchPerfiles().then((data) => {
       const m: Record<string, { name: string; avatar?: string | null }> = {};
-      (data ?? []).forEach((p) => { m[p.id] = { name: formatNombre(p.nombre_completo) || p.email, avatar: p.avatar_url }; });
+      data.forEach((p) => { m[p.id] = { name: formatNombre(p.nombre_completo) || p.email || "Usuario", avatar: p.avatar_url }; });
       setAuthorMap(m);
     });
   }, []);
