@@ -305,6 +305,36 @@ function Page() {
     razon: c.razon || "",
   })), [canceladas, profiles, nombresCancel]);
 
+  const nombreItem = (i: ItemPago) =>
+    i.tipo === "clase" ? (i.titulo || "Clase en vivo") : (i.alumnaId ? nombresAlumnas[i.alumnaId] || "Estudiante" : "Estudiante");
+
+  const descargarInforme = (row: StaffRow) => {
+    const items: InformeItem[] = row.items.map((i) => ({
+      fecha: i.fecha,
+      tipo: i.tipo === "clase" ? "Clase en vivo" : "Sesión 1:1",
+      detalle: nombreItem(i),
+      horaInicio: i.horaInicio,
+      horaFin: i.horaFin,
+      minutos: i.minutos,
+      monto: i.monto,
+    }));
+    const reems: InformeReemplazo[] = reemplazos
+      .filter((r) => r.profesor_reporta === row.id)
+      .map((r) => ({
+        fecha: r.fecha,
+        detalle: r.tipo === "clase" ? "Clase en vivo" : "Sesión 1:1",
+        profesor: formatNombre(profiles[r.profesor_reemplazado]?.nombre_completo) || profiles[r.profesor_reemplazado]?.email || "—",
+        nota: r.nota || "",
+      }));
+    generarInformeProfesorPDF({
+      nombre: row.nombre, tema: row.tema, mes, anio, items,
+      canceladas: filasCanceladas.filter((c) => c.profesor === row.nombre),
+      reemplazos: reems,
+      bonos: row.bonos, ajusteMin: row.ajusteMin, total: row.total,
+      califPromedio: row.califPromedio, califCount: row.califCount,
+    });
+  };
+
   if (role !== "admin" && role !== "soporte") {
     return <div className="p-8 text-center text-muted-foreground">Solo el equipo puede ver esta sección.</div>;
   }
@@ -313,6 +343,16 @@ function Page() {
     const row = staff.find(s => s.id === detalleId);
     if (!row) return null;
     return <DetalleProfesor row={row} profile={profiles[detalleId]} mes={mes} anio={anio} onBack={() => setDetalleId(null)} onSelect={(id) => setDetalleId(id)} staff={staff}
+      nombresAlumnas={nombresAlumnas}
+      puedeEditar={role === "admin"}
+      onRefresh={cargar}
+      onInforme={() => descargarInforme(row)}
+      reemplazos={reemplazos.filter((r) => r.profesor_reporta === row.id).map((r) => ({
+        fecha: r.fecha,
+        detalle: r.tipo === "clase" ? "Clase en vivo" : "Sesión 1:1",
+        profesor: formatNombre(profiles[r.profesor_reemplazado]?.nombre_completo) || profiles[r.profesor_reemplazado]?.email || "—",
+        nota: r.nota || "",
+      }))}
       canceladas={canceladas.filter((c) => c.profesor_id === detalleId).map((c) => ({
         fecha: c.fecha, tipo: c.tipo === "clase" ? "Clase en vivo" : "1 a 1",
         con: c.tipo === "clase" ? (c.titulo || "Clase") : (c.contraparte_id ? nombresCancel[c.contraparte_id] || "Estudiante" : "Estudiante"),
