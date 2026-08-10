@@ -7,6 +7,11 @@ import { toast } from "sonner";
 import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
 import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo } from "@/lib/pagos-export";
 import { formatNombre } from "@/lib/nombres";
+import { RegistrarAbonoModal, type Abono, type CuentaEmpresa } from "@/components/pagos/RegistrarAbonoModal";
+import { PagosPrecios, type FilaPrecio } from "@/components/pagos/PagosPrecios";
+import { PagosAbonos } from "@/components/pagos/PagosAbonos";
+import { PagosBonos } from "@/components/pagos/PagosBonos";
+import { PagosCuentas } from "@/components/pagos/PagosCuentas";
 
 export const Route = createFileRoute("/_authenticated/pagos")({ component: Page });
 
@@ -54,6 +59,15 @@ interface StaffRow {
   pagoId?: string;
 }
 
+type Tab = "resumen" | "precios" | "abonos" | "bonos" | "cuentas";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "resumen", label: "Resumen" },
+  { id: "precios", label: "Clases y sesiones" },
+  { id: "abonos", label: "Pagos realizados" },
+  { id: "bonos", label: "Bonos" },
+  { id: "cuentas", label: "Cuentas bancarias" },
+];
+
 const TEMAS: { match: string; tema: string }[] = [
   { match: "jennyfer", tema: "Marketing · WhatsApp" },
   { match: "jaime",    tema: "Landing & sistemas" },
@@ -83,6 +97,15 @@ function Page() {
   const [nombresCancel, setNombresCancel] = useState<Record<string, string>>({});
   const [reemplazos, setReemplazos] = useState<Reemplazo[]>([]);
   const [nombresAlumnas, setNombresAlumnas] = useState<Record<string, string>>({});
+  const [tab, setTab] = useState<Tab>("resumen");
+  const [abonos, setAbonos] = useState<Abono[]>([]);
+  const [cuentas, setCuentas] = useState<CuentaEmpresa[]>([]);
+  const [abonoDe, setAbonoDe] = useState<string | null>(null);
+
+  const cargarCuentas = async () => {
+    const { data } = await supabase.from("pagos_cuentas_bancarias").select("*").eq("activo", true).order("created_at", { ascending: false });
+    setCuentas((data as CuentaEmpresa[]) ?? []);
+  };
 
   const cargar = async () => {
     setLoading(true);
@@ -128,6 +151,12 @@ function Page() {
 
       const pagoMap = new Map<string, PagoHist>();
       ((pagosMes ?? []) as PagoHist[]).forEach((p) => pagoMap.set(p.profesor_id, p));
+
+      // Abonos (pagos realizados) del mes
+      const { data: abs } = await supabase.from("pagos_comprobantes")
+        .select("*").eq("mes", mes).eq("anio", anio).order("fecha_pago", { ascending: false });
+      setAbonos((abs as Abono[]) ?? []);
+      await cargarCuentas();
 
       // Precios por clase/sesión y ajustes manuales del mes
       const [{ data: precios }, { data: ajustes }, { data: reemp }] = await Promise.all([
