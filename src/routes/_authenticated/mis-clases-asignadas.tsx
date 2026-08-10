@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Video, Calendar, AlertCircle, Clock, Trash2, UserPlus, FileText } from "lucide-react";
+import { Video, Calendar, AlertCircle, Clock, Trash2, UserPlus, FileText, List, CalendarDays } from "lucide-react";
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 import { formatNombre } from "@/lib/nombres";
 import { toast } from "sonner";
@@ -35,6 +35,8 @@ function Page() {
   const [reemplazos, setReemplazos] = useState<Reemplazo[]>([]);
   const [reemplazoModal, setReemplazoModal] = useState<{ tipo: "clase" | "1a1"; id: string; fecha: string; titulo: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [vista, setVista] = useState<"lista" | "calendario">("calendario");
+  const [diaSel, setDiaSel] = useState<string | null>(null);
   const [duracionModal, setDuracionModal] = useState<Sesion | null>(null);
   const [claseModal, setClaseModal] = useState<Clase | null>(null);
   const [borrarSesion, setBorrarSesion] = useState<Sesion | null>(null);
@@ -194,11 +196,50 @@ function Page() {
           className="px-3 py-2 rounded-lg border bg-background text-sm">
           {meses.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
+        <div className="flex gap-1 p-1 rounded-lg border bg-card">
+          <button onClick={() => setVista("calendario")}
+            className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1 ${vista === "calendario" ? "bg-violet-gradient text-white" : "text-muted-foreground"}`}>
+            <CalendarDays className="w-3.5 h-3.5" /> Calendario
+          </button>
+          <button onClick={() => setVista("lista")}
+            className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1 ${vista === "lista" ? "bg-violet-gradient text-white" : "text-muted-foreground"}`}>
+            <List className="w-3.5 h-3.5" /> Lista
+          </button>
+        </div>
         <button onClick={() => void descargarInforme()}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold">
           <FileText className="w-4 h-4" /> Descargar mi informe PDF
         </button>
       </div>
+
+      {vista === "calendario" && !loading && (
+        <CalendarioMes
+          anio={anioSel} mes={mesSel} items={items}
+          diaSel={diaSel} onDia={(d) => setDiaSel(d === diaSel ? null : d)}
+        />
+      )}
+
+      {vista === "calendario" && !loading && reemplazos.length > 0 && (
+        <div className="rounded-2xl border bg-card p-4 mb-4">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Reemplazos que reportaste este mes</div>
+          <div className="space-y-1.5">
+            {reemplazos.map((r) => (
+              <div key={r.id} className="text-sm flex gap-2 items-start">
+                <span className="text-[11px] uppercase opacity-60 w-14 pt-0.5">
+                  {new Date(r.fecha + "T00:00:00").toLocaleDateString("es-PE", { day: "numeric", month: "short" })}
+                </span>
+                <span className="flex-1">
+                  {r.tipo === "clase" ? "Clase en vivo" : "Sesión 1 a 1"} ·{" "}
+                  <span className="text-muted-foreground">
+                    reemplazaste a {formatNombre(profesores.find((p) => p.id === r.profesor_reemplazado)?.nombre_completo) || "otro profesor"}
+                  </span>
+                  {r.nota && <span className="block text-xs text-muted-foreground">{r.nota}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-center text-muted-foreground py-12">Cargando…</p>
@@ -206,7 +247,7 @@ function Page() {
         <div className="p-8 text-center text-muted-foreground border rounded-2xl">No tienes clases ni sesiones próximas.</div>
       ) : (
         <div className="space-y-2">
-          {items.map((it) => {
+          {(vista === "calendario" ? items.filter((it) => !diaSel || it.fecha === diaSel) : items).map((it) => {
             const proximo = dentroDe24h(it.fecha, it.hora);
             return (
               <div key={`${it.tipo}-${it.id}`} className="rounded-2xl border bg-card p-4 flex items-center gap-3 flex-wrap shadow-sm"
