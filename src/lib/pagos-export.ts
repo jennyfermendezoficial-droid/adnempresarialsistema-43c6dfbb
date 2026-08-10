@@ -10,10 +10,9 @@ export interface PagoExportRow {
   nombre: string;
   tema: string;
   minutosClase: number;
-  tarifaHora: number;
   sesiones1a1: number;
   minutos1a1: number;
-  tarifa1a1: number;
+  ajusteMin: number;
   mensajesEstudiantes: number;
   califPromedio: number;
   califCount: number;
@@ -91,24 +90,25 @@ export function generarPagosPDF({ mes, anio, rows, canceladas = [] }: PagoExport
 
   autoTable(doc, {
     startY: 186,
-    head: [["Profesor", "Tema", "Clases", "1:1", "Tiempo 1:1", "Calif.", "Bonos", "A pagar", "Estado"]],
+    head: [["Profesor", "Tema", "Tiempo clases", "1:1", "Tiempo 1:1", "Ajuste", "Calif.", "Bonos", "A pagar", "Estado"]],
     body: rows.map((r) => [
       r.nombre,
       r.tema,
-      `${formatHM(r.minutosClase)} x $${r.tarifaHora}/h`,
+      formatHM(r.minutosClase),
       String(r.sesiones1a1),
-      `${formatHM(r.minutos1a1)} x $${r.tarifa1a1}/h`,
+      formatHM(r.minutos1a1),
+      r.ajusteMin ? `${r.ajusteMin > 0 ? "+" : "-"}${formatHM(Math.abs(r.ajusteMin))}` : "-",
       r.califCount ? r.califPromedio.toFixed(1) : "-",
       `$${r.bonos.toFixed(2)}`,
       `$${r.total.toFixed(2)}`,
       r.estado === "pagado" ? "Pagado" : "Por pagar",
     ]),
-    foot: [["", "", "", "", "", "", "Total", `$${totPagar.toFixed(2)}`, ""]],
+    foot: [["", "", "", "", "", "", "", "Total", `$${totPagar.toFixed(2)}`, ""]],
     styles: { fontSize: 8.5, cellPadding: 5, textColor: [40, 38, 60] },
     headStyles: { fillColor: [124, 107, 255], textColor: 255, fontStyle: "bold" },
     footStyles: { fillColor: [240, 238, 250], textColor: [30, 28, 50], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [250, 249, 255] },
-    columnStyles: { 7: { halign: "right" }, 6: { halign: "right" }, 3: { halign: "center" }, 5: { halign: "center" } },
+    columnStyles: { 8: { halign: "right" }, 7: { halign: "right" }, 3: { halign: "center" }, 6: { halign: "center" } },
     margin: { left: 40, right: 40 },
   });
 
@@ -143,11 +143,10 @@ export function exportarPagosExcel({ mes, anio, rows, canceladas = [] }: PagoExp
     "Tema": r.tema,
     "Minutos clase": r.minutosClase,
     "Tiempo clase": formatHM(r.minutosClase),
-    "Tarifa hora clase": r.tarifaHora,
     "Sesiones 1:1": r.sesiones1a1,
     "Minutos 1:1": r.minutos1a1,
     "Tiempo 1:1": formatHM(r.minutos1a1),
-    "Tarifa hora 1:1": r.tarifa1a1,
+    "Ajuste (min)": r.ajusteMin,
     "Mensajes a estudiantes": r.mensajesEstudiantes,
     "Calificación": r.califCount ? Number(r.califPromedio.toFixed(2)) : "",
     "Bonos": Number(r.bonos.toFixed(2)),
@@ -161,11 +160,10 @@ export function exportarPagosExcel({ mes, anio, rows, canceladas = [] }: PagoExp
     "Tema": "",
     "Minutos clase": rows.reduce((a, r) => a + r.minutosClase, 0),
     "Tiempo clase": formatHM(totalMin),
-    "Tarifa hora clase": "" as unknown as number,
     "Sesiones 1:1": rows.reduce((a, r) => a + r.sesiones1a1, 0),
     "Minutos 1:1": rows.reduce((a, r) => a + r.minutos1a1, 0),
     "Tiempo 1:1": "",
-    "Tarifa hora 1:1": "" as unknown as number,
+    "Ajuste (min)": rows.reduce((a, r) => a + r.ajusteMin, 0),
     "Mensajes a estudiantes": rows.reduce((a, r) => a + r.mensajesEstudiantes, 0),
     "Calificación": "",
     "Bonos": Number(rows.reduce((a, r) => a + r.bonos, 0).toFixed(2)),
@@ -211,4 +209,167 @@ export function listaMeses(desdeAnio = 2025): { value: string; label: string }[]
     }
   }
   return out;
+}
+
+// ===================== INFORME INDIVIDUAL DEL PROFESOR =====================
+
+export interface InformeItem {
+  fecha: string;
+  tipo: string;        // "Clase en vivo" | "Sesión 1:1"
+  detalle: string;     // tema o estudiante
+  horaInicio: string;
+  horaFin: string;
+  minutos: number;
+  monto: number;
+}
+
+export interface InformeReemplazo {
+  fecha: string;
+  detalle: string;
+  profesor: string;    // a quién reemplazó
+  nota: string;
+}
+
+export interface InformeProfesorInput {
+  nombre: string;
+  tema: string;
+  mes: number;
+  anio: number;
+  items: InformeItem[];
+  canceladas?: CanceladaExportRow[];
+  reemplazos?: InformeReemplazo[];
+  bonos: number;
+  ajusteMin: number;
+  total: number;
+  califPromedio: number;
+  califCount: number;
+}
+
+const DIAS = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+function diaDe(fecha: string) {
+  const d = new Date(fecha + "T00:00:00");
+  return DIAS[d.getDay()];
+}
+
+export function generarInformeProfesorPDF(input: InformeProfesorInput) {
+  const { nombre, tema, mes, anio, items, canceladas = [], reemplazos = [], bonos, ajusteMin, total, califPromedio, califCount } = input;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();
+
+  doc.setFillColor(15, 20, 49);
+  doc.rect(0, 0, W, 100, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(18);
+  doc.text("ADN Empresarial", 40, 38);
+  doc.setFontSize(14);
+  doc.text(nombre, 40, 62);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  doc.setTextColor(200, 195, 235);
+  doc.text(`${tema} · Informe de ${MESES[mes - 1]} ${anio}`, 40, 80);
+
+  const minClase = items.filter((i) => i.tipo !== "Sesión 1:1").reduce((a, i) => a + i.minutos, 0);
+  const min1a1 = items.filter((i) => i.tipo === "Sesión 1:1").reduce((a, i) => a + i.minutos, 0);
+  const cards: [string, string][] = [
+    ["Total a pagar", `$${total.toFixed(2)}`],
+    ["Tiempo dictado", formatHM(minClase + min1a1 + ajusteMin)],
+    ["Clases / 1:1", `${items.filter((i) => i.tipo !== "Sesión 1:1").length} / ${items.filter((i) => i.tipo === "Sesión 1:1").length}`],
+    ["Calificación", califCount ? califPromedio.toFixed(2) : "-"],
+  ];
+  const cw = (W - 80 - 30) / 4;
+  cards.forEach(([label, value], i) => {
+    const x = 40 + i * (cw + 10);
+    doc.setDrawColor(225, 222, 240); doc.setFillColor(250, 248, 255);
+    doc.roundedRect(x, 120, cw, 54, 6, 6, "FD");
+    doc.setTextColor(120, 118, 145); doc.setFontSize(8);
+    doc.text(label.toUpperCase(), x + 10, 138);
+    doc.setTextColor(30, 28, 50); doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+    doc.text(value, x + 10, 160);
+    doc.setFont("helvetica", "normal");
+  });
+
+  doc.setFontSize(11); doc.setTextColor(30, 28, 50); doc.setFont("helvetica", "bold");
+  doc.text("Detalle de clases y sesiones", 40, 198);
+  doc.setFont("helvetica", "normal");
+
+  autoTable(doc, {
+    startY: 208,
+    head: [["Fecha", "Día", "Horario", "Tipo", "Con / Tema", "Duración", "Valor"]],
+    body: items.length
+      ? items.map((i) => [
+          i.fecha, diaDe(i.fecha),
+          `${(i.horaInicio || "").slice(0, 5)} - ${(i.horaFin || "").slice(0, 5)}`,
+          i.tipo, i.detalle, formatHM(i.minutos), `$${i.monto.toFixed(2)}`,
+        ])
+      : [["-", "-", "-", "-", "Sin clases registradas este mes", "-", "$0.00"]],
+    foot: [[
+      "", "", "", "", "Subtotal clases y sesiones",
+      formatHM(minClase + min1a1),
+      `$${items.reduce((a, i) => a + i.monto, 0).toFixed(2)}`,
+    ]],
+    styles: { fontSize: 8.5, cellPadding: 5, textColor: [40, 38, 60] },
+    headStyles: { fillColor: [124, 107, 255], textColor: 255, fontStyle: "bold" },
+    footStyles: { fillColor: [240, 238, 250], textColor: [30, 28, 50], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [250, 249, 255] },
+    columnStyles: { 6: { halign: "right" }, 5: { halign: "center" } },
+    margin: { left: 40, right: 40 },
+  });
+
+  let y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 240;
+
+  // Resumen económico
+  autoTable(doc, {
+    startY: y + 24,
+    head: [["Concepto", "Detalle", "Monto"]],
+    body: [
+      ["Clases en vivo", formatHM(minClase), `$${items.filter((i) => i.tipo !== "Sesión 1:1").reduce((a, i) => a + i.monto, 0).toFixed(2)}`],
+      ["Sesiones 1 a 1", formatHM(min1a1), `$${items.filter((i) => i.tipo === "Sesión 1:1").reduce((a, i) => a + i.monto, 0).toFixed(2)}`],
+      ["Ajuste manual de tiempo", ajusteMin ? `${ajusteMin > 0 ? "+" : "-"}${formatHM(Math.abs(ajusteMin))}` : "Sin ajuste", "-"],
+      ["Bonos", bonos ? "Otorgados por administracion" : "Sin bonos", `$${bonos.toFixed(2)}`],
+      ["TOTAL A PAGAR", "", `$${total.toFixed(2)}`],
+    ],
+    styles: { fontSize: 9, cellPadding: 5, textColor: [40, 38, 60] },
+    headStyles: { fillColor: [30, 28, 60], textColor: 255, fontStyle: "bold" },
+    columnStyles: { 2: { halign: "right" } },
+    margin: { left: 40, right: 40 },
+  });
+  y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y;
+
+  if (reemplazos.length) {
+    doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 28, 50);
+    doc.text("Reemplazos reportados (informativo)", 40, y + 28);
+    doc.setFont("helvetica", "normal");
+    autoTable(doc, {
+      startY: y + 38,
+      head: [["Fecha", "Clase / Sesion", "Reemplazo a", "Nota"]],
+      body: reemplazos.map((r) => [r.fecha, r.detalle, r.profesor, r.nota || "-"]),
+      styles: { fontSize: 8, cellPadding: 4, textColor: [40, 38, 60] },
+      headStyles: { fillColor: [60, 143, 231], textColor: 255, fontStyle: "bold" },
+      margin: { left: 40, right: 40 },
+    });
+    y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y;
+  }
+
+  if (canceladas.length) {
+    doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 28, 50);
+    doc.text("Sesiones canceladas / no registradas (no cuentan horas)", 40, y + 28);
+    doc.setFont("helvetica", "normal");
+    autoTable(doc, {
+      startY: y + 38,
+      head: [["Fecha", "Tipo", "Con / Titulo", "Estado", "Razon", "Monto"]],
+      body: canceladas.map((c) => [c.fecha, c.tipo, c.con, c.estado, c.razon || "-", "$0.00"]),
+      styles: { fontSize: 8, cellPadding: 4, textColor: [40, 38, 60] },
+      headStyles: { fillColor: [200, 70, 70], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [255, 248, 248] },
+      margin: { left: 40, right: 40 },
+    });
+  }
+
+  doc.setFontSize(8); doc.setTextColor(140, 138, 160);
+  doc.text(
+    `Generado el ${new Date().toLocaleString("es-EC")} · ADN Empresarial`,
+    40, doc.internal.pageSize.getHeight() - 24,
+  );
+
+  const safe = nombre.normalize("NFD").replace(/[^\w]+/g, "_");
+  doc.save(`Informe_${safe}_${MESES[mes - 1]}_${anio}.pdf`);
 }

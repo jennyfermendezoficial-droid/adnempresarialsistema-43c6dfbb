@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChatThread } from "./ChatThread";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatNombre } from "@/lib/nombres";
+import { useAuth } from "@/lib/auth-context";
 
 const SEEN_KEY = "general-last-seen";
 
@@ -23,9 +24,12 @@ class ChatErrorBoundary extends Component<{ children: ReactNode }, { failed: boo
 }
 
 export function GeneralChatPopover() {
+  const { role } = useAuth();
+  const isStaff = role === "admin" || role === "soporte";
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(false);
   const [authorMap, setAuthorMap] = useState<Record<string, { name: string; avatar?: string | null }>>({});
+  const [mentionables, setMentionables] = useState<{ id: string; name: string }[]>([]);
   const openRef = useRef(open);
   openRef.current = open;
 
@@ -36,6 +40,24 @@ export function GeneralChatPopover() {
       setAuthorMap(m);
     });
   }, []);
+
+  // A quién se puede etiquetar
+  useEffect(() => {
+    (async () => {
+      if (isStaff) {
+        const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "usuario");
+        const ids = Array.from(new Set(((roles ?? []) as { user_id: string }[]).map((r) => r.user_id)));
+        if (!ids.length) return setMentionables([]);
+        const { data } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", ids);
+        setMentionables(((data ?? []) as { id: string; nombre_completo: string; email: string }[])
+          .map((p) => ({ id: p.id, name: formatNombre(p.nombre_completo) || p.email })));
+      } else {
+        const { data } = await supabase.rpc("listar_profesores");
+        setMentionables(((data ?? []) as { id: string; nombre_completo: string; email: string }[])
+          .map((p) => ({ id: p.id, name: formatNombre(p.nombre_completo) || p.email })));
+      }
+    })();
+  }, [isStaff]);
 
   // Punto de no leídos
   useEffect(() => {
@@ -94,7 +116,13 @@ export function GeneralChatPopover() {
         </div>
         <div className="h-[420px]">
           <ChatErrorBoundary>
-            <ChatThread table="canal_general_mensajes" authorMap={authorMap} height="100%" />
+            <ChatThread
+              table="canal_general_mensajes"
+              authorMap={authorMap}
+              height="100%"
+              mentionables={mentionables}
+              mentionHint={isStaff ? "Elige a qué estudiante avisar (o @everyone)." : "Elige a qué profesor avisar (o @everyone)."}
+            />
           </ChatErrorBoundary>
         </div>
       </PopoverContent>
