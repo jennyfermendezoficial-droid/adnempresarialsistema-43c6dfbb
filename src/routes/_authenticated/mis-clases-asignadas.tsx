@@ -330,3 +330,43 @@ function Page() {
     </div>
   );
 }
+function ReemplazoModal({ titulo, profesores, onClose, onSave }: {
+  titulo: string;
+  profesores: Profile[];
+  onClose: () => void;
+  onSave: (profesorId: string, nota: string) => Promise<void>;
+}) {
+  const [profesorId, setProfesorId] = useState("");
+  const [nota, setNota] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-card border p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-semibold">Reportar reemplazo</h3>
+        <p className="text-xs text-muted-foreground mt-1">{titulo}</p>
+        <label className="block text-xs font-semibold mt-4 mb-1">¿A qué profesor reemplazaste?</label>
+        <select value={profesorId} onChange={(e) => setProfesorId(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border bg-background text-sm">
+          <option value="">Selecciona…</option>
+          {profesores.map((p) => (
+            <option key={p.id} value={p.id}>{formatNombre(p.nombre_completo) || p.email}</option>
+          ))}
+        </select>
+        <label className="block text-xs font-semibold mt-3 mb-1">Nota (opcional)</label>
+        <textarea value={nota} onChange={(e) => setNota(e.target.value.slice(0, 300))} rows={3}
+          placeholder="Ej: cubrí la clase por viaje del profe"
+          className="w-full px-3 py-2 rounded-lg border bg-background text-sm" />
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onClose} disabled={guardando} className="px-3 py-2 rounded-lg border text-sm">Cancelar</button>
+          <button
+            disabled={!profesorId || guardando}
+            onClick={async () => { setGuardando(true); await onSave(profesorId, nota); setGuardando(false); }}
+            className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold disabled:opacity-50">
+            {guardando ? "Guardando…" : "Reportar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
