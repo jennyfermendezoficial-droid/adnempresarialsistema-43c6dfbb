@@ -189,6 +189,17 @@ function Page() {
         <p className="text-sm opacity-90 mt-1">Aquí ves tus clases en vivo y sesiones 1 a 1 próximas.</p>
       </div>
 
+      <div className="flex items-center gap-2 flex-wrap mb-4">
+        <select value={periodo} onChange={(e) => setPeriodo(e.target.value)}
+          className="px-3 py-2 rounded-lg border bg-background text-sm">
+          {meses.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+        </select>
+        <button onClick={() => void descargarInforme()}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold">
+          <FileText className="w-4 h-4" /> Descargar mi informe PDF
+        </button>
+      </div>
+
       {loading ? (
         <p className="text-center text-muted-foreground py-12">Cargando…</p>
       ) : items.length === 0 ? (
@@ -255,10 +266,26 @@ function Page() {
                     <Clock className="w-3.5 h-3.5" /> {it.clase.duracion_min ? "Editar duración" : "Registrar duración"}
                   </button>
                 )}
+                {it.soyProfe && (
+                  <button
+                    onClick={() => setReemplazoModal({ tipo: it.tipo, id: it.id, fecha: it.fecha, titulo: it.titulo })}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold border">
+                    <UserPlus className="w-3.5 h-3.5" /> Reportar reemplazo
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
+      )}
+
+      {reemplazoModal && (
+        <ReemplazoModal
+          titulo={reemplazoModal.titulo}
+          profesores={profesores}
+          onClose={() => setReemplazoModal(null)}
+          onSave={guardarReemplazo}
+        />
       )}
 
       {duracionModal && (
