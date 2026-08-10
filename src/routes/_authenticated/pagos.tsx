@@ -325,26 +325,6 @@ function Page() {
     else await supabase.from("pagos_mensuales").insert(payload);
   };
 
-  const marcarPagado = async (row: StaffRow) => {
-    if (!confirm(`¿Marcar como pagado a ${row.nombre} por $${row.total.toFixed(2)}?`)) return;
-    const payload = {
-      profesor_id: row.id, mes, anio,
-      total_horas: horasDecimal(row.minutosClase + row.minutos1a1), total_bonos: row.bonos,
-      monto_total: row.total, estado: "pagado",
-      fecha_pago: new Date().toISOString(),
-    };
-    if (row.pagoId) {
-      // update
-      const { error } = await supabase.from("pagos_mensuales").update(payload).eq("id", row.pagoId);
-      if (error) return toast.error(error.message);
-    } else {
-      const { error } = await supabase.from("pagos_mensuales").insert(payload);
-      if (error) return toast.error(error.message);
-    }
-    toast.success("Marcado como pagado");
-    cargar();
-  };
-
   const cerrarMes = async () => {
     const pendientes = staff.filter(s => s.estado === "por_pagar");
     if (!pendientes.length) return toast.info("No hay pagos pendientes");
