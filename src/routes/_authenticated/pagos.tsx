@@ -81,6 +81,8 @@ function Page() {
   const [loading, setLoading] = useState(false);
   const [canceladas, setCanceladas] = useState<Cancelada[]>([]);
   const [nombresCancel, setNombresCancel] = useState<Record<string, string>>({});
+  const [reemplazos, setReemplazos] = useState<Reemplazo[]>([]);
+  const [nombresAlumnas, setNombresAlumnas] = useState<Record<string, string>>({});
 
   const cargar = async () => {
     setLoading(true);
@@ -127,30 +129,58 @@ function Page() {
       const pagoMap = new Map<string, PagoHist>();
       ((pagosMes ?? []) as PagoHist[]).forEach((p) => pagoMap.set(p.profesor_id, p));
 
+      // Precios por clase/sesión y ajustes manuales del mes
+      const [{ data: precios }, { data: ajustes }, { data: reemp }] = await Promise.all([
+        supabase.from("pagos_items_precio").select("tipo,referencia_id,monto").eq("mes", mes).eq("anio", anio),
+        supabase.from("pagos_ajustes").select("profesor_id,minutos").eq("mes", mes).eq("anio", anio),
+        supabase.from("reemplazos_clase").select("*").gte("fecha", ini).lte("fecha", fin),
+      ]);
+      const precioMap = new Map<string, number>();
+      ((precios ?? []) as { tipo: string; referencia_id: string; monto: number }[])
+        .forEach((p) => precioMap.set(`${p.tipo}:${p.referencia_id}`, Number(p.monto)));
+      const ajusteMap = new Map<string, number>();
+      ((ajustes ?? []) as { profesor_id: string; minutos: number }[])
+        .forEach((a) => ajusteMap.set(a.profesor_id, Number(a.minutos)));
+      setReemplazos((reemp ?? []) as Reemplazo[]);
+
+      const alumnaIds = new Set<string>();
+
       const rows: StaffRow[] = await Promise.all(ids.map(async (pid) => {
         const p = profMap[pid];
         if (!p) return null as unknown as StaffRow;
 
         const [clasesRes, sesionesRes, califRes, chatsRes, bonosRes] = await Promise.all([
-          supabase.from("clases_en_vivo").select("hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
-          supabase.from("sesiones_1a1").select("hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
+          supabase.from("clases_en_vivo").select("id,fecha,titulo,hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
+          supabase.from("sesiones_1a1").select("id,fecha,alumna_id,hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
           supabase.from("calificaciones_mensuales").select("claridad,didactica,practico,desenvolvimiento").eq("profesor_id", pid),
           supabase.from("chats_1a1").select("id,usuario_a_id,usuario_b_id").or(`usuario_a_id.eq.${pid},usuario_b_id.eq.${pid}`),
           supabase.from("bonos").select("monto").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
         ]);
 
-        // Minutos exactos de clases en vivo
+        // Items con su precio (lo pone el administrador por fecha y hora)
+        const items: ItemPago[] = [];
         let minutosClase = 0;
-        ((clasesRes.data ?? []) as { hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
-          minutosClase += c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
+        ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
+          const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
+          minutosClase += min;
+          items.push({
+            tipo: "clase", refId: c.id, fecha: c.fecha, horaInicio: c.hora_inicio, horaFin: c.hora_fin ?? "",
+            minutos: min, titulo: c.titulo, alumnaId: null, monto: precioMap.get(`clase:${c.id}`) ?? 0,
+          });
         });
 
-        // Minutos exactos de sesiones 1 a 1
-        const sesionesData = (sesionesRes.data ?? []) as { hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[];
+        const sesionesData = (sesionesRes.data ?? []) as { id: string; fecha: string; alumna_id: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[];
         let minutos1a1 = 0;
         sesionesData.forEach((s) => {
-          minutos1a1 += s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
+          const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
+          minutos1a1 += min;
+          alumnaIds.add(s.alumna_id);
+          items.push({
+            tipo: "1a1", refId: s.id, fecha: s.fecha, horaInicio: s.hora_inicio, horaFin: s.hora_fin ?? "",
+            minutos: min, titulo: null, alumnaId: s.alumna_id, monto: precioMap.get(`1a1:${s.id}`) ?? 0,
+          });
         });
+        items.sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio));
 
         // Calificación promedio
         const vals: number[] = [];
@@ -177,10 +207,8 @@ function Page() {
         }
 
         const sesiones1a1 = sesionesData.length;
-        const tH = tarifaHora(califPromedio);
-        const t1 = tarifaSesion(califPromedio);
         const bonos = ((bonosRes.data ?? []) as { monto: number }[]).reduce((a,b)=>a + Number(b.monto), 0);
-        const total = Math.round(((minutosClase / 60) * tH + (minutos1a1 / 60) * t1 + bonos) * 100) / 100;
+        const total = Math.round((items.reduce((a, i) => a + i.monto, 0) + bonos) * 100) / 100;
 
         const pago = pagoMap.get(pid);
 
@@ -190,8 +218,10 @@ function Page() {
           email: p.email,
           rol: map.get(pid) ?? "soporte",
           tema: temaDe(p),
-          minutosClase, tarifaHora: tH,
-          sesiones1a1, minutos1a1, tarifa1a1: t1,
+          minutosClase,
+          sesiones1a1, minutos1a1,
+          ajusteMin: ajusteMap.get(pid) ?? 0,
+          items,
           mensajesEstudiantes,
           califPromedio, califCount,
           bonos,
@@ -201,6 +231,13 @@ function Page() {
         };
       }));
       setStaff(rows.filter(Boolean).sort((a,b) => b.total - a.total));
+
+      if (alumnaIds.size) {
+        const { data: as } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", Array.from(alumnaIds));
+        const nm: Record<string, string> = {};
+        ((as ?? []) as Profile[]).forEach((p) => { nm[p.id] = formatNombre(p.nombre_completo) || p.email; });
+        setNombresAlumnas(nm);
+      } else setNombresAlumnas({});
 
       // Historial de meses cerrados
       const { data: hist } = await supabase.from("pagos_mensuales")
