@@ -144,7 +144,7 @@ function Page() {
       profesor_reporta: uid, profesor_reemplazado: profesorId,
       fecha: reemplazoModal.fecha, nota: nota.trim() || null,
     });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Reemplazo reportado");
     setReemplazoModal(null);
     const { data: r } = await supabase.from("reemplazos_clase").select("*").eq("profesor_reporta", uid);
