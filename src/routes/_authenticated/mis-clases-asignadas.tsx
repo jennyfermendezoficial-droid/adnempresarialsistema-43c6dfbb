@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Video, Calendar, AlertCircle, Clock, Trash2, UserPlus, FileText } from "lucide-react";
+import { Video, Calendar, AlertCircle, Clock, Trash2, UserPlus, FileText, List, CalendarDays } from "lucide-react";
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 import { formatNombre } from "@/lib/nombres";
 import { toast } from "sonner";
@@ -35,6 +35,8 @@ function Page() {
   const [reemplazos, setReemplazos] = useState<Reemplazo[]>([]);
   const [reemplazoModal, setReemplazoModal] = useState<{ tipo: "clase" | "1a1"; id: string; fecha: string; titulo: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [vista, setVista] = useState<"lista" | "calendario">("calendario");
+  const [diaSel, setDiaSel] = useState<string | null>(null);
   const [duracionModal, setDuracionModal] = useState<Sesion | null>(null);
   const [claseModal, setClaseModal] = useState<Clase | null>(null);
   const [borrarSesion, setBorrarSesion] = useState<Sesion | null>(null);
@@ -194,11 +196,50 @@ function Page() {
           className="px-3 py-2 rounded-lg border bg-background text-sm">
           {meses.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
+        <div className="flex gap-1 p-1 rounded-lg border bg-card">
+          <button onClick={() => setVista("calendario")}
+            className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1 ${vista === "calendario" ? "bg-violet-gradient text-white" : "text-muted-foreground"}`}>
+            <CalendarDays className="w-3.5 h-3.5" /> Calendario
+          </button>
+          <button onClick={() => setVista("lista")}
+            className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1 ${vista === "lista" ? "bg-violet-gradient text-white" : "text-muted-foreground"}`}>
+            <List className="w-3.5 h-3.5" /> Lista
+          </button>
+        </div>
         <button onClick={() => void descargarInforme()}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold">
           <FileText className="w-4 h-4" /> Descargar mi informe PDF
         </button>
       </div>
+
+      {vista === "calendario" && !loading && (
+        <CalendarioMes
+          anio={anioSel} mes={mesSel} items={items}
+          diaSel={diaSel} onDia={(d) => setDiaSel(d === diaSel ? null : d)}
+        />
+      )}
+
+      {vista === "calendario" && !loading && reemplazos.length > 0 && (
+        <div className="rounded-2xl border bg-card p-4 mb-4">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Reemplazos que reportaste este mes</div>
+          <div className="space-y-1.5">
+            {reemplazos.map((r) => (
+              <div key={r.id} className="text-sm flex gap-2 items-start">
+                <span className="text-[11px] uppercase opacity-60 w-14 pt-0.5">
+                  {new Date(r.fecha + "T00:00:00").toLocaleDateString("es-PE", { day: "numeric", month: "short" })}
+                </span>
+                <span className="flex-1">
+                  {r.tipo === "clase" ? "Clase en vivo" : "Sesión 1 a 1"} ·{" "}
+                  <span className="text-muted-foreground">
+                    reemplazaste a {formatNombre(profesores.find((p) => p.id === r.profesor_reemplazado)?.nombre_completo) || "otro profesor"}
+                  </span>
+                  {r.nota && <span className="block text-xs text-muted-foreground">{r.nota}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-center text-muted-foreground py-12">Cargando…</p>
@@ -206,7 +247,7 @@ function Page() {
         <div className="p-8 text-center text-muted-foreground border rounded-2xl">No tienes clases ni sesiones próximas.</div>
       ) : (
         <div className="space-y-2">
-          {items.map((it) => {
+          {(vista === "calendario" ? items.filter((it) => !diaSel || it.fecha === diaSel) : items).map((it) => {
             const proximo = dentroDe24h(it.fecha, it.hora);
             return (
               <div key={`${it.tipo}-${it.id}`} className="rounded-2xl border bg-card p-4 flex items-center gap-3 flex-wrap shadow-sm"
@@ -330,6 +371,57 @@ function Page() {
     </div>
   );
 }
+interface CalItem { tipo: "clase" | "1a1"; id: string; fecha: string; hora: string; titulo: string }
+
+function CalendarioMes({ anio, mes, items, diaSel, onDia }: {
+  anio: number; mes: number; items: CalItem[]; diaSel: string | null; onDia: (fecha: string) => void;
+}) {
+  const primero = new Date(anio, mes - 1, 1);
+  const offset = primero.getDay();
+  const dias = new Date(anio, mes, 0).getDate();
+  const celdas: (string | null)[] = [
+    ...Array.from({ length: offset }, () => null),
+    ...Array.from({ length: dias }, (_, i) => `${anio}-${String(mes).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`),
+  ];
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div className="rounded-2xl border bg-card p-4 mb-4">
+      <div className="grid grid-cols-7 gap-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+        {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map((d) => <div key={d} className="text-center py-1">{d}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {celdas.map((fecha, i) => {
+          if (!fecha) return <div key={`v${i}`} />;
+          const delDia = items.filter((x) => x.fecha === fecha);
+          const activo = diaSel === fecha;
+          return (
+            <button key={fecha} onClick={() => onDia(fecha)}
+              className={`min-h-[64px] rounded-xl border p-1.5 text-left transition ${activo ? "border-violet bg-violet/10" : "hover:bg-muted/40"}`}
+              style={activo ? { borderColor: "var(--violet)" } : undefined}>
+              <div className={`text-[11px] font-semibold ${fecha === hoy ? "text-violet" : ""}`} style={fecha === hoy ? { color: "var(--violet)" } : undefined}>
+                {Number(fecha.slice(8))}
+              </div>
+              <div className="space-y-0.5 mt-0.5">
+                {delDia.slice(0, 2).map((x) => (
+                  <div key={x.id} className="text-[9px] leading-tight truncate rounded px-1 py-0.5 text-white"
+                    style={{ background: x.tipo === "clase" ? "var(--violet)" : "#16a34a" }}>
+                    {x.hora.slice(0, 5)} {x.titulo}
+                  </div>
+                ))}
+                {delDia.length > 2 && <div className="text-[9px] text-muted-foreground">+{delDia.length - 2} más</div>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground mt-3">
+        Toca un día para ver solo esas clases abajo y reportar quién te reemplazó o registrar la duración.
+      </p>
+    </div>
+  );
+}
+
 function ReemplazoModal({ titulo, profesores, onClose, onSave }: {
   titulo: string;
   profesores: Profile[];

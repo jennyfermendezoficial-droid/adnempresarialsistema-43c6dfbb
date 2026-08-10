@@ -5,8 +5,13 @@ import { useAuth } from "@/lib/auth-context";
 import { Lock, Star, ChevronLeft, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
-import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo } from "@/lib/pagos-export";
+import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo, type AbonoExportRow } from "@/lib/pagos-export";
 import { formatNombre } from "@/lib/nombres";
+import { RegistrarAbonoModal, type Abono, type CuentaEmpresa } from "@/components/pagos/RegistrarAbonoModal";
+import { PagosPrecios, type FilaPrecio } from "@/components/pagos/PagosPrecios";
+import { PagosAbonos } from "@/components/pagos/PagosAbonos";
+import { PagosBonos } from "@/components/pagos/PagosBonos";
+import { PagosCuentas } from "@/components/pagos/PagosCuentas";
 
 export const Route = createFileRoute("/_authenticated/pagos")({ component: Page });
 
@@ -54,6 +59,15 @@ interface StaffRow {
   pagoId?: string;
 }
 
+type Tab = "resumen" | "precios" | "abonos" | "bonos" | "cuentas";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "resumen", label: "Resumen" },
+  { id: "precios", label: "Clases y sesiones" },
+  { id: "abonos", label: "Pagos realizados" },
+  { id: "bonos", label: "Bonos" },
+  { id: "cuentas", label: "Cuentas bancarias" },
+];
+
 const TEMAS: { match: string; tema: string }[] = [
   { match: "jennyfer", tema: "Marketing · WhatsApp" },
   { match: "jaime",    tema: "Landing & sistemas" },
@@ -83,6 +97,15 @@ function Page() {
   const [nombresCancel, setNombresCancel] = useState<Record<string, string>>({});
   const [reemplazos, setReemplazos] = useState<Reemplazo[]>([]);
   const [nombresAlumnas, setNombresAlumnas] = useState<Record<string, string>>({});
+  const [tab, setTab] = useState<Tab>("resumen");
+  const [abonos, setAbonos] = useState<Abono[]>([]);
+  const [cuentas, setCuentas] = useState<CuentaEmpresa[]>([]);
+  const [abonoDe, setAbonoDe] = useState<string | null>(null);
+
+  const cargarCuentas = async () => {
+    const { data } = await supabase.from("pagos_cuentas_bancarias").select("*").eq("activo", true).order("created_at", { ascending: false });
+    setCuentas((data as CuentaEmpresa[]) ?? []);
+  };
 
   const cargar = async () => {
     setLoading(true);
@@ -128,6 +151,12 @@ function Page() {
 
       const pagoMap = new Map<string, PagoHist>();
       ((pagosMes ?? []) as PagoHist[]).forEach((p) => pagoMap.set(p.profesor_id, p));
+
+      // Abonos (pagos realizados) del mes
+      const { data: abs } = await supabase.from("pagos_comprobantes")
+        .select("*").eq("mes", mes).eq("anio", anio).order("fecha_pago", { ascending: false });
+      setAbonos((abs as Abono[]) ?? []);
+      await cargarCuentas();
 
       // Precios por clase/sesión y ajustes manuales del mes
       const [{ data: precios }, { data: ajustes }, { data: reemp }] = await Promise.all([
@@ -260,24 +289,40 @@ function Page() {
     return { minutos, sesiones, pagar, pendCount, califEq };
   }, [staff]);
 
-  const marcarPagado = async (row: StaffRow) => {
-    if (!confirm(`¿Marcar como pagado a ${row.nombre} por $${row.total.toFixed(2)}?`)) return;
+  const abonadoPor = useMemo(() => {
+    const m: Record<string, number> = {};
+    abonos.forEach((a) => { m[a.profesor_id] = (m[a.profesor_id] ?? 0) + Number(a.monto); });
+    return m;
+  }, [abonos]);
+  const totalesPor = useMemo(() => Object.fromEntries(staff.map((s) => [s.id, s.total])), [staff]);
+  const nombresStaff = useMemo(() => Object.fromEntries(staff.map((s) => [s.id, s.nombre])), [staff]);
+  const estadoDe = (s: StaffRow): "pagado" | "parcial" | "por_pagar" => {
+    const ab = abonadoPor[s.id] ?? 0;
+    if (ab > 0 && ab + 0.009 >= s.total) return "pagado";
+    if (ab > 0) return "parcial";
+    return s.estado === "pagado" ? "pagado" : "por_pagar";
+  };
+
+  const filasPrecio: FilaPrecio[] = useMemo(() => staff.flatMap((s) => s.items.map((i) => ({
+    key: `${i.tipo}:${i.refId}`,
+    tipo: i.tipo, refId: i.refId, profesorId: s.id, profesor: s.nombre,
+    fecha: i.fecha, horaInicio: i.horaInicio, horaFin: i.horaFin, minutos: i.minutos,
+    detalle: i.tipo === "clase" ? (i.titulo || "Clase en vivo") : (i.alumnaId ? nombresAlumnas[i.alumnaId] || "Estudiante" : "Estudiante"),
+    monto: i.monto,
+  }))).sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio)), [staff, nombresAlumnas]);
+
+  const sincronizarPago = async (row: StaffRow) => {
+    const { data } = await supabase.from("pagos_comprobantes")
+      .select("monto").eq("profesor_id", row.id).eq("mes", mes).eq("anio", anio);
+    const ab = ((data ?? []) as { monto: number }[]).reduce((a, b) => a + Number(b.monto), 0);
     const payload = {
       profesor_id: row.id, mes, anio,
       total_horas: horasDecimal(row.minutosClase + row.minutos1a1), total_bonos: row.bonos,
-      monto_total: row.total, estado: "pagado",
-      fecha_pago: new Date().toISOString(),
+      monto_total: row.total, estado: ab + 0.009 >= row.total && ab > 0 ? "pagado" : "por_pagar",
+      fecha_pago: ab > 0 ? new Date().toISOString() : null,
     };
-    if (row.pagoId) {
-      // update
-      const { error } = await supabase.from("pagos_mensuales").update(payload).eq("id", row.pagoId);
-      if (error) return toast.error(error.message);
-    } else {
-      const { error } = await supabase.from("pagos_mensuales").insert(payload);
-      if (error) return toast.error(error.message);
-    }
-    toast.success("Marcado como pagado");
-    cargar();
+    if (row.pagoId) await supabase.from("pagos_mensuales").update(payload).eq("id", row.pagoId);
+    else await supabase.from("pagos_mensuales").insert(payload);
   };
 
   const cerrarMes = async () => {
@@ -308,6 +353,19 @@ function Page() {
   const nombreItem = (i: ItemPago) =>
     i.tipo === "clase" ? (i.titulo || "Clase en vivo") : (i.alumnaId ? nombresAlumnas[i.alumnaId] || "Estudiante" : "Estudiante");
 
+  const abonosExport = (profesorId?: string): AbonoExportRow[] =>
+    abonos
+      .filter((a) => !profesorId || a.profesor_id === profesorId)
+      .map((a) => ({
+        fecha: a.fecha_pago,
+        profesor: formatNombre(profiles[a.profesor_id]?.nombre_completo) || profiles[a.profesor_id]?.email || "—",
+        monto: Number(a.monto),
+        tipo: a.tipo_pago,
+        banco: a.banco_texto || "",
+        numero: a.numero_comprobante || "",
+        observacion: a.observacion || "",
+      }));
+
   const descargarInforme = (row: StaffRow) => {
     const items: InformeItem[] = row.items.map((i) => ({
       fecha: i.fecha,
@@ -330,6 +388,7 @@ function Page() {
       nombre: row.nombre, tema: row.tema, mes, anio, items,
       canceladas: filasCanceladas.filter((c) => c.profesor === row.nombre),
       reemplazos: reems,
+      abonos: abonosExport(row.id),
       bonos: row.bonos, ajusteMin: row.ajusteMin, total: row.total,
       califPromedio: row.califPromedio, califCount: row.califCount,
     });
@@ -370,13 +429,13 @@ function Page() {
         </select>
         <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
           if (!staff.length) return toast.info("Sin datos para exportar");
-          exportarPagosExcel({ mes, anio, rows: staff, canceladas: filasCanceladas });
+          exportarPagosExcel({ mes, anio, rows: staff, canceladas: filasCanceladas, abonos: abonosExport() });
         }}>
           📊 Exportar Excel
         </button>
         <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
           if (!staff.length) return toast.info("Sin datos para exportar");
-          generarPagosPDF({ mes, anio, rows: staff, canceladas: filasCanceladas });
+          generarPagosPDF({ mes, anio, rows: staff, canceladas: filasCanceladas, abonos: abonosExport() });
         }}>
           <FileText className="w-4 h-4" /> Generar PDF
         </button>
@@ -388,6 +447,31 @@ function Page() {
         )}
       </div>
 
+      {/* Pestañas */}
+      <div className="flex flex-wrap gap-1 mb-5 p-1 rounded-xl border bg-card w-fit">
+        {TABS.map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${tab === t.id ? "bg-violet-gradient text-white" : "text-muted-foreground hover:text-foreground"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "precios" && (
+        <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={role === "admin"} onRefresh={cargar} />
+      )}
+      {tab === "abonos" && (
+        <PagosAbonos abonos={abonos} nombres={nombresStaff} totales={totalesPor} mes={mes} anio={anio} />
+      )}
+      {tab === "bonos" && (
+        <PagosBonos mes={mes} anio={anio} nombres={nombresStaff} puedeEditar={role === "admin"} onChanged={cargar} />
+      )}
+      {tab === "cuentas" && (
+        <PagosCuentas puedeEditar={role === "admin"} onChanged={cargarCuentas} />
+      )}
+
+      {tab === "resumen" && (
+      <>
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
@@ -453,16 +537,24 @@ function Page() {
                 </td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(2)}</td>
                 <td className="px-3 py-3">
-                  {s.estado === "pagado"
-                    ? <span className="px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Pagado</span>
-                    : <span className="px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Por pagar</span>}
+                  {estadoDe(s) === "pagado" ? (
+                    <span className="px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Pagado</span>
+                  ) : estadoDe(s) === "parcial" ? (
+                    <span className="px-2 py-1 rounded-md text-xs font-medium bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
+                      Abono ${(abonadoPor[s.id] ?? 0).toFixed(2)} · saldo ${(s.total - (abonadoPor[s.id] ?? 0)).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Por pagar</span>
+                  )}
                 </td>
                 <td className="px-3 py-3 text-right">
                   <button onClick={() => descargarInforme(s)} className="px-3 py-1.5 rounded-lg border text-xs font-semibold mr-2 inline-flex items-center gap-1">
                     <FileText className="w-3.5 h-3.5" /> Informe
                   </button>
-                  {role === "admin" && s.estado === "por_pagar" && (
-                    <button onClick={() => marcarPagado(s)} className="px-3 py-1.5 rounded-lg bg-violet-gradient text-white text-xs font-semibold">Marcar pagado</button>
+                  {role === "admin" && (
+                    <button onClick={() => setAbonoDe(s.id)} className="px-3 py-1.5 rounded-lg bg-violet-gradient text-white text-xs font-semibold">
+                      {estadoDe(s) === "pagado" ? "Ver pagos" : "Marcar pagado"}
+                    </button>
                   )}
                 </td>
               </tr>
@@ -516,6 +608,26 @@ function Page() {
           </div>
         </div>
       )}
+      </>
+      )}
+
+      {abonoDe && (() => {
+        const row = staff.find((s) => s.id === abonoDe);
+        if (!row) return null;
+        return (
+          <RegistrarAbonoModal
+            profesorId={row.id}
+            profesorNombre={row.nombre}
+            mes={mes}
+            anio={anio}
+            total={row.total}
+            abonos={abonos.filter((a) => a.profesor_id === row.id)}
+            cuentas={cuentas}
+            onClose={() => setAbonoDe(null)}
+            onSaved={async () => { await cargar(); await sincronizarPago(row); }}
+          />
+        );
+      })()}
     </div>
   );
 }

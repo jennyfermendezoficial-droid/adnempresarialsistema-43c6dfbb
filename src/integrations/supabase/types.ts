@@ -925,6 +925,104 @@ export type Database = {
         }
         Relationships: []
       }
+      pagos_comprobantes: {
+        Row: {
+          anio: number
+          archivo_url: string | null
+          banco_texto: string | null
+          creado_por: string | null
+          created_at: string
+          cuenta_id: string | null
+          datos_ocr: Json
+          fecha_pago: string
+          id: string
+          mes: number
+          monto: number
+          numero_comprobante: string | null
+          observacion: string | null
+          profesor_id: string
+          tipo_pago: string
+          updated_at: string
+        }
+        Insert: {
+          anio: number
+          archivo_url?: string | null
+          banco_texto?: string | null
+          creado_por?: string | null
+          created_at?: string
+          cuenta_id?: string | null
+          datos_ocr?: Json
+          fecha_pago?: string
+          id?: string
+          mes: number
+          monto?: number
+          numero_comprobante?: string | null
+          observacion?: string | null
+          profesor_id: string
+          tipo_pago?: string
+          updated_at?: string
+        }
+        Update: {
+          anio?: number
+          archivo_url?: string | null
+          banco_texto?: string | null
+          creado_por?: string | null
+          created_at?: string
+          cuenta_id?: string | null
+          datos_ocr?: Json
+          fecha_pago?: string
+          id?: string
+          mes?: number
+          monto?: number
+          numero_comprobante?: string | null
+          observacion?: string | null
+          profesor_id?: string
+          tipo_pago?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagos_comprobantes_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "pagos_cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pagos_cuentas_bancarias: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          nombre: string
+          numero_cuenta: string
+          tipo: string
+          titular: string | null
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+          numero_cuenta: string
+          tipo?: string
+          titular?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+          numero_cuenta?: string
+          tipo?: string
+          titular?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pagos_items_precio: {
         Row: {
           anio: number
