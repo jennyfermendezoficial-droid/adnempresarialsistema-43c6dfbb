@@ -84,7 +84,7 @@ function Page() {
       setReemplazos(((r as Reemplazo[]) ?? []));
       const ids = Array.from(new Set(se.flatMap((x) => [x.alumna_id, x.profesor_id]).filter((id) => id !== uid)));
       if (ids.length) {
-        const { data: ps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", ids);
+        const ps = await fetchPerfiles(ids);
         const map: Record<string, Profile> = {};
         ((ps as Profile[]) ?? []).forEach((p) => { map[p.id] = p; });
         setPersonas(map);
