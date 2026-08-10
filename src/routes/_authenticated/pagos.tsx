@@ -532,20 +532,63 @@ function KPI({ label, value, sub }: { label: string; value: string; sub?: string
 
 // ===================== DETALLE PROFESOR =====================
 
-function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, canceladas = [] }: {
+function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, canceladas = [], nombresAlumnas = {}, puedeEditar = false, onRefresh, onInforme, reemplazos = [] }: {
   row: StaffRow; profile?: Profile; mes: number; anio: number;
   onBack: () => void; onSelect: (id: string) => void; staff: StaffRow[];
   canceladas?: Array<{ fecha: string; tipo: string; con: string; estado: string; razon: string }>;
+  nombresAlumnas?: Record<string, string>;
+  puedeEditar?: boolean;
+  onRefresh?: () => void;
+  onInforme?: () => void;
+  reemplazos?: InformeReemplazo[];
 }) {
   const [califs, setCalifs] = useState<Array<{ claridad: number|null; didactica: number|null; practico: number|null; desenvolvimiento: number|null; comentario: string|null; created_at: string; alumna_id: string }>>([]);
-  const [bitacora, setBitacora] = useState<Array<{ fecha: string; tipo: string; detalle: string; monto: number }>>([]);
   const [alumnaNombres, setAlumnaNombres] = useState<Record<string, string>>({});
+  const [precios, setPrecios] = useState<Record<string, string>>(
+    Object.fromEntries(row.items.map((i) => [`${i.tipo}:${i.refId}`, i.monto ? String(i.monto) : ""])),
+  );
+  const [ajuste, setAjuste] = useState(String(row.ajusteMin || 0));
+  const [guardando, setGuardando] = useState(false);
+
+  const nombreItem = (i: ItemPago) =>
+    i.tipo === "clase" ? (i.titulo || "Clase en vivo") : (i.alumnaId ? nombresAlumnas[i.alumnaId] || "Estudiante" : "Estudiante");
+
+  const guardarPrecio = async (i: ItemPago) => {
+    const key = `${i.tipo}:${i.refId}`;
+    const monto = Number(precios[key] || 0);
+    if (Number.isNaN(monto) || monto < 0) return toast.error("Valor inválido");
+    if (monto === i.monto) return;
+    setGuardando(true);
+    const { error } = await supabase.from("pagos_items_precio").upsert({
+      profesor_id: row.id, tipo: i.tipo, referencia_id: i.refId, mes, anio, monto,
+    }, { onConflict: "tipo,referencia_id" });
+    setGuardando(false);
+    if (error) return toast.error(error.message);
+    toast.success("Valor guardado");
+    onRefresh?.();
+  };
+
+  const guardarAjuste = async () => {
+    const minutos = Math.round(Number(ajuste || 0));
+    if (Number.isNaN(minutos)) return toast.error("Minutos inválidos");
+    setGuardando(true);
+    const { error } = await supabase.from("pagos_ajustes").upsert({
+      profesor_id: row.id, mes, anio, minutos,
+    }, { onConflict: "profesor_id,mes,anio" });
+    setGuardando(false);
+    if (error) return toast.error(error.message);
+    toast.success("Ajuste guardado");
+    onRefresh?.();
+  };
+
+  const bitacora = row.items.slice(0, 10).map((i) => ({
+    fecha: i.fecha,
+    tipo: i.tipo === "clase" ? "Clase en vivo" : "Sesión 1:1",
+    detalle: `${nombreItem(i)} · ${formatHM(i.minutos)}`,
+    monto: i.monto,
+  }));
 
   useEffect(() => {
-    const ini = `${anio}-${String(mes).padStart(2,"0")}-01`;
-    const finDate = new Date(anio, mes, 0);
-    const fin = `${anio}-${String(mes).padStart(2,"0")}-${String(finDate.getDate()).padStart(2,"0")}`;
-
     (async () => {
       const { data: cals } = await supabase.from("calificaciones_mensuales")
         .select("claridad,didactica,practico,desenvolvimiento,comentario,created_at,alumna_id")
@@ -558,31 +601,8 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         ((ps ?? []) as Profile[]).forEach((p) => { m[p.id] = formatNombre(p.nombre_completo) || p.email; });
         setAlumnaNombres(m);
       }
-
-      // Bitácora: clases + sesiones del mes
-      const [clasesRes, sesionesRes] = await Promise.all([
-        supabase.from("clases_en_vivo").select("fecha,titulo,hora_inicio,hora_fin,duracion_min").eq("profesor_id", row.id).gte("fecha", ini).lte("fecha", fin),
-        supabase.from("sesiones_1a1").select("fecha,alumna_id,hora_inicio,hora_fin,duracion_min").eq("profesor_id", row.id).gte("fecha", ini).lte("fecha", fin),
-      ]);
-      const items: Array<{ fecha: string; tipo: string; detalle: string; monto: number }> = [];
-      ((clasesRes.data ?? []) as { fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
-        const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
-        items.push({ fecha: c.fecha, tipo: "Clase en vivo", detalle: `${c.titulo} · ${formatHM(min)}`, monto: (min / 60) * row.tarifaHora });
-      });
-      const aidSess = Array.from(new Set(((sesionesRes.data ?? []) as { alumna_id: string }[]).map((s) => s.alumna_id)));
-      if (aidSess.length) {
-        const { data: ps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", aidSess);
-        const m: Record<string,string> = {};
-        ((ps ?? []) as Profile[]).forEach((p) => { m[p.id] = formatNombre(p.nombre_completo) || p.email; });
-        ((sesionesRes.data ?? []) as { fecha: string; alumna_id: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((s) => {
-          const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
-          items.push({ fecha: s.fecha, tipo: "Sesión 1:1", detalle: `${m[s.alumna_id] || "Estudiante"} · ${formatHM(min)}`, monto: (min / 60) * row.tarifa1a1 });
-        });
-      }
-      items.sort((a,b) => b.fecha.localeCompare(a.fecha));
-      setBitacora(items.slice(0, 10));
     })();
-  }, [row.id, mes, anio, row.tarifa1a1, row.tarifaHora]);
+  }, [row.id, mes, anio]);
 
   const promedios = useMemo(() => {
     const acc = { claridad: [] as number[], didactica: [] as number[], desenvolvimiento: [] as number[], practico: [] as number[] };
@@ -610,7 +630,12 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
       </button>
       <div className="flex items-baseline justify-between flex-wrap gap-2 mb-5">
         <h1 className="text-2xl font-semibold">Informe detallado · {row.nombre}</h1>
-        <div className="text-xs text-muted-foreground">{MESES[mes-1]} {anio}</div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => onInforme?.()} className="px-3 py-2 rounded-lg border text-sm inline-flex items-center gap-1.5">
+            <FileText className="w-4 h-4" /> Descargar informe PDF
+          </button>
+          <div className="text-xs text-muted-foreground">{MESES[mes-1]} {anio}</div>
+        </div>
       </div>
 
       {/* Resumen + actividad */}
@@ -618,8 +643,8 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Resumen económico</div>
           <div className="space-y-3">
-            <Linea titulo="Clases grupales" sub={`${formatHM(row.minutosClase)} × $${row.tarifaHora}/h`} monto={(row.minutosClase / 60) * row.tarifaHora} />
-            <Linea titulo="Sesiones 1:1" sub={`${row.sesiones1a1} sesiones · ${formatHM(row.minutos1a1)} × $${row.tarifa1a1}/h`} monto={(row.minutos1a1 / 60) * row.tarifa1a1} />
+            <Linea titulo="Clases grupales" sub={formatHM(row.minutosClase)} monto={row.items.filter((i) => i.tipo === "clase").reduce((a, i) => a + i.monto, 0)} />
+            <Linea titulo="Sesiones 1:1" sub={`${row.sesiones1a1} sesiones · ${formatHM(row.minutos1a1)}`} monto={row.items.filter((i) => i.tipo === "1a1").reduce((a, i) => a + i.monto, 0)} />
             {row.bonos > 0 && <Linea titulo="Bonos del mes" sub="otorgados por admin" monto={row.bonos} />}
             <div className="border-t pt-3 flex items-baseline justify-between">
               <div className="text-sm font-semibold">Total a pagar</div>
