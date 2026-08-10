@@ -168,10 +168,13 @@ export function ChatThread({
     const body = text.trim();
     setText("");
     if (usaMenciones) { setEtiquetados([]); setEveryone(false); }
-    if (pushRecipientIds && pushRecipientIds.length) {
+    const destinos = usaMenciones
+      ? (everyone ? (mentionables ?? []).map((m) => m.id) : etiquetados.map((e) => e.id))
+      : pushRecipientIds;
+    if (destinos && destinos.length) {
       sendPushToUsers({
         data: {
-          userIds: pushRecipientIds,
+          userIds: destinos,
           title: pushTitle || "Nuevo mensaje",
           body: body.slice(0, 200),
           url: pushUrl || "/chats",
