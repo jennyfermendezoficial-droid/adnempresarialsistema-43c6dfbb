@@ -162,7 +162,7 @@ export function ChatThread({
       payload.menciones = everyone ? [] : etiquetados.map((e) => e.id);
       payload.mencion_everyone = everyone;
     }
-    const { error } = await supabase.from(table).insert(payload);
+    const { error } = await supabase.from(table).insert(payload as never);
     setSending(false);
     if (error) return toast.error(error.message);
     const body = text.trim();
