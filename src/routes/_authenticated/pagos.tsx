@@ -699,6 +699,84 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       </div>
 
+      {/* Precios por clase / sesión */}
+      <div className="rounded-2xl border bg-card p-5 mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Valor de cada clase y sesión · {MESES[mes-1]} {anio}
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground text-xs">Ajuste de tiempo (min)</span>
+            <input type="number" value={ajuste} disabled={!puedeEditar}
+              onChange={(e) => setAjuste(e.target.value)} onBlur={guardarAjuste}
+              className="w-24 px-2 py-1 rounded-lg border bg-background text-right" />
+          </div>
+        </div>
+        {row.items.length === 0 ? (
+          <div className="text-xs text-muted-foreground">Sin clases ni sesiones registradas este mes.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
+                  <th className="text-left px-2 py-2 font-semibold">Fecha</th>
+                  <th className="text-left px-2 py-2 font-semibold">Horario</th>
+                  <th className="text-left px-2 py-2 font-semibold">Tipo</th>
+                  <th className="text-left px-2 py-2 font-semibold">Con / Tema</th>
+                  <th className="text-left px-2 py-2 font-semibold">Duración</th>
+                  <th className="text-right px-2 py-2 font-semibold">Valor $</th>
+                </tr>
+              </thead>
+              <tbody>
+                {row.items.map((i) => {
+                  const key = `${i.tipo}:${i.refId}`;
+                  return (
+                    <tr key={key} className="border-t">
+                      <td className="px-2 py-2 whitespace-nowrap">{new Date(i.fecha + "T00:00:00").toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}</td>
+                      <td className="px-2 py-2 whitespace-nowrap">{i.horaInicio.slice(0,5)}{i.horaFin ? ` – ${i.horaFin.slice(0,5)}` : ""}</td>
+                      <td className="px-2 py-2">{i.tipo === "clase" ? "Clase en vivo" : "1 a 1"}</td>
+                      <td className="px-2 py-2">{nombreItem(i)}</td>
+                      <td className="px-2 py-2">{formatHM(i.minutos)}</td>
+                      <td className="px-2 py-2 text-right">
+                        <input type="number" step="0.01" min="0" disabled={!puedeEditar || guardando}
+                          value={precios[key] ?? ""}
+                          onChange={(e) => setPrecios((p) => ({ ...p, [key]: e.target.value }))}
+                          onBlur={() => guardarPrecio(i)}
+                          placeholder="0.00"
+                          className="w-24 px-2 py-1 rounded-lg border bg-background text-right tabular-nums" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!puedeEditar && <div className="text-xs text-muted-foreground mt-2">Solo un administrador puede cambiar los valores.</div>}
+      </div>
+
+      {/* Reemplazos reportados */}
+      {reemplazos.length > 0 && (
+        <div className="rounded-2xl border bg-card p-5 mb-6">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">
+            Reemplazos reportados · informativo
+          </div>
+          <div className="space-y-2">
+            {reemplazos.map((r, i) => (
+              <div key={i} className="flex items-start gap-3 text-sm border-b last:border-0 pb-2 last:pb-0">
+                <div className="text-[11px] uppercase opacity-60 w-14 pt-0.5">
+                  {new Date(r.fecha + "T00:00:00").toLocaleDateString("es-PE", { day: "numeric", month: "short" })}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium">{r.detalle} · <span className="text-muted-foreground font-normal">reemplazó a {r.profesor}</span></div>
+                  {r.nota && <div className="text-xs text-muted-foreground">{r.nota}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Canceladas / no registradas */}
       <div className="rounded-2xl border bg-card p-5 mb-6">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">
