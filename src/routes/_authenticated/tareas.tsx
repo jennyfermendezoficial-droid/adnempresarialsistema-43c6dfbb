@@ -693,7 +693,7 @@ function AlumnasTab({
   const [q, setQ] = useState("");
 
   const list = alumnas.filter((a) =>
-    !q || (a.nombre_completo || a.email).toLowerCase().includes(q.toLowerCase()),
+    !q || (a.nombre_completo || a.email || "").toLowerCase().includes(q.toLowerCase()),
   );
 
   const sel = selected ? alumnas.find((a) => a.id === selected) : null;
