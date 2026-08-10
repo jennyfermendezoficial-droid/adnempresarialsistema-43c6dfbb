@@ -371,6 +371,57 @@ function Page() {
     </div>
   );
 }
+interface CalItem { tipo: "clase" | "1a1"; id: string; fecha: string; hora: string; titulo: string }
+
+function CalendarioMes({ anio, mes, items, diaSel, onDia }: {
+  anio: number; mes: number; items: CalItem[]; diaSel: string | null; onDia: (fecha: string) => void;
+}) {
+  const primero = new Date(anio, mes - 1, 1);
+  const offset = primero.getDay();
+  const dias = new Date(anio, mes, 0).getDate();
+  const celdas: (string | null)[] = [
+    ...Array.from({ length: offset }, () => null),
+    ...Array.from({ length: dias }, (_, i) => `${anio}-${String(mes).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`),
+  ];
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div className="rounded-2xl border bg-card p-4 mb-4">
+      <div className="grid grid-cols-7 gap-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+        {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map((d) => <div key={d} className="text-center py-1">{d}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {celdas.map((fecha, i) => {
+          if (!fecha) return <div key={`v${i}`} />;
+          const delDia = items.filter((x) => x.fecha === fecha);
+          const activo = diaSel === fecha;
+          return (
+            <button key={fecha} onClick={() => onDia(fecha)}
+              className={`min-h-[64px] rounded-xl border p-1.5 text-left transition ${activo ? "border-violet bg-violet/10" : "hover:bg-muted/40"}`}
+              style={activo ? { borderColor: "var(--violet)" } : undefined}>
+              <div className={`text-[11px] font-semibold ${fecha === hoy ? "text-violet" : ""}`} style={fecha === hoy ? { color: "var(--violet)" } : undefined}>
+                {Number(fecha.slice(8))}
+              </div>
+              <div className="space-y-0.5 mt-0.5">
+                {delDia.slice(0, 2).map((x) => (
+                  <div key={x.id} className="text-[9px] leading-tight truncate rounded px-1 py-0.5 text-white"
+                    style={{ background: x.tipo === "clase" ? "var(--violet)" : "#16a34a" }}>
+                    {x.hora.slice(0, 5)} {x.titulo}
+                  </div>
+                ))}
+                {delDia.length > 2 && <div className="text-[9px] text-muted-foreground">+{delDia.length - 2} más</div>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground mt-3">
+        Toca un día para ver solo esas clases abajo y reportar quién te reemplazó o registrar la duración.
+      </p>
+    </div>
+  );
+}
+
 function ReemplazoModal({ titulo, profesores, onClose, onSave }: {
   titulo: string;
   profesores: Profile[];
