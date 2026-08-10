@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { ChatThread } from "@/components/ChatThread";
 import { formatNombre } from "@/lib/nombres";
+import { fetchPerfiles } from "@/lib/perfiles";
 
 export const Route = createFileRoute("/_authenticated/chat-profesores")({ component: Page });
 
