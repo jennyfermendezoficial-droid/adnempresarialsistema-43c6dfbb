@@ -5,10 +5,11 @@ import { useAuth } from "@/lib/auth-context";
 import { ChatThread } from "@/components/ChatThread";
 import { Plus, Search, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { fetchPerfiles } from "@/lib/perfiles";
 
 export const Route = createFileRoute("/_authenticated/chats")({ component: Page });
 
-interface Profile { id: string; nombre_completo: string; email: string }
+interface Profile { id: string; nombre_completo: string; email?: string | null }
 interface Chat { id: string; usuario_a_id: string; usuario_b_id: string; last_message_at: string }
 
 function Page() {
@@ -25,7 +26,7 @@ function Page() {
   useEffect(() => {
     if (!uid) return;
     (async () => {
-      const { data: profs } = await supabase.from("profiles").select("id,nombre_completo,email");
+      const profs = await fetchPerfiles();
       const list = (profs ?? []) as Profile[];
       const m: Record<string, Profile> = {};
       list.forEach((p) => { m[p.id] = p; });
@@ -51,7 +52,7 @@ function Page() {
 
   const authorMap = useMemo(() => {
     const m: Record<string, { name: string }> = {};
-    Object.values(profiles).forEach((p) => { m[p.id] = { name: p.nombre_completo || p.email }; });
+    Object.values(profiles).forEach((p) => { m[p.id] = { name: p.nombre_completo || p.email || "Usuario" }; });
     return m;
   }, [profiles]);
 
@@ -85,9 +86,9 @@ function Page() {
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar usuario…" className="w-full pl-8 pr-2 py-2 rounded-lg border bg-background text-sm" />
             </div>
             <div className="max-h-64 overflow-y-auto mt-2">
-              {allUsers.filter((u) => (u.nombre_completo || u.email).toLowerCase().includes(search.toLowerCase())).map((u) => (
+              {allUsers.filter((u) => (u.nombre_completo || u.email || "").toLowerCase().includes(search.toLowerCase())).map((u) => (
                 <button key={u.id} onClick={() => openChatWith(u.id)} className="w-full text-left p-2 rounded-lg hover:bg-muted text-sm">
-                  {u.nombre_completo || u.email}
+                  {u.nombre_completo || u.email || "Usuario"}
                 </button>
               ))}
             </div>

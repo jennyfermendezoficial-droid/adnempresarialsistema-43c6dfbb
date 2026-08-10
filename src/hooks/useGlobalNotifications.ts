@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { notify, registerSW, ensureNotificationPermission } from "@/lib/notifications";
 import { subscribePushIfPossible } from "@/lib/push-subscribe";
+import { fetchPerfiles } from "@/lib/perfiles";
 
 /**
  * Suscribe al usuario a notificaciones globales:
@@ -66,9 +67,8 @@ export function useGlobalNotifications() {
           .maybeSingle();
         if (!chat) return;
         if (chat.usuario_a_id !== uid && chat.usuario_b_id !== uid) return;
-        const { data: prof } = await supabase
-          .from("profiles").select("nombre_completo, email").eq("id", row.autor_id).maybeSingle();
-        const nombre = prof?.nombre_completo || prof?.email || "Mensaje nuevo";
+        const [prof] = await fetchPerfiles([row.autor_id]);
+        const nombre = prof?.nombre_completo || "Mensaje nuevo";
         notify({
           title: nombre,
           body: row.tipo === "texto" ? (row.contenido ?? "") : `Te envió un ${row.tipo}`,
@@ -82,8 +82,7 @@ export function useGlobalNotifications() {
         if (row.autor_id === uid) return;
         if (seenRef.current.has(row.id)) return;
         seenRef.current.add(row.id);
-        const { data: prof } = await supabase
-          .from("profiles").select("nombre_completo, email").eq("id", row.autor_id).maybeSingle();
+        const [prof] = await fetchPerfiles([row.autor_id]);
         notify({
           title: `${prof?.nombre_completo || "Comunidad"} · #general`,
           body: row.tipo === "texto" ? (row.contenido ?? "") : `Compartió un ${row.tipo}`,
@@ -113,9 +112,8 @@ export function useGlobalNotifications() {
         const isProfesor = row.profesor_id === uid;
         const isAdmin = role === "admin";
         if (!isProfesor && !isAdmin) return;
-        const { data: alumna } = await supabase
-          .from("profiles").select("nombre_completo, email").eq("id", row.alumna_id).maybeSingle();
-        const nombre = alumna?.nombre_completo || alumna?.email || "Una alumna";
+        const [alumna] = await fetchPerfiles([row.alumna_id]);
+        const nombre = alumna?.nombre_completo || "Una alumna";
         const fechaTxt = new Date(row.fecha + "T00:00:00").toLocaleDateString("es-PE", { weekday: "short", day: "numeric", month: "short" });
         notify({
           title: "Nueva reserva 1 a 1",

@@ -6,6 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { createZoomMeeting } from "@/lib/zoom.functions";
 import { ChevronLeft, ChevronRight, Plus, Video, Trash2, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { fetchPerfiles } from "@/lib/perfiles";
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 
 export const Route = createFileRoute("/_authenticated/calendario-clases")({ component: Page });
@@ -51,11 +52,10 @@ function Page() {
   // Cargar mentores (admin + soporte) para asignar quien dicta la clase
   useEffect(() => {
     (async () => {
-      const { data: staffRows } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: { id: string }[] | null }>)("listar_profesores");
-      const ids = Array.from(new Set((staffRows ?? []).map((r) => r.id)));
-      if (!ids.length) return;
-      const { data: ps } = await supabase.from("profiles").select("id, nombre_completo, email").in("id", ids);
-      setStaff((ps ?? []).map((p: { id: string; nombre_completo: string; email: string }) => ({ id: p.id, nombre: p.nombre_completo || p.email })));
+      const { data: staffRows } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: { id: string; nombre_completo: string | null; email?: string | null }[] | null }>)("listar_profesores");
+      const ps = (staffRows ?? []).filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i);
+      if (!ps.length) return;
+      setStaff(ps.map((p) => ({ id: p.id, nombre: p.nombre_completo || p.email || "Profesor" })));
     })();
   }, []);
 

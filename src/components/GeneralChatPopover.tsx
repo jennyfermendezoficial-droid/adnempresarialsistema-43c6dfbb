@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChatThread } from "./ChatThread";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatNombre } from "@/lib/nombres";
+import { fetchPerfiles } from "@/lib/perfiles";
 import { useAuth } from "@/lib/auth-context";
 
 const SEEN_KEY = "general-last-seen";
@@ -34,9 +35,9 @@ export function GeneralChatPopover() {
   openRef.current = open;
 
   useEffect(() => {
-    supabase.from("profiles").select("id,nombre_completo,email,avatar_url").then(({ data }) => {
+    fetchPerfiles().then((data) => {
       const m: Record<string, { name: string; avatar?: string | null }> = {};
-      (data ?? []).forEach((p) => { m[p.id] = { name: formatNombre(p.nombre_completo) || p.email, avatar: p.avatar_url }; });
+      data.forEach((p) => { m[p.id] = { name: formatNombre(p.nombre_completo) || p.email || "Usuario", avatar: p.avatar_url }; });
       setAuthorMap(m);
     });
   }, []);
@@ -48,9 +49,8 @@ export function GeneralChatPopover() {
         const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "usuario");
         const ids = Array.from(new Set(((roles ?? []) as { user_id: string }[]).map((r) => r.user_id)));
         if (!ids.length) return setMentionables([]);
-        const { data } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", ids);
-        setMentionables(((data ?? []) as { id: string; nombre_completo: string; email: string }[])
-          .map((p) => ({ id: p.id, name: formatNombre(p.nombre_completo) || p.email })));
+        const data = await fetchPerfiles(ids);
+        setMentionables(data.map((p) => ({ id: p.id, name: formatNombre(p.nombre_completo) || p.email || "Usuario" })));
       } else {
         const { data } = await supabase.rpc("listar_profesores");
         setMentionables(((data ?? []) as { id: string; nombre_completo: string; email: string }[])

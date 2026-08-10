@@ -1596,6 +1596,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      perfiles_publicos: {
+        Args: { _ids?: string[] }
+        Returns: {
+          actividad: string
+          avatar_url: string
+          id: string
+          nombre_completo: string
+        }[]
+      }
       profile_privileged_unchanged: {
         Args: {
           _estado: Database["public"]["Enums"]["user_estado"]

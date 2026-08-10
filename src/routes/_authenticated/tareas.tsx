@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
+import { fetchPerfiles } from "@/lib/perfiles";
 import {
   FileText, Plus, Upload, Trash2, Download, Loader2, X,
   CheckCircle2, Clock, ChevronDown, ChevronUp, Users, Pencil,
@@ -47,7 +48,7 @@ interface Entrega {
 }
 export interface ArchivoEntrega { url: string; nombre: string; tipo?: string | null; size?: number; [k: string]: unknown }
 interface Curso { id: string; nombre: string }
-interface Profile { id: string; nombre_completo: string; email: string; avatar_url: string | null }
+interface Profile { id: string; nombre_completo: string; email?: string | null; avatar_url: string | null }
 
 function Page() {
   const { session, role } = useAuth();
@@ -403,13 +404,13 @@ function StaffDashboard({ uid: _uid }: { uid: string }) {
       supabase.from("tareas_entregas").select("*").order("created_at", { ascending: false }),
       supabase.from("cursos").select("id,nombre").order("nombre"),
       alumnaIds.length
-        ? supabase.from("profiles").select("id,nombre_completo,email,avatar_url").in("id", alumnaIds)
+        ? fetchPerfiles(alumnaIds).then((data) => ({ data: data as unknown as Profile[] }))
         : Promise.resolve({ data: [] as Profile[] }),
     ]);
     setTareas((t as Tarea[]) ?? []);
     setEntregas((e as Entrega[]) ?? []);
     setCursos((c as Curso[]) ?? []);
-    setAlumnas(((ps as Profile[]) ?? []).sort((a, b) => (a.nombre_completo || a.email).localeCompare(b.nombre_completo || b.email)));
+    setAlumnas(((ps as Profile[]) ?? []).sort((a, b) => (a.nombre_completo || a.email || "").localeCompare(b.nombre_completo || b.email || "")));
     setLoading(false);
   };
   useEffect(() => { reload(); }, []);
@@ -692,7 +693,7 @@ function AlumnasTab({
   const [q, setQ] = useState("");
 
   const list = alumnas.filter((a) =>
-    !q || (a.nombre_completo || a.email).toLowerCase().includes(q.toLowerCase()),
+    !q || (a.nombre_completo || a.email || "").toLowerCase().includes(q.toLowerCase()),
   );
 
   const sel = selected ? alumnas.find((a) => a.id === selected) : null;

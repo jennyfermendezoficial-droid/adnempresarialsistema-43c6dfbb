@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Star, X } from "lucide-react";
 import { toast } from "sonner";
+import { fetchPerfiles } from "@/lib/perfiles";
 
 interface Pending {
   id: string;
@@ -76,16 +77,12 @@ export function PostClassRatingModal() {
           .maybeSingle();
         if (ya) continue;
 
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("nombre_completo, email")
-          .eq("id", s.profesor_id)
-          .maybeSingle();
+        const [prof] = await fetchPerfiles([s.profesor_id]);
 
         setPending({
           id: s.id,
           profesor_id: s.profesor_id,
-          profesor_nombre: prof?.nombre_completo || prof?.email || "Tu profesor",
+          profesor_nombre: prof?.nombre_completo || "Tu profesor",
           fecha: s.fecha,
           hora_inicio: s.hora_inicio,
         });

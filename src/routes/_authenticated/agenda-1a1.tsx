@@ -8,11 +8,12 @@ import { ChevronLeft, ChevronRight, Video, X as XIcon, Star, Clock } from "lucid
 import { toast } from "sonner";
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 import { formatNombre } from "@/lib/nombres";
+import { fetchPerfiles } from "@/lib/perfiles";
 
 export const Route = createFileRoute("/_authenticated/agenda-1a1")({ component: Page });
 
 interface Sesion { id: string; fecha: string; hora_inicio: string; hora_fin: string | null; profesor_id: string; alumna_id: string; zoom_link: string | null; estado: string; duracion_min?: number | null; motivo?: string | null }
-interface Profile { id: string; nombre_completo: string; email: string; avatar_url?: string | null; actividad?: string | null }
+interface Profile { id: string; nombre_completo: string; email?: string | null; avatar_url?: string | null; actividad?: string | null }
 
 // Slots cada HORA PUNTUAL · la duración real la registra el profesor al terminar
 const HORAS = ["09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00","19:00"];
@@ -29,7 +30,7 @@ const TEMAS: { match: string; tema: string }[] = [
 ];
 function temaDe(p: Profile) {
   if (p.actividad && p.actividad.trim()) return p.actividad.trim();
-  const k = (p.nombre_completo + " " + p.email).toLowerCase();
+  const k = ((p.nombre_completo ?? "") + " " + (p.email ?? "")).toLowerCase();
   return TEMAS.find((t) => k.includes(t.match))?.tema ?? "Mentoría general";
 }
 
@@ -69,14 +70,12 @@ function Page() {
   useEffect(() => {
     // profesores = admin + soporte
     (async () => {
-      const { data: staffRows } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: { id: string }[] | null }>)("listar_profesores");
-      const ids = Array.from(new Set((staffRows ?? []).map((r) => r.id)));
+      const { data: staffRows } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: Profile[] | null }>)("listar_profesores");
+      const list = ((staffRows ?? []) as Profile[]).filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i);
+      const ids = list.map((p) => p.id);
       if (!ids.length) return;
-      const { data: profs } = await supabase.from("profiles")
-        .select("id,nombre_completo,email,avatar_url,actividad").in("id", ids);
-      const list = (profs ?? []) as Profile[];
       // Orden alfabético
-      list.sort((a, b) => (a.nombre_completo || a.email).localeCompare(b.nombre_completo || b.email));
+      list.sort((a, b) => (a.nombre_completo || a.email || "").localeCompare(b.nombre_completo || b.email || ""));
       setProfesores(list);
       if (list.length && !profesorId) setProfesorId(list[0].id);
 
@@ -122,8 +121,8 @@ function Page() {
     const faltan = ids.filter((id) => id && !personas[id]);
     if (!faltan.length) return;
     (async () => {
-      const { data } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", faltan);
-      if (!data?.length) return;
+      const data = await fetchPerfiles(faltan);
+      if (!data.length) return;
       setPersonas((prev) => {
         const next = { ...prev };
         (data as Profile[]).forEach((p) => { next[p.id] = p; });
@@ -272,11 +271,11 @@ function Page() {
                       style={active
                         ? { background: "rgba(255,255,255,.22)", color: "white" }
                         : { background: "linear-gradient(135deg,var(--violet),var(--violet-2))", color: "white" }}>
-                      {(formatNombre(p.nombre_completo) || p.email).slice(0,1).toUpperCase()}
+                      {(formatNombre(p.nombre_completo) || p.email || "?").slice(0,1).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-semibold truncate" style={active ? { color: "white" } : undefined}>
-                        {formatNombre(p.nombre_completo) || p.email}
+                        {formatNombre(p.nombre_completo) || p.email || "Mentor"}
                       </div>
                     </div>
                   </div>
