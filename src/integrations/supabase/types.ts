@@ -481,6 +481,8 @@ export type Database = {
           eliminado: boolean
           id: string
           media_url: string | null
+          mencion_everyone: boolean
+          menciones: string[]
           tipo: string
         }
         Insert: {
@@ -491,6 +493,8 @@ export type Database = {
           eliminado?: boolean
           id?: string
           media_url?: string | null
+          mencion_everyone?: boolean
+          menciones?: string[]
           tipo?: string
         }
         Update: {
@@ -501,6 +505,8 @@ export type Database = {
           eliminado?: boolean
           id?: string
           media_url?: string | null
+          mencion_everyone?: boolean
+          menciones?: string[]
           tipo?: string
         }
         Relationships: []
@@ -889,6 +895,72 @@ export type Database = {
         }
         Relationships: []
       }
+      pagos_ajustes: {
+        Row: {
+          anio: number
+          created_at: string
+          id: string
+          mes: number
+          minutos: number
+          profesor_id: string
+          updated_at: string
+        }
+        Insert: {
+          anio: number
+          created_at?: string
+          id?: string
+          mes: number
+          minutos?: number
+          profesor_id: string
+          updated_at?: string
+        }
+        Update: {
+          anio?: number
+          created_at?: string
+          id?: string
+          mes?: number
+          minutos?: number
+          profesor_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pagos_items_precio: {
+        Row: {
+          anio: number
+          created_at: string
+          id: string
+          mes: number
+          monto: number
+          profesor_id: string
+          referencia_id: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          anio: number
+          created_at?: string
+          id?: string
+          mes: number
+          monto?: number
+          profesor_id: string
+          referencia_id: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          anio?: number
+          created_at?: string
+          id?: string
+          mes?: number
+          monto?: number
+          profesor_id?: string
+          referencia_id?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pagos_mensuales: {
         Row: {
           anio: number
@@ -1061,6 +1133,39 @@ export type Database = {
           p256dh?: string
           user_agent?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      reemplazos_clase: {
+        Row: {
+          created_at: string
+          fecha: string
+          id: string
+          nota: string | null
+          profesor_reemplazado: string
+          profesor_reporta: string
+          referencia_id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          fecha: string
+          id?: string
+          nota?: string | null
+          profesor_reemplazado: string
+          profesor_reporta: string
+          referencia_id: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          nota?: string | null
+          profesor_reemplazado?: string
+          profesor_reporta?: string
+          referencia_id?: string
+          tipo?: string
         }
         Relationships: []
       }
