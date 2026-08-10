@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { notify, registerSW, ensureNotificationPermission } from "@/lib/notifications";
 import { subscribePushIfPossible } from "@/lib/push-subscribe";
+import { fetchPerfiles } from "@/lib/perfiles";
 
 /**
  * Suscribe al usuario a notificaciones globales:
