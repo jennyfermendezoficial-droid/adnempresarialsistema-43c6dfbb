@@ -451,6 +451,31 @@ function Page() {
         )}
       </div>
 
+      {/* Pestañas */}
+      <div className="flex flex-wrap gap-1 mb-5 p-1 rounded-xl border bg-card w-fit">
+        {TABS.map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${tab === t.id ? "bg-violet-gradient text-white" : "text-muted-foreground hover:text-foreground"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "precios" && (
+        <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={role === "admin"} onRefresh={cargar} />
+      )}
+      {tab === "abonos" && (
+        <PagosAbonos abonos={abonos} nombres={nombresStaff} totales={totalesPor} mes={mes} anio={anio} />
+      )}
+      {tab === "bonos" && (
+        <PagosBonos mes={mes} anio={anio} nombres={nombresStaff} puedeEditar={role === "admin"} onChanged={cargar} />
+      )}
+      {tab === "cuentas" && (
+        <PagosCuentas puedeEditar={role === "admin"} onChanged={cargarCuentas} />
+      )}
+
+      {tab === "resumen" && (
+      <>
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
@@ -516,16 +541,24 @@ function Page() {
                 </td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(2)}</td>
                 <td className="px-3 py-3">
-                  {s.estado === "pagado"
-                    ? <span className="px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Pagado</span>
-                    : <span className="px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Por pagar</span>}
+                  {estadoDe(s) === "pagado" ? (
+                    <span className="px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Pagado</span>
+                  ) : estadoDe(s) === "parcial" ? (
+                    <span className="px-2 py-1 rounded-md text-xs font-medium bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
+                      Abono ${(abonadoPor[s.id] ?? 0).toFixed(2)} · saldo ${(s.total - (abonadoPor[s.id] ?? 0)).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Por pagar</span>
+                  )}
                 </td>
                 <td className="px-3 py-3 text-right">
                   <button onClick={() => descargarInforme(s)} className="px-3 py-1.5 rounded-lg border text-xs font-semibold mr-2 inline-flex items-center gap-1">
                     <FileText className="w-3.5 h-3.5" /> Informe
                   </button>
-                  {role === "admin" && s.estado === "por_pagar" && (
-                    <button onClick={() => marcarPagado(s)} className="px-3 py-1.5 rounded-lg bg-violet-gradient text-white text-xs font-semibold">Marcar pagado</button>
+                  {role === "admin" && (
+                    <button onClick={() => setAbonoDe(s.id)} className="px-3 py-1.5 rounded-lg bg-violet-gradient text-white text-xs font-semibold">
+                      {estadoDe(s) === "pagado" ? "Ver pagos" : "Marcar pagado"}
+                    </button>
                   )}
                 </td>
               </tr>
