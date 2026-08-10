@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Lock, Star, ChevronLeft, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
-import { generarPagosPDF, exportarPagosExcel, listaMeses } from "@/lib/pagos-export";
+import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo } from "@/lib/pagos-export";
 import { formatNombre } from "@/lib/nombres";
 
 export const Route = createFileRoute("/_authenticated/pagos")({ component: Page });
@@ -18,6 +18,21 @@ interface Cancelada {
   id: string; tipo: string; profesor_id: string; contraparte_id: string | null;
   titulo: string | null; fecha: string; estado: string; razon: string | null;
 }
+interface Reemplazo {
+  id: string; tipo: string; referencia_id: string; profesor_reporta: string;
+  profesor_reemplazado: string; fecha: string; nota: string | null;
+}
+export interface ItemPago {
+  tipo: "clase" | "1a1";
+  refId: string;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  minutos: number;
+  titulo: string | null;
+  alumnaId: string | null;
+  monto: number;
+}
 
 interface StaffRow {
   id: string;
@@ -26,10 +41,10 @@ interface StaffRow {
   rol: string;
   tema: string;
   minutosClase: number;
-  tarifaHora: number;
   sesiones1a1: number;
   minutos1a1: number;
-  tarifa1a1: number;
+  ajusteMin: number;
+  items: ItemPago[];
   mensajesEstudiantes: number;
   califPromedio: number;
   califCount: number;
@@ -53,22 +68,6 @@ function temaDe(p: Profile) {
 const COLORS = ["#7C6BFF","#22A06B","#E78A3C","#3C8FE7","#C2756B"];
 function colorDe(id: string) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; }
 function inicial(p: Profile) { return (p.nombre_completo || p.email).slice(0,1).toUpperCase(); }
-
-// Tarifa por estrellas
-function tarifaSesion(stars: number) {
-  if (stars >= 4.5) return 10;
-  if (stars >= 4.0) return 8;
-  if (stars >= 3.5) return 7;
-  if (stars > 0)    return 6;
-  return 8;
-}
-function tarifaHora(stars: number) {
-  if (stars >= 4.5) return 15;
-  if (stars >= 4.0) return 12;
-  if (stars >= 3.5) return 10;
-  if (stars > 0)    return 8;
-  return 12;
-}
 
 function Page() {
   const { role } = useAuth();
