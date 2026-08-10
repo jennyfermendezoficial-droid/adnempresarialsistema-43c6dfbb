@@ -77,16 +77,12 @@ export function PostClassRatingModal() {
           .maybeSingle();
         if (ya) continue;
 
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("nombre_completo, email")
-          .eq("id", s.profesor_id)
-          .maybeSingle();
+        const [prof] = await fetchPerfiles([s.profesor_id]);
 
         setPending({
           id: s.id,
           profesor_id: s.profesor_id,
-          profesor_nombre: prof?.nombre_completo || prof?.email || "Tu profesor",
+          profesor_nombre: prof?.nombre_completo || "Tu profesor",
           fecha: s.fecha,
           hora_inicio: s.hora_inicio,
         });
