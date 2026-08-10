@@ -612,6 +612,26 @@ function Page() {
           </div>
         </div>
       )}
+      </>
+      )}
+
+      {abonoDe && (() => {
+        const row = staff.find((s) => s.id === abonoDe);
+        if (!row) return null;
+        return (
+          <RegistrarAbonoModal
+            profesorId={row.id}
+            profesorNombre={row.nombre}
+            mes={mes}
+            anio={anio}
+            total={row.total}
+            abonos={abonos.filter((a) => a.profesor_id === row.id)}
+            cuentas={cuentas}
+            onClose={() => setAbonoDe(null)}
+            onSaved={async () => { await cargar(); await sincronizarPago(row); }}
+          />
+        );
+      })()}
     </div>
   );
 }
