@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Lock, Star, ChevronLeft, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
-import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo } from "@/lib/pagos-export";
+import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo, type AbonoExportRow } from "@/lib/pagos-export";
 import { formatNombre } from "@/lib/nombres";
 import { RegistrarAbonoModal, type Abono, type CuentaEmpresa } from "@/components/pagos/RegistrarAbonoModal";
 import { PagosPrecios, type FilaPrecio } from "@/components/pagos/PagosPrecios";
@@ -353,6 +353,19 @@ function Page() {
   const nombreItem = (i: ItemPago) =>
     i.tipo === "clase" ? (i.titulo || "Clase en vivo") : (i.alumnaId ? nombresAlumnas[i.alumnaId] || "Estudiante" : "Estudiante");
 
+  const abonosExport = (profesorId?: string): AbonoExportRow[] =>
+    abonos
+      .filter((a) => !profesorId || a.profesor_id === profesorId)
+      .map((a) => ({
+        fecha: a.fecha_pago,
+        profesor: formatNombre(profiles[a.profesor_id]?.nombre_completo) || profiles[a.profesor_id]?.email || "—",
+        monto: Number(a.monto),
+        tipo: a.tipo_pago,
+        banco: a.banco_texto || "",
+        numero: a.numero_comprobante || "",
+        observacion: a.observacion || "",
+      }));
+
   const descargarInforme = (row: StaffRow) => {
     const items: InformeItem[] = row.items.map((i) => ({
       fecha: i.fecha,
@@ -375,6 +388,7 @@ function Page() {
       nombre: row.nombre, tema: row.tema, mes, anio, items,
       canceladas: filasCanceladas.filter((c) => c.profesor === row.nombre),
       reemplazos: reems,
+      abonos: abonosExport(row.id),
       bonos: row.bonos, ajusteMin: row.ajusteMin, total: row.total,
       califPromedio: row.califPromedio, califCount: row.califCount,
     });
@@ -415,13 +429,13 @@ function Page() {
         </select>
         <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
           if (!staff.length) return toast.info("Sin datos para exportar");
-          exportarPagosExcel({ mes, anio, rows: staff, canceladas: filasCanceladas });
+          exportarPagosExcel({ mes, anio, rows: staff, canceladas: filasCanceladas, abonos: abonosExport() });
         }}>
           📊 Exportar Excel
         </button>
         <button className="px-3 py-2 rounded-lg border bg-card text-sm flex items-center gap-1.5" onClick={() => {
           if (!staff.length) return toast.info("Sin datos para exportar");
-          generarPagosPDF({ mes, anio, rows: staff, canceladas: filasCanceladas });
+          generarPagosPDF({ mes, anio, rows: staff, canceladas: filasCanceladas, abonos: abonosExport() });
         }}>
           <FileText className="w-4 h-4" /> Generar PDF
         </button>
