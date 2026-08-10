@@ -1597,7 +1597,7 @@ export type Database = {
         Returns: undefined
       }
       perfiles_publicos: {
-        Args: { _ids: string[] }
+        Args: { _ids?: string[] }
         Returns: {
           actividad: string
           avatar_url: string
