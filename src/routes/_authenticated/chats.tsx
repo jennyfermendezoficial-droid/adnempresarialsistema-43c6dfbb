@@ -86,9 +86,9 @@ function Page() {
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar usuario…" className="w-full pl-8 pr-2 py-2 rounded-lg border bg-background text-sm" />
             </div>
             <div className="max-h-64 overflow-y-auto mt-2">
-              {allUsers.filter((u) => (u.nombre_completo || u.email).toLowerCase().includes(search.toLowerCase())).map((u) => (
+              {allUsers.filter((u) => (u.nombre_completo || u.email || "").toLowerCase().includes(search.toLowerCase())).map((u) => (
                 <button key={u.id} onClick={() => openChatWith(u.id)} className="w-full text-left p-2 rounded-lg hover:bg-muted text-sm">
-                  {u.nombre_completo || u.email}
+                  {u.nombre_completo || u.email || "Usuario"}
                 </button>
               ))}
             </div>
