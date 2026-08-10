@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Send, Paperclip, Mic, Square, Image as ImageIcon, Trash2 } from "lucide-react";
+import { Send, Paperclip, Mic, Square, Image as ImageIcon, Trash2, AtSign, X } from "lucide-react";
 import { toast } from "sonner";
 import { sendPushToUsers } from "@/lib/send-push.functions";
 
@@ -13,6 +13,8 @@ export interface ChatMessageRow {
   media_url: string | null;
   created_at: string;
   eliminado?: boolean | null;
+  menciones?: string[] | null;
+  mencion_everyone?: boolean | null;
 }
 
 export interface ChatThreadProps {
@@ -31,6 +33,9 @@ export interface ChatThreadProps {
   pushRecipientIds?: string[];
   pushTitle?: string;
   pushUrl?: string;
+  /** Personas que se pueden etiquetar (solo canal general) */
+  mentionables?: { id: string; name: string }[];
+  mentionHint?: string;
 }
 
 const MAX_BYTES = 25 * 1024 * 1024; // 25MB
@@ -47,6 +52,8 @@ export function ChatThread({
   pushRecipientIds,
   pushTitle,
   pushUrl,
+  mentionables,
+  mentionHint = "Elige a quién avisar. Sin etiqueta, nadie recibe notificación.",
 }: ChatThreadProps) {
   const { session, role } = useAuth();
   const uid = session?.user.id;
@@ -60,6 +67,11 @@ export function ChatThread({
   const recChunks = useRef<Blob[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const firstLoadRef = useRef(true);
+  const usaMenciones = table === "canal_general_mensajes" && !!mentionables;
+  const [etiquetados, setEtiquetados] = useState<{ id: string; name: string }[]>([]);
+  const [everyone, setEveryone] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [buscar, setBuscar] = useState("");
 
   // Sonido tipo notificación (web audio, sin assets)
   const playPing = () => {
@@ -103,7 +115,11 @@ export function ChatThread({
           if (filter && row && (row as unknown as Record<string, unknown>)[filter.column] !== filter.value) return;
           if (payload.eventType === "INSERT") {
             setMessages((m) => [...m, row]);
-            if (!firstLoadRef.current && row.autor_id !== uid) playPing();
+            const meMenciona =
+              table !== "canal_general_mensajes" ||
+              !!row.mencion_everyone ||
+              (!!uid && (row.menciones ?? []).includes(uid));
+            if (!firstLoadRef.current && row.autor_id !== uid && meMenciona) playPing();
           }
           if (payload.eventType === "UPDATE") setMessages((m) => m.map((x) => (x.id === row.id ? row : x)));
           if (payload.eventType === "DELETE") setMessages((m) => m.filter((x) => x.id !== old.id));
@@ -141,12 +157,17 @@ export function ChatThread({
   const send = async () => {
     if (!uid || !text.trim()) return;
     setSending(true);
-    const payload = { autor_id: uid, tipo: "texto", contenido: text.trim(), ...extraInsert };
+    const payload: Record<string, unknown> = { autor_id: uid, tipo: "texto", contenido: text.trim(), ...extraInsert };
+    if (usaMenciones) {
+      payload.menciones = everyone ? [] : etiquetados.map((e) => e.id);
+      payload.mencion_everyone = everyone;
+    }
     const { error } = await supabase.from(table).insert(payload);
     setSending(false);
     if (error) return toast.error(error.message);
     const body = text.trim();
     setText("");
+    if (usaMenciones) { setEtiquetados([]); setEveryone(false); }
     if (pushRecipientIds && pushRecipientIds.length) {
       sendPushToUsers({
         data: {
