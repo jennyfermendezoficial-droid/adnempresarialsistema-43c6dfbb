@@ -435,8 +435,13 @@ function Page() {
                     </div>
                   </button>
                 </td>
-                <td className="px-3 py-3">{formatHM(s.minutosClase)} <span className="text-muted-foreground text-xs">× ${s.tarifaHora}/h</span></td>
-                <td className="px-3 py-3">{s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)} × ${s.tarifa1a1}/h</span></td>
+                <td className="px-3 py-3">
+                  {formatHM(s.minutosClase)}
+                  {s.ajusteMin !== 0 && (
+                    <span className="text-muted-foreground text-xs"> · ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</span>
+                  )}
+                </td>
+                <td className="px-3 py-3">{s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span></td>
                 <td className="px-3 py-3">{s.mensajesEstudiantes}</td>
                 <td className="px-3 py-3">
                   {s.califCount > 0 ? (
@@ -453,6 +458,9 @@ function Page() {
                     : <span className="px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Por pagar</span>}
                 </td>
                 <td className="px-3 py-3 text-right">
+                  <button onClick={() => descargarInforme(s)} className="px-3 py-1.5 rounded-lg border text-xs font-semibold mr-2 inline-flex items-center gap-1">
+                    <FileText className="w-3.5 h-3.5" /> Informe
+                  </button>
                   {role === "admin" && s.estado === "por_pagar" && (
                     <button onClick={() => marcarPagado(s)} className="px-3 py-1.5 rounded-lg bg-violet-gradient text-white text-xs font-semibold">Marcar pagado</button>
                   )}
