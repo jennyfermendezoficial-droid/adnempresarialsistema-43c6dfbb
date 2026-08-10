@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChatThread } from "./ChatThread";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatNombre } from "@/lib/nombres";
+import { fetchPerfiles } from "@/lib/perfiles";
 import { useAuth } from "@/lib/auth-context";
 
 const SEEN_KEY = "general-last-seen";
