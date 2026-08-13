@@ -36,6 +36,7 @@ import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authentica
 import { Route as AuthenticatedAccesoCursosRouteImport } from './routes/_authenticated/acceso-cursos'
 import { Route as AuthenticatedAccesoClasesEnVivoRouteImport } from './routes/_authenticated/acceso-clases-en-vivo'
 import { Route as AuthenticatedCursosIndexRouteImport } from './routes/_authenticated/cursos.index'
+import { Route as AuthenticatedComunidadIndexRouteImport } from './routes/_authenticated/comunidad.index'
 import { Route as ApiPublicZoomWebhookRouteImport } from './routes/api/public/zoom-webhook'
 import { Route as AuthenticatedCursosCursoIdRouteImport } from './routes/_authenticated/cursos.$cursoId'
 
@@ -183,6 +184,12 @@ const AuthenticatedCursosIndexRoute =
     path: '/cursos/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedComunidadIndexRoute =
+  AuthenticatedComunidadIndexRouteImport.update({
+    id: '/comunidad/',
+    path: '/comunidad/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicZoomWebhookRoute = ApiPublicZoomWebhookRouteImport.update({
   id: '/api/public/zoom-webhook',
   path: '/api/public/zoom-webhook',
@@ -223,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/tareas': typeof AuthenticatedTareasRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
   '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
+  '/comunidad/': typeof AuthenticatedComunidadIndexRoute
   '/cursos/': typeof AuthenticatedCursosIndexRoute
 }
 export interface FileRoutesByTo {
@@ -253,6 +261,7 @@ export interface FileRoutesByTo {
   '/tareas': typeof AuthenticatedTareasRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
   '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
+  '/comunidad': typeof AuthenticatedComunidadIndexRoute
   '/cursos': typeof AuthenticatedCursosIndexRoute
 }
 export interface FileRoutesById {
@@ -285,6 +294,7 @@ export interface FileRoutesById {
   '/_authenticated/tareas': typeof AuthenticatedTareasRoute
   '/_authenticated/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
   '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
+  '/_authenticated/comunidad/': typeof AuthenticatedComunidadIndexRoute
   '/_authenticated/cursos/': typeof AuthenticatedCursosIndexRoute
 }
 export interface FileRouteTypes {
@@ -317,6 +327,7 @@ export interface FileRouteTypes {
     | '/tareas'
     | '/cursos/$cursoId'
     | '/api/public/zoom-webhook'
+    | '/comunidad/'
     | '/cursos/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -347,6 +358,7 @@ export interface FileRouteTypes {
     | '/tareas'
     | '/cursos/$cursoId'
     | '/api/public/zoom-webhook'
+    | '/comunidad'
     | '/cursos'
   id:
     | '__root__'
@@ -378,6 +390,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tareas'
     | '/_authenticated/cursos/$cursoId'
     | '/api/public/zoom-webhook'
+    | '/_authenticated/comunidad/'
     | '/_authenticated/cursos/'
   fileRoutesById: FileRoutesById
 }
@@ -581,6 +594,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCursosIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/comunidad/': {
+      id: '/_authenticated/comunidad/'
+      path: '/comunidad'
+      fullPath: '/comunidad/'
+      preLoaderRoute: typeof AuthenticatedComunidadIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/zoom-webhook': {
       id: '/api/public/zoom-webhook'
       path: '/api/public/zoom-webhook'
@@ -621,6 +641,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPermisosRoute: typeof AuthenticatedPermisosRoute
   AuthenticatedTareasRoute: typeof AuthenticatedTareasRoute
   AuthenticatedCursosCursoIdRoute: typeof AuthenticatedCursosCursoIdRoute
+  AuthenticatedComunidadIndexRoute: typeof AuthenticatedComunidadIndexRoute
   AuthenticatedCursosIndexRoute: typeof AuthenticatedCursosIndexRoute
 }
 
@@ -647,6 +668,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPermisosRoute: AuthenticatedPermisosRoute,
   AuthenticatedTareasRoute: AuthenticatedTareasRoute,
   AuthenticatedCursosCursoIdRoute: AuthenticatedCursosCursoIdRoute,
+  AuthenticatedComunidadIndexRoute: AuthenticatedComunidadIndexRoute,
   AuthenticatedCursosIndexRoute: AuthenticatedCursosIndexRoute,
 }
 
