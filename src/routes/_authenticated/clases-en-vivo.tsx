@@ -51,7 +51,14 @@ function Page() {
   }, [uid]);
 
   if (activeId) {
-    return <CursoDetalle cursoId={activeId} volver={true} />;
+    return (
+      <CursoDetalle
+        cursoId={activeId}
+        volver
+        volverTo="/clases-en-vivo"
+        volverLabel="Volver a clases en vivo"
+      />
+    );
   }
 
   return (
