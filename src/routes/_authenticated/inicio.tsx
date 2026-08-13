@@ -20,8 +20,6 @@ interface Cfg {
   inicio_video_url: string | null;
   inicio_titulo: string | null;
   inicio_mensaje: string | null;
-  tutorial_alumnos_url: string | null;
-  tutorial_profesores_url: string | null;
 }
 
 function Page() {
@@ -29,7 +27,7 @@ function Page() {
   const uid = session?.user.id;
   const [cfg, setCfg] = useState<Cfg | null>(null);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<Cfg>({ inicio_video_url: "", inicio_titulo: "", inicio_mensaje: "", tutorial_alumnos_url: "", tutorial_profesores_url: "" });
+  const [draft, setDraft] = useState<Cfg>({ inicio_video_url: "", inicio_titulo: "", inicio_mensaje: "" });
   const [progreso, setProgreso] = useState<{ pct: number; vistas: number; total: number } | null>(null);
   const [proxSesion, setProxSesion] = useState<{ fecha: string; hora_inicio: string; zoom_link: string | null; otroNombre: string } | null>(null);
   const [sinLeer, setSinLeer] = useState<number>(0);
@@ -68,9 +66,9 @@ function Page() {
   }, [cfg?.inicio_video_url]); // eslint-disable-line
 
   useEffect(() => {
-    supabase.from("app_config").select("inicio_video_url,inicio_titulo,inicio_mensaje,tutorial_alumnos_url,tutorial_profesores_url").eq("id", true).maybeSingle()
+    supabase.from("app_config").select("inicio_video_url,inicio_titulo,inicio_mensaje").eq("id", true).maybeSingle()
       .then(({ data }) => {
-        const c = (data as Cfg) ?? { inicio_video_url: null, inicio_titulo: "Bienvenidos a ADN Empresarial", inicio_mensaje: "Tu transformación empresarial comienza aquí.", tutorial_alumnos_url: null, tutorial_profesores_url: null };
+        const c = (data as Cfg) ?? { inicio_video_url: null, inicio_titulo: "Bienvenidos a ADN Empresarial", inicio_mensaje: "Tu transformación empresarial comienza aquí." };
         setCfg(c);
         setDraft(c);
       });
