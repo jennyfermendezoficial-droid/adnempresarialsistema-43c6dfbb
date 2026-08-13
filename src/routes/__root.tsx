@@ -38,35 +38,31 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Try again
-          </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Go home
-          </a>
-        </div>
-      </div>
-    </div>
-  );
+  // No mostramos la pantalla genérica de error al usuario. Recuperamos la ruta
+  // una sola vez y, si el fallo persiste, volvemos al inicio sin cambiar el UI
+  // de ninguna de las páginas existentes.
+  if (typeof window !== "undefined") {
+    const recoveryKey = "adn-global-error-recovery";
+    const alreadyRecovered = sessionStorage.getItem(recoveryKey) === "1";
+
+    if (!alreadyRecovered) {
+      sessionStorage.setItem(recoveryKey, "1");
+      queueMicrotask(() => {
+        try {
+          router.invalidate();
+          reset();
+        } catch {
+          window.location.assign("/inicio");
+        }
+      });
+    } else {
+      queueMicrotask(() => {
+        window.location.assign("/inicio");
+      });
+    }
+  }
+
+  return null;
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
