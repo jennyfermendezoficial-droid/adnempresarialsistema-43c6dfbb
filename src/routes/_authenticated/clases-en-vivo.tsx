@@ -55,8 +55,8 @@ function Page() {
       <CursoDetalle
         cursoId={activeId}
         volver
-        volverTo="/clases-en-vivo"
         volverLabel="Volver a clases en vivo"
+        onVolver={() => setActiveId(null)}
       />
     );
   }
