@@ -105,15 +105,18 @@ export function ChatsPopover() {
   // Realtime: refresca lista y marca no leídos
   const openRef = useRef(open);
   openRef.current = open;
+  const cargarRef = useRef(cargar);
+  cargarRef.current = cargar;
   useEffect(() => {
     if (!uid) return;
+    const topic = `chats-popover-${uid}-${Math.random().toString(36).slice(2)}`;
     const channel = supabase
-      .channel(`chats-popover-${uid}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "mensajes_chat_1a1" }, () => { cargar(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "chats_1a1" }, () => { cargar(); })
+      .channel(topic)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mensajes_chat_1a1" }, () => { cargarRef.current(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "chats_1a1" }, () => { cargarRef.current(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [uid, cargar]);
+  }, [uid]);
 
   const nombre = (id: string) => formatNombre(perfiles[id]?.nombre_completo || "") || "Usuario";
 
