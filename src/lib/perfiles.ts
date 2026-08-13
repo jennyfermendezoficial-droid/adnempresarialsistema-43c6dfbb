@@ -12,7 +12,7 @@ type RpcFn = (fn: string, args?: Record<string, unknown>) => Promise<{ data: Per
 
 /** Datos públicos (nombre, foto, actividad) de personas. Sin correos ni tarifas. */
 export async function fetchPerfiles(ids?: string[]): Promise<PerfilPublico[]> {
-  const rpc = supabase.rpc as unknown as RpcFn;
+  const rpc = (supabase.rpc as unknown as RpcFn).bind(supabase) as RpcFn;
   const args = ids ? { _ids: Array.from(new Set(ids.filter(Boolean))) } : {};
   if (ids && !(args as { _ids: string[] })._ids.length) return [];
   const { data } = await rpc("perfiles_publicos", args);
