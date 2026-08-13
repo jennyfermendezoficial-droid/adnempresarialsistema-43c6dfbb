@@ -9,7 +9,8 @@ import { fetchPerfiles } from "@/lib/perfiles";
 
 export const Route = createFileRoute("/_authenticated/chats")({
   component: Page,
-  validateSearch: (s: Record<string, unknown>) => ({ con: typeof s.con === "string" ? s.con : undefined }),
+  validateSearch: (s: Record<string, unknown>): { con?: string } =>
+    typeof s.con === "string" ? { con: s.con } : {},
 });
 
 interface Profile { id: string; nombre_completo: string; email?: string | null }
