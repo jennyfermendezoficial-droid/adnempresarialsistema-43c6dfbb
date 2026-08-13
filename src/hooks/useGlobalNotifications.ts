@@ -53,7 +53,7 @@ export function useGlobalNotifications() {
   useEffect(() => {
     if (!uid) return;
     const channel = supabase
-      .channel(`notif-msg-${uid}`)
+      .channel(`notif-msg-${uid}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes_chat_1a1" }, async (payload) => {
         const row = payload.new as { id: string; chat_id: string; autor_id: string; contenido: string | null; tipo: string };
         if (row.autor_id === uid) return;
