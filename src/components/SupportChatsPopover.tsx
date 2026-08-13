@@ -11,7 +11,9 @@ class ChatErrorBoundary extends Component<{ children: ReactNode }, { failed: boo
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
   render() {
-    if (this.state.failed) return <div className="h-full grid place-items-center p-4 text-center text-sm text-muted-foreground">No se pudo cargar el chat. Cierra y vuelve a abrir el panel.</div>;
+    if (this.state.failed) {
+      return <div className="h-full grid place-items-center p-4 text-center text-sm text-muted-foreground">No se pudo cargar el chat. Cierra y vuelve a abrir el panel.</div>;
+    }
     return this.props.children;
   }
 }
@@ -19,7 +21,7 @@ class ChatErrorBoundary extends Component<{ children: ReactNode }, { failed: boo
 interface ChatRow { id: string; usuario_a_id: string; usuario_b_id: string; last_message_at: string }
 const getName = (profile?: PerfilPublico) => profile ? formatNombre(profile.nombre_completo) || profile.email || "Usuario" : "Usuario";
 
-export function SupportChatsPopover() {
+export function GeneralChatPopover() {
   const { session, role } = useAuth();
   const uid = session?.user.id;
   const isStaff = role === "admin" || role === "soporte";
@@ -57,10 +59,13 @@ export function SupportChatsPopover() {
     if (!isStaff) {
       const { data } = await supabase.rpc("listar_soporte_chat");
       setSupportContacts((data as PerfilPublico[]) ?? []);
-    } else setSupportContacts([]);
+    } else {
+      setSupportContacts([]);
+    }
   };
 
   useEffect(() => { void loadData(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [uid, isStaff]);
+
   useEffect(() => {
     if (!uid) return;
     const channel = supabase.channel(`top-chat-${uid}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes_chat_1a1" }, (payload) => {
@@ -73,6 +78,10 @@ export function SupportChatsPopover() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid, chats, isStaff]);
 
+  useEffect(() => {
+    if (selectedId && !selectedChat) setSelectedId(null);
+  }, [selectedId, selectedChat]);
+
   const openChatWith = async (targetId: string) => {
     if (!uid || isStaff) return;
     const existing = chats.find((chat) => (chat.usuario_a_id === uid && chat.usuario_b_id === targetId) || (chat.usuario_b_id === uid && chat.usuario_a_id === targetId));
@@ -80,7 +89,8 @@ export function SupportChatsPopover() {
     const { data, error } = await supabase.rpc("crear_chat_soporte", { _target_id: targetId });
     if (error || !data) return;
     const created = data as ChatRow;
-    const target = (await fetchPerfiles([targetId]))[0];
+    const profileList = await fetchPerfiles([targetId]);
+    const target = profileList[0];
     if (target) setProfiles((current) => ({ ...current, [target.id]: target }));
     setChats((current) => [created, ...current]);
     setSelectedId(created.id);
@@ -95,8 +105,13 @@ export function SupportChatsPopover() {
   });
   const filteredSupport = supportContacts.filter((profile) => getName(profile).toLowerCase().includes(search.trim().toLowerCase()));
 
+  const handleOpenChange = (value: boolean) => {
+    setOpen(value);
+    if (value) { setUnread(false); setShowNew(false); setSearch(""); void loadData(); }
+  };
+
   return (
-    <Popover open={open} onOpenChange={(value) => { setOpen(value); if (value) { setUnread(false); setShowNew(false); setSearch(""); void loadData(); } }}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger title="Chats" aria-label="Chats" className="relative w-9 h-9 grid place-items-center rounded-full transition hover:bg-white/10 outline-none" style={{ color: "var(--violet-light)" }}>
         <MessageSquare className="w-[18px] h-[18px]" />
         {unread && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: "var(--violet)" }} />}
@@ -104,7 +119,10 @@ export function SupportChatsPopover() {
       <PopoverContent align="end" sideOffset={8} className="w-[470px] p-0 overflow-hidden">
         {selectedId ? (
           <div className="h-[520px] flex flex-col">
-            <div className="flex items-center gap-2 px-4 py-3 border-b bg-background"><button onClick={() => setSelectedId(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Volver a chats"><ArrowLeft className="w-4 h-4" /></button><div className="min-w-0"><div className="text-sm font-semibold truncate">{selectedName}</div><div className="text-[11px] text-muted-foreground">Chat privado</div></div></div>
+            <div className="flex items-center gap-2 px-4 py-3 border-b bg-background">
+              <button onClick={() => setSelectedId(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Volver a chats"><ArrowLeft className="w-4 h-4" /></button>
+              <div className="min-w-0"><div className="text-sm font-semibold truncate">{selectedName}</div><div className="text-[11px] text-muted-foreground">Chat privado</div></div>
+            </div>
             <div className="flex-1 min-h-0 p-2"><ChatErrorBoundary><ChatThread table="mensajes_chat_1a1" filter={{ column: "chat_id", value: selectedId }} extraInsert={{ chat_id: selectedId }} authorMap={authorMap} height="100%" emptyHint="Escribe tu primer mensaje." pushRecipientIds={otherId ? [otherId] : undefined} pushTitle={selectedName} pushUrl="/chats" /></ChatErrorBoundary></div>
           </div>
         ) : (
