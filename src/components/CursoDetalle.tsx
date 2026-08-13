@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth-context";
 import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil, Youtube, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -602,7 +603,7 @@ export function CursoDetalle({
                         <Youtube className="w-3.5 h-3.5"/>
                       </button>
                       <button onClick={() => borrarModulo(m.id)} className="p-1.5 rounded opacity-50 hover:opacity-100">
-                        <Trash2 className="w-3.5 h-3.5"/>
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   )}
