@@ -1728,6 +1728,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      actividad_miembros: {
+        Args: never
+        Returns: {
+          ultima_actividad: string
+          user_id: string
+        }[]
+      }
       cancelar_clase: {
         Args: { _id: string; _razon: string }
         Returns: undefined
