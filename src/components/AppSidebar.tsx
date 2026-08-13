@@ -4,9 +4,7 @@ import { Home, LogOut } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
-import {
-  inicioItems, soporteItems, academiaItems, comunidadItems, adminItems,
-} from "@/lib/nav-items";
+import { mainItems, staffItems, adminItems } from "@/lib/nav-items";
 
 interface Item { to: string; label: string; icon: typeof Home; }
 
@@ -39,20 +37,13 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
           <BrandName className="text-[15px]" />
         </Link>
 
-        <SectionLabel>Inicio</SectionLabel>
-        <Nav items={inicioItems} isActive={isActive} onClick={onNavigate} />
-
-        <SectionLabel className="mt-3">Soporte</SectionLabel>
-        <Nav items={soporteItems} isActive={isActive} onClick={onNavigate} />
-
-        <SectionLabel className="mt-3">Academia</SectionLabel>
-        <Nav items={academiaItems} isActive={isActive} onClick={onNavigate} />
-
-        <SectionLabel className="mt-3">Comunidad</SectionLabel>
-        <Nav items={comunidadItems} isActive={isActive} onClick={onNavigate} />
+        <SectionLabel>Menú</SectionLabel>
+        <Nav items={mainItems} isActive={isActive} onClick={onNavigate} />
 
         {(role === "admin" || role === "soporte") && (
           <>
+            <SectionLabel className="mt-3">Profesores</SectionLabel>
+            <Nav items={staffItems} isActive={isActive} onClick={onNavigate} />
             <SectionLabel className="mt-3">Admin</SectionLabel>
             <Nav items={adminItems} isActive={isActive} onClick={onNavigate} />
           </>

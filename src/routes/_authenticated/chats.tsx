@@ -7,12 +7,17 @@ import { Plus, Search, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { fetchPerfiles } from "@/lib/perfiles";
 
-export const Route = createFileRoute("/_authenticated/chats")({ component: Page });
+export const Route = createFileRoute("/_authenticated/chats")({
+  component: Page,
+  validateSearch: (s: Record<string, unknown>): { con?: string } =>
+    typeof s.con === "string" ? { con: s.con } : {},
+});
 
 interface Profile { id: string; nombre_completo: string; email?: string | null }
 interface Chat { id: string; usuario_a_id: string; usuario_b_id: string; last_message_at: string }
 
 function Page() {
+  const { con } = Route.useSearch();
   const { session, role } = useAuth();
   const uid = session?.user.id;
   const isStaff = role === "admin" || role === "soporte";
@@ -68,6 +73,11 @@ function Page() {
     setSelected((data as Chat).id);
     setShowNew(false);
   };
+
+  useEffect(() => {
+    if (!uid || !con) return;
+    openChatWith(con);
+  }, [uid, con, chats.length]); // eslint-disable-line
 
   if (!uid) return null;
 

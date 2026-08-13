@@ -6,11 +6,15 @@ export interface PerfilPublico {
   avatar_url?: string | null;
   actividad?: string | null;
   email?: string | null;
+  biografia?: string | null;
+  created_at?: string | null;
+  puntos?: number | null;
+  nivel?: number | null;
 }
 
 type RpcFn = (fn: string, args?: Record<string, unknown>) => Promise<{ data: PerfilPublico[] | null }>;
 
-/** Datos públicos (nombre, foto, actividad) de personas. Sin correos ni tarifas. */
+/** Datos públicos (nombre, foto, actividad, nivel) de personas. Sin correos ni tarifas. */
 export async function fetchPerfiles(ids?: string[]): Promise<PerfilPublico[]> {
   const rpc = (supabase.rpc as unknown as RpcFn).bind(supabase) as RpcFn;
   const args = ids ? { _ids: Array.from(new Set(ids.filter(Boolean))) } : {};

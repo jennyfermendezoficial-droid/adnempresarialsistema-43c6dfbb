@@ -1,27 +1,27 @@
 import {
   Home, BookOpen, CalendarDays, Users,
   ShieldCheck, Wallet, Calendar,
-  Bell, GraduationCap, Radio,
+  Bell, Radio, Sparkles,
 } from "lucide-react";
 
 export interface NavItem { to: string; label: string; icon: typeof Home }
 
-export const inicioItems: NavItem[] = [
-  { to: "/inicio", label: "Inicio", icon: Home },
-  { to: "/tutoriales", label: "Tutoriales", icon: GraduationCap },
-];
-export const soporteItems: NavItem[] = [
-  { to: "/agenda-1a1", label: "Agenda 1 a 1", icon: CalendarDays },
-];
-export const academiaItems: NavItem[] = [
+/** Orden principal del menú (todos los usuarios). */
+export const mainItems: NavItem[] = [
+  { to: "/comunidad", label: "Comunidad", icon: Sparkles },
   { to: "/cursos", label: "Cursos", icon: BookOpen },
   { to: "/clases-en-vivo", label: "Clases en vivo", icon: Radio },
   { to: "/calendario-clases", label: "Calendario de clases", icon: Calendar },
+  { to: "/agenda-1a1", label: "Agenda 1 a 1", icon: CalendarDays },
+  { to: "/miembros", label: "Miembros", icon: Users },
+  { to: "/inicio", label: "Inicio", icon: Home },
+];
+
+/** Solo profesores (soporte) y admin. */
+export const staffItems: NavItem[] = [
   { to: "/mis-clases-asignadas", label: "Mis clases asignadas", icon: Bell },
 ];
-export const comunidadItems: NavItem[] = [
-  { to: "/miembros", label: "Miembros", icon: Users },
-];
+
 export const adminItems: NavItem[] = [
   { to: "/permisos", label: "Permisos", icon: ShieldCheck },
   { to: "/acceso-cursos", label: "Acceso a cursos", icon: BookOpen },
