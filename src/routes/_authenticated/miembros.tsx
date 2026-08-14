@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -33,7 +33,7 @@ function Page() {
       <input placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} className="w-full mb-4 px-3 py-2 rounded-lg border bg-background" />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((r) => (
-          <div key={r.id} className="p-4 rounded-2xl border bg-card flex gap-3 items-center">
+          <Link key={r.id} to="/miembro/$userId" params={{ userId: r.id }} className="p-4 rounded-2xl border bg-card flex gap-3 items-center hover:bg-muted/40 transition">
             {r.avatar_url ? (
               <img src={r.avatar_url} className="w-12 h-12 rounded-full object-cover" alt="" />
             ) : (
@@ -49,7 +49,7 @@ function Page() {
                 <span className={`px-1.5 py-0.5 rounded ${r.estado === "activo" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>{r.estado}</span>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>

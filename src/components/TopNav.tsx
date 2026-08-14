@@ -5,15 +5,12 @@ import { useRef, useState } from "react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
-import { GeneralChatPopover } from "./GeneralChatPopover";
+import { ChatsPopover } from "./ChatsPopover";
 import { NotificationsPopover } from "./NotificationsPopover";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  inicioItems, soporteItems, academiaItems, comunidadItems, adminItems,
-  type NavItem,
-} from "@/lib/nav-items";
+import { mainItems, staffItems, adminItems, type NavItem } from "@/lib/nav-items";
 
 const BAR = "var(--deep-2)";
 
@@ -83,12 +80,11 @@ export function TopNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
-  const flat: NavItem[] = [...inicioItems, ...soporteItems, ...academiaItems, ...comunidadItems];
-  const groups: { label: string; items: NavItem[] }[] = [
-    ...(role === "admin" || role === "soporte"
-      ? [{ label: "Admin", items: adminItems }]
-      : []),
-  ];
+  const isStaff = role === "admin" || role === "soporte";
+  const flat: NavItem[] = isStaff ? [...mainItems, ...staffItems] : mainItems;
+  const groups: { label: string; items: NavItem[] }[] = isStaff
+    ? [{ label: "Admin", items: adminItems }]
+    : [];
 
   const initial = (formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase();
 
@@ -106,13 +102,13 @@ export function TopNav() {
         <div className="relative z-10 mx-auto w-full max-w-[1400px] px-6">
           {/* Fila 1 */}
           <div className="h-14 flex items-center gap-4">
-            <Link to="/inicio" className="flex items-center gap-3 min-w-0">
+            <Link to="/comunidad" className="flex items-center gap-3 min-w-0">
               <Logo size={30} />
               <BrandName className="text-[15px] truncate" />
             </Link>
 
             <div className="ml-auto flex items-center gap-2 shrink-0">
-              <GeneralChatPopover />
+              <ChatsPopover />
               <NotificationsPopover />
               <InstallAppButton variant="icon" />
 

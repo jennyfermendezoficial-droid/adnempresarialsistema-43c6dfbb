@@ -5,7 +5,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { TopNav } from "@/components/TopNav";
 import { Logo, BrandName } from "@/components/Logo";
 import { PostClassRatingModal } from "@/components/PostClassRatingModal";
-import { GeneralChatPopover } from "@/components/GeneralChatPopover";
+import { ChatsPopover } from "@/components/ChatsPopover";
 import { NotificationsPopover } from "@/components/NotificationsPopover";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { Menu, X } from "lucide-react";
@@ -110,7 +110,7 @@ function AuthedLayout() {
             <BrandName className="text-[14px] truncate" />
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <GeneralChatPopover />
+            <ChatsPopover />
             <NotificationsPopover />
           </div>
         </header>

@@ -11,6 +11,8 @@ function Page() {
   const { profile, session, refresh } = useAuth();
   const uid = session?.user.id;
   const [nombre, setNombre] = useState("");
+  const [actividad, setActividad] = useState("");
+  const [biografia, setBiografia] = useState("");
   const [negocioNombre, setNegocioNombre] = useState("");
   const [negocioFoto, setNegocioFoto] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -20,8 +22,15 @@ function Page() {
   useEffect(() => {
     if (profile) setNombre(profile.nombre_completo);
     if (!uid) return;
-    supabase.from("profiles").select("negocio_nombre,negocio_foto_url").eq("id", uid).maybeSingle()
-      .then(({ data }) => { if (data) { setNegocioNombre((data as { negocio_nombre: string | null }).negocio_nombre ?? ""); setNegocioFoto((data as { negocio_foto_url: string | null }).negocio_foto_url); } });
+    supabase.from("profiles").select("negocio_nombre,negocio_foto_url,actividad,biografia").eq("id", uid).maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        const d = data as { negocio_nombre: string | null; negocio_foto_url: string | null; actividad: string | null; biografia: string | null };
+        setNegocioNombre(d.negocio_nombre ?? "");
+        setNegocioFoto(d.negocio_foto_url);
+        setActividad(d.actividad ?? "");
+        setBiografia(d.biografia ?? "");
+      });
   }, [profile, uid]);
 
   const save = async () => {
@@ -30,6 +39,8 @@ function Page() {
     const { error } = await supabase.from("profiles").update({
       nombre_completo: nombre,
       negocio_nombre: negocioNombre || null,
+      actividad: actividad || null,
+      biografia: biografia || null,
     }).eq("id", uid);
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -91,6 +102,14 @@ function Page() {
         <div>
           <label className="text-xs font-medium">Nombre completo</label>
           <input value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg border bg-background" />
+        </div>
+        <div>
+          <label className="text-xs font-medium">A qué te dedicas</label>
+          <input value={actividad} onChange={(e) => setActividad(e.target.value)} placeholder="Ej: Emprendedora textil" className="w-full mt-1 px-3 py-2 rounded-lg border bg-background" />
+        </div>
+        <div>
+          <label className="text-xs font-medium">Biografía</label>
+          <textarea value={biografia} onChange={(e) => setBiografia(e.target.value)} rows={4} placeholder="Cuéntale a la comunidad quién eres…" className="w-full mt-1 px-3 py-2 rounded-lg border bg-background resize-y" />
         </div>
       </div>
 

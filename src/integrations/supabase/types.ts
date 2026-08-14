@@ -364,8 +364,6 @@ export type Database = {
           inicio_mensaje: string | null
           inicio_titulo: string | null
           inicio_video_url: string | null
-          tutorial_alumnos_url: string | null
-          tutorial_profesores_url: string | null
           updated_at: string
         }
         Insert: {
@@ -373,8 +371,6 @@ export type Database = {
           inicio_mensaje?: string | null
           inicio_titulo?: string | null
           inicio_video_url?: string | null
-          tutorial_alumnos_url?: string | null
-          tutorial_profesores_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -382,8 +378,6 @@ export type Database = {
           inicio_mensaje?: string | null
           inicio_titulo?: string | null
           inicio_video_url?: string | null
-          tutorial_alumnos_url?: string | null
-          tutorial_profesores_url?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -618,6 +612,173 @@ export type Database = {
           zoom_meeting_id?: string | null
         }
         Relationships: []
+      }
+      comunidad_categorias: {
+        Row: {
+          color: string
+          created_at: string
+          emoji: string | null
+          id: string
+          nombre: string
+          orden: number
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          nombre: string
+          orden?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          nombre?: string
+          orden?: number
+        }
+        Relationships: []
+      }
+      comunidad_comentarios: {
+        Row: {
+          autor_id: string
+          contenido: string
+          created_at: string
+          id: string
+          likes_count: number
+          parent_id: string | null
+          post_id: string
+        }
+        Insert: {
+          autor_id: string
+          contenido: string
+          created_at?: string
+          id?: string
+          likes_count?: number
+          parent_id?: string | null
+          post_id: string
+        }
+        Update: {
+          autor_id?: string
+          contenido?: string
+          created_at?: string
+          id?: string
+          likes_count?: number
+          parent_id?: string | null
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comunidad_comentarios_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "comunidad_comentarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comunidad_comentarios_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "comunidad_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comunidad_likes: {
+        Row: {
+          comentario_id: string | null
+          created_at: string
+          id: string
+          post_id: string | null
+          usuario_id: string
+        }
+        Insert: {
+          comentario_id?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          usuario_id: string
+        }
+        Update: {
+          comentario_id?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comunidad_likes_comentario_id_fkey"
+            columns: ["comentario_id"]
+            isOneToOne: false
+            referencedRelation: "comunidad_comentarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comunidad_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "comunidad_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comunidad_posts: {
+        Row: {
+          autor_id: string
+          categoria_id: string | null
+          comentarios_count: number
+          contenido: string | null
+          created_at: string
+          fijado: boolean
+          id: string
+          likes_count: number
+          media_tipo: string | null
+          media_url: string | null
+          titulo: string
+          ultimo_comentario_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          autor_id: string
+          categoria_id?: string | null
+          comentarios_count?: number
+          contenido?: string | null
+          created_at?: string
+          fijado?: boolean
+          id?: string
+          likes_count?: number
+          media_tipo?: string | null
+          media_url?: string | null
+          titulo: string
+          ultimo_comentario_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          autor_id?: string
+          categoria_id?: string | null
+          comentarios_count?: number
+          contenido?: string | null
+          created_at?: string
+          fijado?: boolean
+          id?: string
+          likes_count?: number
+          media_tipo?: string | null
+          media_url?: string | null
+          titulo?: string
+          ultimo_comentario_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comunidad_posts_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "comunidad_categorias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cursos: {
         Row: {
@@ -1131,6 +1292,7 @@ export type Database = {
         Row: {
           actividad: string | null
           avatar_url: string | null
+          biografia: string | null
           created_at: string
           email: string
           estado: Database["public"]["Enums"]["user_estado"]
@@ -1145,6 +1307,7 @@ export type Database = {
         Insert: {
           actividad?: string | null
           avatar_url?: string | null
+          biografia?: string | null
           created_at?: string
           email: string
           estado?: Database["public"]["Enums"]["user_estado"]
@@ -1159,6 +1322,7 @@ export type Database = {
         Update: {
           actividad?: string | null
           avatar_url?: string | null
+          biografia?: string | null
           created_at?: string
           email?: string
           estado?: Database["public"]["Enums"]["user_estado"]
@@ -1203,6 +1367,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      puntos_usuario: {
+        Row: {
+          created_at: string
+          id: string
+          origen: string
+          puntos: number
+          referencia_id: string | null
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          origen: string
+          puntos?: number
+          referencia_id?: string | null
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          origen?: string
+          puntos?: number
+          referencia_id?: string | null
+          usuario_id?: string
+        }
+        Relationships: []
       }
       push_subscriptions: {
         Row: {
@@ -1546,6 +1737,10 @@ export type Database = {
         Returns: undefined
       }
       cerrar_sesion: { Args: { _session_id: string }; Returns: undefined }
+      dar_puntos: {
+        Args: { _origen: string; _pts: number; _ref: string; _uid: string }
+        Returns: undefined
+      }
       entrega_grade_unchanged: {
         Args: { _calif: number; _feedback: string; _id: string }
         Returns: boolean
@@ -1583,6 +1778,7 @@ export type Database = {
         }[]
       }
       marcar_no_registradas: { Args: never; Returns: number }
+      nivel_por_puntos: { Args: { _p: number }; Returns: number }
       nombre_usuario: { Args: { _id: string }; Returns: string }
       notificar: {
         Args: {
@@ -1601,8 +1797,12 @@ export type Database = {
         Returns: {
           actividad: string
           avatar_url: string
+          biografia: string
+          created_at: string
           id: string
+          nivel: number
           nombre_completo: string
+          puntos: number
         }[]
       }
       profile_privileged_unchanged: {
