@@ -63,12 +63,23 @@ function Page() {
 
   useEffect(() => {
     (async () => {
-      const rpc = supabase.rpc as unknown as (fn: string) => Promise<{ data: { user_id: string; ultima_actividad: string }[] | null }>;
-      const [perfiles, { data: roles }, { data: act }] = await Promise.all([
-        fetchPerfiles(),
-        supabase.from("user_roles").select("user_id,role"),
-        rpc.call(supabase, "actividad_miembros").catch(() => ({ data: null })),
+      const actividad = (async () => {
+        try {
+          const rpc = supabase.rpc as unknown as (
+            fn: string,
+          ) => PromiseLike<{ data: { user_id: string; ultima_actividad: string }[] | null }>;
+          const res = await rpc.call(supabase, "actividad_miembros");
+          return { data: res?.data ?? null };
+        } catch {
+          return { data: null as { user_id: string; ultima_actividad: string }[] | null };
+        }
+      })();
+      const [perfiles, rolesRes, { data: act }] = await Promise.all([
+        fetchPerfiles().catch(() => []),
+        supabase.from("user_roles").select("user_id,role").then((r) => r, () => ({ data: null })),
+        actividad,
       ]);
+      const roles = (rolesRes as { data: { user_id: string; role: string }[] | null }).data;
       const roleMap = new Map<string, string>();
       (roles ?? []).forEach((r: { user_id: string; role: string }) => {
         if (!roleMap.has(r.user_id) || r.role === "admin") roleMap.set(r.user_id, r.role);
