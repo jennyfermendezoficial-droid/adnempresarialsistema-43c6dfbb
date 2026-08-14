@@ -14,7 +14,19 @@ interface Curso {
   orden: number;
 }
 
-export const Route = createFileRoute("/_authenticated/clases-en-vivo")({ component: Page });
+export const Route = createFileRoute("/_authenticated/clases-en-vivo")({
+  component: Page,
+  head: () => ({
+    meta: [
+      { title: "Clases en vivo · ADN Empresarial" },
+      { name: "description", content: "Accede a las clases en vivo habilitadas para tu cuenta y continúa tu formación." },
+      { property: "og:title", content: "Clases en vivo · ADN Empresarial" },
+      { property: "og:description", content: "Biblioteca de clases en vivo con acceso por permisos." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+});
 
 function Page() {
   const { session, role } = useAuth();
