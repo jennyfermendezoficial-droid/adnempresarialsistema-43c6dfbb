@@ -12,7 +12,17 @@ interface Modulo { id: string; curso_id: string; nombre: string; descripcion: st
 interface Recurso { tipo: "link" | "archivo"; nombre: string; url: string }
 interface Leccion { id: string; modulo_id: string; nombre: string; descripcion: string | null; bunny_video_id: string | null; orden: number; duracion_min: number | null; recursos_adjuntos: Recurso[] | null }
 
-export function CursoDetalle({ cursoId, volver }: { cursoId: string; volver?: boolean }) {
+export function CursoDetalle({
+  cursoId,
+  volver,
+  volverLabel,
+  onVolver,
+}: {
+  cursoId: string;
+  volver?: boolean;
+  volverLabel?: string;
+  onVolver?: () => void;
+}) {
   const { session, role } = useAuth();
   const isStaff = role === "admin" || role === "soporte";
   const uid = session?.user.id;
@@ -380,11 +390,18 @@ export function CursoDetalle({ cursoId, volver }: { cursoId: string; volver?: bo
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
         <div className="absolute inset-x-0 bottom-0 p-6 max-w-6xl mx-auto">
-          {volver && (
+          {volver && (onVolver ? (
+            <button
+              onClick={onVolver}
+              className="inline-flex items-center gap-1 text-sm text-white/90 hover:text-white mb-2"
+            >
+              <ArrowLeft className="w-4 h-4" /> {volverLabel || "Volver"}
+            </button>
+          ) : (
             <Link to="/cursos" className="inline-flex items-center gap-1 text-sm text-white/90 hover:text-white mb-2">
-              <ArrowLeft className="w-4 h-4" /> Volver a cursos
+              <ArrowLeft className="w-4 h-4" /> {volverLabel || "Volver a cursos"}
             </Link>
-          )}
+          ))}
           <h1 className="text-3xl md:text-4xl font-bold text-white drop-shadow">{curso?.nombre || "Curso"}</h1>
           {curso?.descripcion && <p className="text-white/80 text-sm mt-1 max-w-2xl">{curso.descripcion}</p>}
           <div className="mt-3 flex items-center gap-3 text-xs text-white/90">
