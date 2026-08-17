@@ -7,6 +7,7 @@ import { Logo, BrandName } from "@/components/Logo";
 import { PostClassRatingModal } from "@/components/PostClassRatingModal";
 import { ChatsPopover } from "@/components/ChatsPopover";
 import { NotificationsPopover } from "@/components/NotificationsPopover";
+import { ProfesorDatosObligatoriosModal } from "@/components/ProfesorDatosObligatoriosModal";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { Menu, X } from "lucide-react";
 
@@ -119,6 +120,7 @@ function AuthedLayout() {
         </div>
       </main>
       <PostClassRatingModal />
+      <ProfesorDatosObligatoriosModal />
     </div>
   );
 }
