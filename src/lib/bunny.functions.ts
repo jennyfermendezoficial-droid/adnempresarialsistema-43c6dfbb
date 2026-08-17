@@ -32,7 +32,7 @@ export const getBunnyPublicConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     const cfg = readConfig();
-    if (!cfg) return { libraryId: null, cdnHostname: null };
+    if (!cfg) return null;
     return { libraryId: cfg.libraryId, cdnHostname: cfg.cdnHostname };
   });
 
