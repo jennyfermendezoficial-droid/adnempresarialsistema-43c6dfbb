@@ -5,6 +5,7 @@ import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
 import { mainItems, staffItems, adminItems } from "@/lib/nav-items";
+import { roleLabel } from "@/lib/roles";
 
 interface Item { to: string; label: string; icon: typeof Home; }
 
@@ -67,7 +68,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
                 {formatNombre(profile?.nombre_completo) || "Mi cuenta"}
               </div>
               <div className="text-[11px] uppercase tracking-wider opacity-70 truncate">
-                {role || "usuario"}
+                {roleLabel(role)}
               </div>
             </div>
           </Link>
