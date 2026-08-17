@@ -1,7 +1,6 @@
 import { formatNombre } from "@/lib/nombres";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronDown, LogOut, User } from "lucide-react";
-import { useRef, useState } from "react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
@@ -13,67 +12,6 @@ import {
 import { mainItems, staffItems, adminItems, type NavItem } from "@/lib/nav-items";
 
 const BAR = "var(--deep-2)";
-
-function HoverGroup({
-  label,
-  items,
-  active,
-  isActive,
-}: {
-  label: string;
-  items: NavItem[];
-  active: boolean;
-  isActive: (p: string) => boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const show = () => {
-    if (timer.current) clearTimeout(timer.current);
-    setOpen(true);
-  };
-  const hide = () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setOpen(false), 150);
-  };
-
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger
-        onMouseEnter={show}
-        onMouseLeave={hide}
-        className="flex items-center gap-1.5 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors outline-none"
-        style={
-          active
-            ? { color: "#fff", borderColor: "var(--violet)" }
-            : { color: "var(--violet-light)", borderColor: "transparent" }
-        }
-      >
-        {label}
-        <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="center"
-        sideOffset={0}
-        onMouseEnter={show}
-        onMouseLeave={hide}
-        className="w-60"
-      >
-        {items.map(({ to, label: l, icon: Icon }) => (
-          <DropdownMenuItem key={to} asChild>
-            <Link
-              to={to}
-              className="flex items-center gap-2 cursor-pointer"
-              data-active={isActive(to) ? "true" : undefined}
-            >
-              <Icon className="w-4 h-4" /> {l}
-            </Link>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 export function TopNav() {
   const { profile, role, signOut } = useAuth();
