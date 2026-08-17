@@ -11,6 +11,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { mainItems, staffItems, adminItems, type NavItem } from "@/lib/nav-items";
+import { roleLabel } from "@/lib/roles";
 
 const BAR = "var(--deep-2)";
 
@@ -100,7 +101,6 @@ export function TopNav() {
           style={{ background: "radial-gradient(circle at top right, rgba(124,107,255,.15), transparent 60%)" }}
         />
         <div className="relative z-10 mx-auto w-full max-w-[1400px] px-6">
-          {/* Fila 1 */}
           <div className="h-14 flex items-center gap-4">
             <Link to="/comunidad" className="flex items-center gap-3 min-w-0">
               <Logo size={30} />
@@ -126,7 +126,7 @@ export function TopNav() {
                   <div className="px-2 py-1.5">
                     <div className="text-sm font-semibold truncate">{formatNombre(profile?.nombre_completo) || "Mi cuenta"}</div>
                     <div className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">
-                      {role || "usuario"}
+                      {roleLabel(role)}
                     </div>
                   </div>
                   <DropdownMenuItem asChild>
@@ -142,7 +142,6 @@ export function TopNav() {
             </div>
           </div>
 
-          {/* Fila 2: pestañas */}
           <nav className="flex items-stretch justify-center gap-1 overflow-x-auto">
             {flat.map(({ to, label, icon: Icon }) => (
               <Link
