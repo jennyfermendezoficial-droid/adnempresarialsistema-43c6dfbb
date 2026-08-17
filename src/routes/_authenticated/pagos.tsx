@@ -649,6 +649,8 @@ function Page() {
             total={row.total}
             abonos={abonos.filter((a) => a.profesor_id === row.id)}
             cuentas={cuentas}
+            bonos={row.bonosList}
+            descuentos={row.descuentosList}
             onClose={() => setAbonoDe(null)}
             onSaved={async () => { await cargar(); await sincronizarPago(row); }}
           />
