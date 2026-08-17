@@ -17,7 +17,7 @@ export function DisponibilidadAgendaModal({ profile, onClose }: { profile: Profi
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
-        .from("agenda_disponibilidad_profesores")
+        .from("disponibilidad")
         .select("dia_semana,activo,hora_inicio,hora_fin")
         .eq("profesor_id", profile.id)
         .order("dia_semana");
@@ -27,7 +27,7 @@ export function DisponibilidadAgendaModal({ profile, onClose }: { profile: Profi
         return;
       }
       const next: Record<number, boolean> = { 0: true, 1: true, 2: true, 3: true, 4: true };
-      (data as Row[] | null)?.forEach((row) => { next[row.dia_semana] = row.activo; });
+      ((data ?? []) as unknown as Row[]).forEach((row) => { next[row.dia_semana] = row.activo; });
       setDays(next);
       setLoading(false);
     })();
@@ -37,14 +37,13 @@ export function DisponibilidadAgendaModal({ profile, onClose }: { profile: Profi
     const next = !days[day];
     setSaving(day);
     const { error } = await supabase
-      .from("agenda_disponibilidad_profesores")
+      .from("disponibilidad")
       .upsert({
         profesor_id: profile.id,
         dia_semana: day,
         hora_inicio: "15:00",
         hora_fin: "19:00",
         activo: next,
-        updated_at: new Date().toISOString(),
       }, { onConflict: "profesor_id,dia_semana" });
     setSaving(null);
     if (error) return toast.error(error.message);
@@ -60,9 +59,8 @@ export function DisponibilidadAgendaModal({ profile, onClose }: { profile: Profi
       hora_inicio: "15:00",
       hora_fin: "19:00",
       activo,
-      updated_at: new Date().toISOString(),
     }));
-    const { error } = await supabase.from("agenda_disponibilidad_profesores").upsert(rows, { onConflict: "profesor_id,dia_semana" });
+    const { error } = await supabase.from("disponibilidad").upsert(rows, { onConflict: "profesor_id,dia_semana" });
     setSaving(null);
     if (error) return toast.error(error.message);
     setDays({ 0: activo, 1: activo, 2: activo, 3: activo, 4: activo });
