@@ -654,6 +654,132 @@ function Page() {
           />
         );
       })()}
+
+      {bonoDe && (() => {
+        const row = staff.find((s) => s.id === bonoDe);
+        if (!row) return null;
+        return <BonoModal row={row} mes={mes} anio={anio} onClose={() => setBonoDe(null)} onSaved={cargar} />;
+      })()}
+
+      {verCuentas && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm grid place-items-center p-4" onClick={() => setVerCuentas(false)}>
+          <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl bg-background p-1" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-end p-2">
+              <button onClick={() => setVerCuentas(false)} className="p-2 rounded-lg border"><X className="w-4 h-4" /></button>
+            </div>
+            <PagosCuentas puedeEditar={role === "admin"} onChanged={cargarCuentas} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Estrellas({ valor, count }: { valor: number; count: number }) {
+  if (!count) return <span className="text-muted-foreground text-xs">Sin calificar</span>;
+  return (
+    <span className="inline-flex items-center gap-0.5" title={`${valor.toFixed(2)} de 5 · ${count} respuestas`}>
+      {[1,2,3,4,5].map((n) => (
+        <Star key={n} className={`w-3.5 h-3.5 ${valor >= n - 0.25 ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"}`} />
+      ))}
+      <span className="ml-1 text-xs font-medium tabular-nums">{valor.toFixed(1)}</span>
+    </span>
+  );
+}
+
+function TarifaInput({ profesorId, campo, valor, mes, anio, puedeEditar, onSaved }: {
+  profesorId: string; campo: "valor_hora_clase" | "valor_hora_sesion"; valor: number;
+  mes: number; anio: number; puedeEditar: boolean; onSaved: () => void;
+}) {
+  const [v, setV] = useState(valor ? String(valor) : "");
+  useEffect(() => { setV(valor ? String(valor) : ""); }, [valor]);
+  const guardar = async () => {
+    const num = Number(v || 0);
+    if (!Number.isFinite(num) || num < 0) return toast.error("Valor inválido");
+    if (num === valor) return;
+    const otro = campo === "valor_hora_clase" ? "valor_hora_sesion" : "valor_hora_clase";
+    const { error } = await supabase.from("pagos_tarifas_mes").upsert({
+      profesor_id: profesorId, mes, anio, [campo]: num, [otro]: undefined,
+    } as never, { onConflict: "profesor_id,mes,anio" });
+    if (error) return toast.error(error.message);
+    toast.success("Valor por hora guardado");
+    onSaved();
+  };
+  return (
+    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+      <span>$/h</span>
+      <input type="number" step="0.01" min="0" value={v} disabled={!puedeEditar}
+        onChange={(e) => setV(e.target.value)} onBlur={guardar} placeholder="0.00"
+        className="w-20 px-2 py-1 rounded-lg border bg-background text-right tabular-nums" />
+    </div>
+  );
+}
+
+function BonoModal({ row, mes, anio, onClose, onSaved }: {
+  row: StaffRow; mes: number; anio: number; onClose: () => void; onSaved: () => void;
+}) {
+  const [monto, setMonto] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const guardar = async () => {
+    const num = Number(monto);
+    if (!Number.isFinite(num) || num <= 0) return toast.error("Escribe un monto válido");
+    if (motivo.trim().length < 3) return toast.error("Escribe el motivo del bono");
+    setSaving(true);
+    const { error } = await supabase.from("bonos").insert({
+      profesor_id: row.id, mes, anio, monto: num, motivo: motivo.trim(),
+      tipo: "bono", frecuencia: "mensual", estado: "pendiente",
+    } as never);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Bono registrado");
+    setMonto(""); setMotivo("");
+    onSaved();
+  };
+
+  const borrar = async (id: string) => {
+    const { error } = await supabase.from("bonos").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Bono eliminado");
+    onSaved();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm grid place-items-center p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border bg-card p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold">Bonos · {row.nombre}</h3>
+            <p className="text-xs text-muted-foreground">{MESES[mes-1]} {anio} · se suman al total a pagar.</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg border"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="space-y-2 mb-4">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Valor del bono</label>
+          <input type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)}
+            placeholder="0.00" className="w-full px-3 py-2 rounded-lg border bg-background tabular-nums" />
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Motivo</label>
+          <input value={motivo} maxLength={140} onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ej. bono por clases extra" className="w-full px-3 py-2 rounded-lg border bg-background" />
+          <button onClick={guardar} disabled={saving}
+            className="w-full mt-1 px-4 py-2 rounded-xl bg-violet-gradient text-white text-sm font-semibold disabled:opacity-60">
+            {saving ? "Guardando…" : "Agregar bono"}
+          </button>
+        </div>
+        <div className="space-y-2">
+          {row.bonosList.length === 0 && <div className="text-xs text-muted-foreground">Sin bonos este mes.</div>}
+          {row.bonosList.map((b) => (
+            <div key={b.id} className="flex items-center justify-between gap-2 text-sm border-t pt-2">
+              <div className="min-w-0">
+                <div className="font-semibold tabular-nums">+${b.monto.toFixed(2)}</div>
+                <div className="text-xs text-muted-foreground truncate">{b.motivo || "Sin motivo"}</div>
+              </div>
+              <button onClick={() => borrar(b.id)} className="text-xs text-red-600 font-semibold">Borrar</button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
