@@ -1943,6 +1943,29 @@ export type Database = {
         }
         Returns: undefined
       }
+      perfiles_basicos: {
+        Args: { _ids: string[] }
+        Returns: {
+          avatar_url: string
+          email: string
+          id: string
+          nombre_completo: string
+        }[]
+      }
+      perfiles_pagos: {
+        Args: { _ids: string[] }
+        Returns: {
+          avatar_url: string
+          banco: string
+          banco_logo_url: string
+          email: string
+          id: string
+          nombre_completo: string
+          numero_cuenta: string
+          tipo_cuenta: string
+          titular_cuenta: string
+        }[]
+      }
       perfiles_publicos: {
         Args: { _ids?: string[] }
         Returns: {

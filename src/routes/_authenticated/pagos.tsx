@@ -122,9 +122,7 @@ function Page() {
       const { data: estudiantes } = await supabase.from("user_roles").select("user_id").eq("role", "usuario");
       const studentIds = new Set(((estudiantes ?? []) as { user_id: string }[]).map((r) => r.user_id));
 
-      const { data: profs } = await supabase.from("profiles")
-        .select("id,nombre_completo,email,avatar_url,banco,tipo_cuenta,numero_cuenta,titular_cuenta,banco_logo_url")
-        .in("id", ids);
+      const { data: profs } = await supabase.rpc("perfiles_pagos", { _ids: ids });
       const profMap: Record<string, Profile> = {};
       ((profs ?? []) as Profile[]).forEach((p) => { profMap[p.id] = p; });
       setProfiles(profMap);
@@ -147,7 +145,7 @@ function Page() {
       setCanceladas(cancRows);
       const cids = Array.from(new Set(cancRows.map((c) => c.contraparte_id).filter(Boolean) as string[]));
       if (cids.length) {
-        const { data: cps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", cids);
+        const { data: cps } = await supabase.rpc("perfiles_basicos", { _ids: cids });
         const nm: Record<string, string> = {};
         ((cps ?? []) as Profile[]).forEach((p) => { nm[p.id] = formatNombre(p.nombre_completo) || p.email; });
         setNombresCancel(nm);
@@ -287,7 +285,7 @@ function Page() {
       setStaff(rows.filter(Boolean).sort((a,b) => b.total - a.total));
 
       if (alumnaIds.size) {
-        const { data: as } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", Array.from(alumnaIds));
+        const { data: as } = await supabase.rpc("perfiles_basicos", { _ids: Array.from(alumnaIds) });
         const nm: Record<string, string> = {};
         ((as ?? []) as Profile[]).forEach((p) => { nm[p.id] = formatNombre(p.nombre_completo) || p.email; });
         setNombresAlumnas(nm);
@@ -862,7 +860,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
       setCalifs((cals ?? []) as never);
       const aids = Array.from(new Set(((cals ?? []) as { alumna_id: string }[]).map((c) => c.alumna_id)));
       if (aids.length) {
-        const { data: ps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", aids);
+        const { data: ps } = await supabase.rpc("perfiles_basicos", { _ids: aids });
         const m: Record<string,string> = {};
         ((ps ?? []) as Profile[]).forEach((p) => { m[p.id] = formatNombre(p.nombre_completo) || p.email; });
         setAlumnaNombres(m);
