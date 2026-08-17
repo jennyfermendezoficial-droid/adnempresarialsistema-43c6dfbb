@@ -98,10 +98,11 @@ function Page() {
   const [nombresCancel, setNombresCancel] = useState<Record<string, string>>({});
   const [reemplazos, setReemplazos] = useState<Reemplazo[]>([]);
   const [nombresAlumnas, setNombresAlumnas] = useState<Record<string, string>>({});
-  const [tab, setTab] = useState<Tab>("resumen");
   const [abonos, setAbonos] = useState<Abono[]>([]);
   const [cuentas, setCuentas] = useState<CuentaEmpresa[]>([]);
   const [abonoDe, setAbonoDe] = useState<string | null>(null);
+  const [bonoDe, setBonoDe] = useState<string | null>(null);
+  const [verCuentas, setVerCuentas] = useState(false);
 
   const cargarCuentas = async () => {
     const { data } = await supabase.from("pagos_cuentas_bancarias").select("*").eq("activo", true).order("created_at", { ascending: false });
@@ -121,7 +122,9 @@ function Page() {
       const { data: estudiantes } = await supabase.from("user_roles").select("user_id").eq("role", "usuario");
       const studentIds = new Set(((estudiantes ?? []) as { user_id: string }[]).map((r) => r.user_id));
 
-      const { data: profs } = await supabase.from("profiles").select("id,nombre_completo,email,avatar_url").in("id", ids);
+      const { data: profs } = await supabase.from("profiles")
+        .select("id,nombre_completo,email,avatar_url,banco,tipo_cuenta,numero_cuenta,titular_cuenta,banco_logo_url")
+        .in("id", ids);
       const profMap: Record<string, Profile> = {};
       ((profs ?? []) as Profile[]).forEach((p) => { profMap[p.id] = p; });
       setProfiles(profMap);
@@ -160,10 +163,12 @@ function Page() {
       await cargarCuentas();
 
       // Precios por clase/sesión y ajustes manuales del mes
-      const [{ data: precios }, { data: ajustes }, { data: reemp }] = await Promise.all([
+      const [{ data: precios }, { data: ajustes }, { data: reemp }, { data: tarifas }, { data: descs }] = await Promise.all([
         supabase.from("pagos_items_precio").select("tipo,referencia_id,monto").eq("mes", mes).eq("anio", anio),
         supabase.from("pagos_ajustes").select("profesor_id,minutos").eq("mes", mes).eq("anio", anio),
         supabase.from("reemplazos_clase").select("*").gte("fecha", ini).lte("fecha", fin),
+        supabase.from("pagos_tarifas_mes").select("profesor_id,valor_hora_clase,valor_hora_sesion").eq("mes", mes).eq("anio", anio),
+        supabase.from("pagos_descuentos").select("id,profesor_id,monto,motivo").eq("mes", mes).eq("anio", anio),
       ]);
       const precioMap = new Map<string, number>();
       ((precios ?? []) as { tipo: string; referencia_id: string; monto: number }[])
@@ -172,6 +177,15 @@ function Page() {
       ((ajustes ?? []) as { profesor_id: string; minutos: number }[])
         .forEach((a) => ajusteMap.set(a.profesor_id, Number(a.minutos)));
       setReemplazos((reemp ?? []) as Reemplazo[]);
+      const tarifaMap = new Map<string, { clase: number; sesion: number }>();
+      ((tarifas ?? []) as { profesor_id: string; valor_hora_clase: number; valor_hora_sesion: number }[])
+        .forEach((t) => tarifaMap.set(t.profesor_id, { clase: Number(t.valor_hora_clase), sesion: Number(t.valor_hora_sesion) }));
+      const descMap = new Map<string, DescuentoRow[]>();
+      ((descs ?? []) as { id: string; profesor_id: string; monto: number; motivo: string }[]).forEach((d) => {
+        const arr = descMap.get(d.profesor_id) ?? [];
+        arr.push({ id: d.id, monto: Number(d.monto), motivo: d.motivo });
+        descMap.set(d.profesor_id, arr);
+      });
 
       const alumnaIds = new Set<string>();
 
@@ -184,8 +198,9 @@ function Page() {
           supabase.from("sesiones_1a1").select("id,fecha,alumna_id,hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
           supabase.from("calificaciones_mensuales").select("claridad,didactica,practico,desenvolvimiento").eq("profesor_id", pid),
           supabase.from("chats_1a1").select("id,usuario_a_id,usuario_b_id").or(`usuario_a_id.eq.${pid},usuario_b_id.eq.${pid}`),
-          supabase.from("bonos").select("monto").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
+          supabase.from("bonos").select("id,monto,motivo,tipo").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
         ]);
+        const tarifa = tarifaMap.get(pid) ?? { clase: 0, sesion: 0 };
 
         // Items con su precio (lo pone el administrador por fecha y hora)
         const items: ItemPago[] = [];
@@ -193,9 +208,11 @@ function Page() {
         ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
           const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
           minutosClase += min;
+          const manual = precioMap.get(`clase:${c.id}`);
           items.push({
             tipo: "clase", refId: c.id, fecha: c.fecha, horaInicio: c.hora_inicio, horaFin: c.hora_fin ?? "",
-            minutos: min, titulo: c.titulo, alumnaId: null, monto: precioMap.get(`clase:${c.id}`) ?? 0,
+            minutos: min, titulo: c.titulo, alumnaId: null,
+            monto: manual != null && manual > 0 ? manual : Math.round((tarifa.clase * min / 60) * 100) / 100,
           });
         });
 
@@ -205,9 +222,11 @@ function Page() {
           const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
           minutos1a1 += min;
           alumnaIds.add(s.alumna_id);
+          const manual1 = precioMap.get(`1a1:${s.id}`);
           items.push({
             tipo: "1a1", refId: s.id, fecha: s.fecha, horaInicio: s.hora_inicio, horaFin: s.hora_fin ?? "",
-            minutos: min, titulo: null, alumnaId: s.alumna_id, monto: precioMap.get(`1a1:${s.id}`) ?? 0,
+            minutos: min, titulo: null, alumnaId: s.alumna_id,
+            monto: manual1 != null && manual1 > 0 ? manual1 : Math.round((tarifa.sesion * min / 60) * 100) / 100,
           });
         });
         items.sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio));
@@ -237,8 +256,12 @@ function Page() {
         }
 
         const sesiones1a1 = sesionesData.length;
-        const bonos = ((bonosRes.data ?? []) as { monto: number }[]).reduce((a,b)=>a + Number(b.monto), 0);
-        const total = Math.round((items.reduce((a, i) => a + i.monto, 0) + bonos) * 100) / 100;
+        const bonosList = ((bonosRes.data ?? []) as { id: string; monto: number; motivo: string | null; tipo: string }[])
+          .map((b) => ({ id: b.id, monto: Number(b.monto), motivo: b.motivo, tipo: b.tipo }));
+        const bonos = bonosList.reduce((a, b) => a + b.monto, 0);
+        const descuentosList = descMap.get(pid) ?? [];
+        const descuentos = descuentosList.reduce((a, d) => a + d.monto, 0);
+        const total = Math.round((items.reduce((a, i) => a + i.monto, 0) + bonos - descuentos) * 100) / 100;
 
         const pago = pagoMap.get(pid);
 
@@ -254,7 +277,8 @@ function Page() {
           items,
           mensajesEstudiantes,
           califPromedio, califCount,
-          bonos,
+          bonos, bonosList, descuentos, descuentosList,
+          tarifaClase: tarifa.clase, tarifaSesion: tarifa.sesion,
           total,
           estado: (pago?.estado === "pagado" ? "pagado" : "por_pagar") as "pagado" | "por_pagar",
           pagoId: pago?.id,
