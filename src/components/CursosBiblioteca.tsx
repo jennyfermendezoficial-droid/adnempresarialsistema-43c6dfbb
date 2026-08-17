@@ -58,15 +58,11 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
     if (!file || !cursoId) return;
     try {
       setUploadingCover(cursoId);
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = `${cursoId}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("course-covers").upload(path, file, { upsert: true, cacheControl: "3600" });
-      if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from("course-covers").getPublicUrl(path);
-      const { error } = await supabase.from("cursos").update({ image_url: pub.publicUrl }).eq("id", cursoId);
+      const publicUrl = await subirImagen(file, "adn/cursos");
+      const { error } = await supabase.from("cursos").update({ image_url: publicUrl }).eq("id", cursoId);
       if (error) throw error;
-      setCursos((cs) => cs.map((c) => (c.id === cursoId ? { ...c, image_url: pub.publicUrl } : c)));
-      setEditing((e) => (e && e.id === cursoId ? { ...e, image_url: pub.publicUrl } : e));
+      setCursos((cs) => cs.map((c) => (c.id === cursoId ? { ...c, image_url: publicUrl } : c)));
+      setEditing((e) => (e && e.id === cursoId ? { ...e, image_url: publicUrl } : e));
       toast.success("Portada actualizada");
     } catch (err) {
       toast.error((err as Error).message);
