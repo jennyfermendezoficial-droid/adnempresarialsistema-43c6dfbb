@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Lock, Star, ChevronLeft, FileText, CheckCircle2 } from "lucide-react";
+import { Lock, Star, ChevronLeft, FileText, CheckCircle2, Landmark, Gift, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
 import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo, type AbonoExportRow } from "@/lib/pagos-export";
@@ -10,14 +10,19 @@ import { formatNombre } from "@/lib/nombres";
 import { RegistrarAbonoModal, type Abono, type CuentaEmpresa } from "@/components/pagos/RegistrarAbonoModal";
 import { PagosPrecios, type FilaPrecio } from "@/components/pagos/PagosPrecios";
 import { PagosAbonos } from "@/components/pagos/PagosAbonos";
-import { PagosBonos } from "@/components/pagos/PagosBonos";
 import { PagosCuentas } from "@/components/pagos/PagosCuentas";
 
 export const Route = createFileRoute("/_authenticated/pagos")({ component: Page });
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-interface Profile { id: string; nombre_completo: string; email: string; avatar_url?: string | null }
+interface Profile {
+  id: string; nombre_completo: string; email: string; avatar_url?: string | null;
+  banco?: string | null; tipo_cuenta?: string | null; numero_cuenta?: string | null;
+  titular_cuenta?: string | null; banco_logo_url?: string | null;
+}
+export interface BonoRow { id: string; monto: number; motivo: string | null; tipo: string }
+export interface DescuentoRow { id: string; monto: number; motivo: string }
 interface PagoHist { id: string; profesor_id: string; mes: number; anio: number; total_horas: number; total_bonos: number; monto_total: number; estado: string; fecha_pago: string | null }
 interface Cancelada {
   id: string; tipo: string; profesor_id: string; contraparte_id: string | null;
@@ -54,19 +59,15 @@ interface StaffRow {
   califPromedio: number;
   califCount: number;
   bonos: number;
+  bonosList: BonoRow[];
+  descuentos: number;
+  descuentosList: DescuentoRow[];
+  tarifaClase: number;
+  tarifaSesion: number;
   total: number;
   estado: "pagado" | "por_pagar";
   pagoId?: string;
 }
-
-type Tab = "resumen" | "precios" | "abonos" | "bonos" | "cuentas";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "resumen", label: "Resumen" },
-  { id: "precios", label: "Clases y sesiones" },
-  { id: "abonos", label: "Pagos realizados" },
-  { id: "bonos", label: "Bonos" },
-  { id: "cuentas", label: "Cuentas bancarias" },
-];
 
 const TEMAS: { match: string; tema: string }[] = [
   { match: "jennyfer", tema: "Marketing · WhatsApp" },
