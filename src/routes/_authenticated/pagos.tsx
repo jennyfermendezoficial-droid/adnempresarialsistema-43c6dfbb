@@ -502,15 +502,16 @@ function Page() {
               <th className="text-left px-4 py-3 font-semibold">Profesor</th>
               <th className="text-left px-3 py-3 font-semibold">Tiempo clase</th>
               <th className="text-left px-3 py-3 font-semibold">Sesiones 1:1</th>
-              <th className="text-left px-3 py-3 font-semibold">Chats</th>
-              <th className="text-left px-3 py-3 font-semibold">Calif.</th>
+              <th className="text-left px-3 py-3 font-semibold">Calificación</th>
+              <th className="text-right px-3 py-3 font-semibold">Bonos</th>
+              <th className="text-right px-3 py-3 font-semibold">Descuentos</th>
               <th className="text-right px-3 py-3 font-semibold">A pagar</th>
               <th className="text-left px-3 py-3 font-semibold">Estado</th>
               <th className="px-3 py-3" />
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">Cargando…</td></tr>}
+            {loading && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">Cargando…</td></tr>}
             {!loading && staff.map((s) => (
               <tr key={s.id} className="border-t hover:bg-muted/30 transition">
                 <td className="px-4 py-3">
@@ -520,7 +521,14 @@ function Page() {
                     </div>
                     <div>
                       <div className="font-semibold">{s.nombre}</div>
-                      <div className="text-[11px] text-muted-foreground">{s.tema}</div>
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        {profiles[s.id]?.banco_logo_url
+                          ? <img src={profiles[s.id]?.banco_logo_url ?? ""} alt="" className="w-4 h-4 rounded object-cover" />
+                          : <Landmark className="w-3 h-3" />}
+                        {profiles[s.id]?.banco
+                          ? `${profiles[s.id]?.banco} · ${profiles[s.id]?.tipo_cuenta ?? ""} ${profiles[s.id]?.numero_cuenta ?? ""}`
+                          : "Sin cuenta bancaria registrada"}
+                      </div>
                     </div>
                   </button>
                 </td>
@@ -529,17 +537,17 @@ function Page() {
                   {s.ajusteMin !== 0 && (
                     <span className="text-muted-foreground text-xs"> · ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</span>
                   )}
+                  <TarifaInput profesorId={s.id} campo="valor_hora_clase" valor={s.tarifaClase} mes={mes} anio={anio} puedeEditar={role === "admin"} onSaved={cargar} />
                 </td>
-                <td className="px-3 py-3">{s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span></td>
-                <td className="px-3 py-3">{s.mensajesEstudiantes}</td>
                 <td className="px-3 py-3">
-                  {s.califCount > 0 ? (
-                    <span className="inline-flex items-center gap-1">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      <span className="font-medium">{s.califPromedio.toFixed(1)}</span>
-                    </span>
-                  ) : <span className="text-muted-foreground text-xs">—</span>}
+                  {s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span>
+                  <TarifaInput profesorId={s.id} campo="valor_hora_sesion" valor={s.tarifaSesion} mes={mes} anio={anio} puedeEditar={role === "admin"} onSaved={cargar} />
                 </td>
+                <td className="px-3 py-3">
+                  <Estrellas valor={s.califPromedio} count={s.califCount} />
+                </td>
+                <td className="px-3 py-3 text-right tabular-nums text-emerald-600">{s.bonos ? `+$${s.bonos.toFixed(2)}` : "—"}</td>
+                <td className="px-3 py-3 text-right tabular-nums text-red-600">{s.descuentos ? `−$${s.descuentos.toFixed(2)}` : "—"}</td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(2)}</td>
                 <td className="px-3 py-3">
                   {estadoDe(s) === "pagado" ? (
@@ -557,6 +565,11 @@ function Page() {
                     <FileText className="w-3.5 h-3.5" /> Informe
                   </button>
                   {role === "admin" && (
+                    <button onClick={() => setBonoDe(s.id)} className="px-3 py-1.5 rounded-lg border text-xs font-semibold mr-2 inline-flex items-center gap-1">
+                      <Gift className="w-3.5 h-3.5" /> Bono
+                    </button>
+                  )}
+                  {role === "admin" && (
                     <button onClick={() => setAbonoDe(s.id)} className="px-3 py-1.5 rounded-lg bg-violet-gradient text-white text-xs font-semibold">
                       {estadoDe(s) === "pagado" ? "Ver pagos" : "Marcar pagado"}
                     </button>
@@ -564,10 +577,10 @@ function Page() {
                 </td>
               </tr>
             ))}
-            {!loading && staff.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">Sin actividad este mes.</td></tr>}
+            {!loading && staff.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">Sin actividad este mes.</td></tr>}
             {!loading && staff.length > 0 && (
               <tr className="bg-muted/40 border-t">
-                <td className="px-4 py-3" colSpan={5} />
+                <td className="px-4 py-3" colSpan={6} />
                 <td className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold">Total a pagar</td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(2)}</td>
                 <td />
@@ -575,6 +588,16 @@ function Page() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Clases y sesiones */}
+      <div className="mt-8">
+        <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={role === "admin"} onRefresh={cargar} />
+      </div>
+
+      {/* Pagos realizados */}
+      <div className="mt-8">
+        <PagosAbonos abonos={abonos} nombres={nombresStaff} totales={totalesPor} mes={mes} anio={anio} />
       </div>
 
       {/* Historial */}
@@ -612,8 +635,6 @@ function Page() {
             </table>
           </div>
         </div>
-      )}
-      </>
       )}
 
       {abonoDe && (() => {
