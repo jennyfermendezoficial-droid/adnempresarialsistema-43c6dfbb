@@ -1,3 +1,4 @@
+import { subirImagen, esImagen, esUrlAbsoluta } from "@/lib/cloudinary";
 import { useEffect, useRef, useState } from "react";
 import { X, Upload, Loader2, Trash2, Landmark } from "lucide-react";
 import { toast } from "sonner";
