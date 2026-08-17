@@ -1,3 +1,4 @@
+import { subirImagen, esImagen, esUrlAbsoluta } from "@/lib/cloudinary";
 import { formatNombre } from "@/lib/nombres";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
