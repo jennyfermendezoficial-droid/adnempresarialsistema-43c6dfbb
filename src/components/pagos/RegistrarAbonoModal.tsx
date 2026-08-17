@@ -18,9 +18,12 @@ const hoyISO = () => new Date().toISOString().slice(0, 10);
 
 export function RegistrarAbonoModal({
   profesorId, profesorNombre, mes, anio, total, abonos, cuentas, onClose, onSaved,
+  bonos = [], descuentos = [],
 }: {
   profesorId: string; profesorNombre: string; mes: number; anio: number; total: number;
   abonos: Abono[]; cuentas: CuentaEmpresa[];
+  bonos?: { id: string; monto: number; motivo: string | null }[];
+  descuentos?: { id: string; monto: number; motivo: string }[];
   onClose: () => void; onSaved: () => void;
 }) {
   const leer = useServerFn(leerComprobante);
@@ -35,9 +38,34 @@ export function RegistrarAbonoModal({
   const [leyendo, setLeyendo] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [descMonto, setDescMonto] = useState("");
+  const [descMotivo, setDescMotivo] = useState("");
 
   const abonado = abonos.reduce((a, b) => a + Number(b.monto), 0);
+  const totalDesc = descuentos.reduce((a, d) => a + Number(d.monto), 0);
+  const totalBonos = bonos.reduce((a, b) => a + Number(b.monto), 0);
   const saldo = Math.round((total - abonado) * 100) / 100;
+  const montoNum = Number(monto || 0);
+  const coincide = montoNum > 0 && Math.abs(montoNum - saldo) < 0.01;
+
+  const agregarDescuento = async () => {
+    const v = Number(descMonto);
+    if (!Number.isFinite(v) || v <= 0) return toast.error("Escribe el valor del descuento");
+    if (descMotivo.trim().length < 3) return toast.error("El motivo del descuento es obligatorio");
+    const { error } = await supabase.from("pagos_descuentos").insert({
+      profesor_id: profesorId, mes, anio, monto: v, motivo: descMotivo.trim(),
+    } as never);
+    if (error) return toast.error(error.message);
+    toast.success("Descuento registrado");
+    setDescMonto(""); setDescMotivo("");
+    onSaved();
+  };
+
+  const borrarDescuento = async (id: string) => {
+    const { error } = await supabase.from("pagos_descuentos").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    onSaved();
+  };
 
   const procesar = async (file: File) => {
     if (!file.type.startsWith("image/")) return toast.error("Sube una imagen del comprobante");
@@ -134,7 +162,7 @@ export function RegistrarAbonoModal({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-4 border-b">
           <Tot label="Total" value={total} color="var(--foreground)" />
           <Tot label="Abonado" value={abonado} color="#2563eb" />
-          <Tot label="Descuentos" value={0} color="#d97706" />
+          <Tot label="Descuentos" value={totalDesc} color="#d97706" />
           <Tot label="Saldo" value={saldo} color={saldo > 0 ? "#dc2626" : "#16a34a"} />
         </div>
 
@@ -148,7 +176,6 @@ export function RegistrarAbonoModal({
               <Campo label="Tipo de pago *">
                 <select value={tipoPago} onChange={(e) => setTipoPago(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm">
                   <option value="transferencia">Transferencia</option>
-                  <option value="efectivo">Efectivo</option>
                   <option value="cheque">Cheque</option>
                   <option value="deposito">Depósito</option>
                   <option value="otro">Otro</option>
@@ -158,7 +185,7 @@ export function RegistrarAbonoModal({
             </div>
             <Campo label="Cuenta bancaria de origen">
               {cuentas.length === 0 ? (
-                <div className="text-xs text-muted-foreground border rounded-lg px-3 py-2">Crea tus cuentas en la pestaña “Cuentas bancarias”.</div>
+                <div className="text-xs text-muted-foreground border rounded-lg px-3 py-2">Crea las cuentas con el botón “Cuentas bancarias” de la parte superior.</div>
               ) : (
                 <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm">
                   <option value="">— Sin cuenta —</option>
@@ -168,26 +195,61 @@ export function RegistrarAbonoModal({
                 </select>
               )}
             </Campo>
-            <Campo label="Observación"><textarea rows={3} value={observacion} onChange={(e) => setObservacion(e.target.value)} placeholder="Opcional" className="w-full px-3 py-2 rounded-lg border bg-background text-sm" /></Campo>
+            <Campo label="Observación"><textarea rows={2} value={observacion} onChange={(e) => setObservacion(e.target.value)} placeholder="Opcional" className="w-full px-3 py-2 rounded-lg border bg-background text-sm" /></Campo>
           </div>
 
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Imagen del comprobante</div>
             <button
               onClick={() => inputRef.current?.click()}
-              className="w-full h-[232px] rounded-xl border-2 border-dashed grid place-items-center text-sm overflow-hidden"
+              className="w-[168px] h-[168px] rounded-xl border-2 border-dashed grid place-items-center text-xs overflow-hidden"
               style={{ borderColor: "var(--violet)", background: "color-mix(in oklab, var(--violet) 6%, transparent)" }}>
               {preview ? (
                 <img src={preview} alt="Comprobante subido" className="w-full h-full object-contain" />
               ) : leyendo ? (
                 <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Leyendo…</span>
               ) : (
-                <span className="inline-flex items-center gap-2 text-muted-foreground"><Upload className="w-4 h-4" /> Subir o pegar comprobante con Ctrl+V</span>
+                <span className="inline-flex flex-col items-center gap-1 text-muted-foreground px-3 text-center"><Upload className="w-4 h-4" /> Subir o pegar (Ctrl+V)</span>
               )}
             </button>
             <input ref={inputRef} type="file" accept="image/*" className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) void procesar(f); }} />
             {leyendo && preview && <div className="text-xs text-muted-foreground mt-2 inline-flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Detectando monto, fecha y número…</div>}
+            {montoNum > 0 && (
+              <div className={`text-xs mt-2 font-medium ${coincide ? "text-emerald-600" : "text-amber-600"}`}>
+                {coincide
+                  ? "El monto del comprobante cuadra con el saldo de clases y sesiones."
+                  : `El monto no cuadra con el saldo ($${saldo.toFixed(2)}). Revisa antes de guardar.`}
+              </div>
+            )}
+
+            {/* Bonos y descuentos */}
+            <div className="mt-4 rounded-xl border p-3 space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Bonos del mes · +${totalBonos.toFixed(2)}</div>
+              {bonos.length === 0
+                ? <div className="text-xs text-muted-foreground">Sin bonos. Agrégalos con el botón “Bono” del resumen.</div>
+                : bonos.map((b) => (
+                    <div key={b.id} className="flex justify-between text-xs">
+                      <span className="truncate text-muted-foreground">{b.motivo || "Sin motivo"}</span>
+                      <span className="font-semibold tabular-nums text-emerald-600">+${Number(b.monto).toFixed(2)}</span>
+                    </div>
+                  ))}
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground pt-2 border-t">Descuentos · −${totalDesc.toFixed(2)}</div>
+              {descuentos.map((d) => (
+                <div key={d.id} className="flex justify-between items-center text-xs gap-2">
+                  <span className="truncate text-muted-foreground">{d.motivo}</span>
+                  <span className="font-semibold tabular-nums text-red-600">−${Number(d.monto).toFixed(2)}</span>
+                  <button onClick={() => borrarDescuento(d.id)} className="text-destructive opacity-70 hover:opacity-100"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              ))}
+              <div className="grid grid-cols-[90px_1fr] gap-2">
+                <input type="number" step="0.01" min="0" value={descMonto} onChange={(e) => setDescMonto(e.target.value)}
+                  placeholder="0.00" className="px-2 py-1.5 rounded-lg border bg-background text-xs text-right tabular-nums" />
+                <input value={descMotivo} maxLength={140} onChange={(e) => setDescMotivo(e.target.value)}
+                  placeholder="Motivo del descuento (obligatorio)" className="px-2 py-1.5 rounded-lg border bg-background text-xs" />
+              </div>
+              <button onClick={agregarDescuento} className="w-full px-3 py-1.5 rounded-lg border text-xs font-semibold">Agregar descuento</button>
+            </div>
           </div>
         </div>
 
