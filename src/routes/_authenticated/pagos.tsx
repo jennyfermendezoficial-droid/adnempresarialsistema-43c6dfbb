@@ -495,10 +495,10 @@ function Page() {
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
               <th className="text-left px-4 py-3 font-semibold">Profesor</th>
-              <th className="text-left px-3 py-3 font-semibold">Tiempo clase</th>
+              <th className="text-left px-3 py-3 font-semibold">Clases realizadas</th>
               <th className="text-left px-3 py-3 font-semibold">Sesiones 1:1</th>
-              <th className="text-left px-3 py-3 font-semibold">Chats</th>
-              <th className="text-left px-3 py-3 font-semibold">Calif.</th>
+              <th className="text-right px-3 py-3 font-semibold">Bonos</th>
+              <th className="text-left px-3 py-3 font-semibold">Calificación</th>
               <th className="text-right px-3 py-3 font-semibold">A pagar</th>
               <th className="text-left px-3 py-3 font-semibold">Estado</th>
               <th className="px-3 py-3" />
@@ -510,9 +510,13 @@ function Page() {
               <tr key={s.id} className="border-t hover:bg-muted/30 transition">
                 <td className="px-4 py-3">
                   <button onClick={() => setDetalleId(s.id)} className="flex items-center gap-3 text-left">
-                    <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white" style={{ background: colorDe(s.id) }}>
-                      {(s.nombre).slice(0,2).toUpperCase()}
-                    </div>
+                    {profiles[s.id]?.avatar_url ? (
+                      <img src={profiles[s.id].avatar_url!} alt={s.nombre} className="w-10 h-10 rounded-full object-cover border bg-muted flex-shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full grid place-items-center text-xs font-bold text-white flex-shrink-0" style={{ background: colorDe(s.id) }}>
+                        {(s.nombre).slice(0,2).toUpperCase()}
+                      </div>
+                    )}
                     <div>
                       <div className="font-semibold">{s.nombre}</div>
                       <div className="text-[11px] text-muted-foreground">{s.tema}</div>
@@ -520,20 +524,24 @@ function Page() {
                   </button>
                 </td>
                 <td className="px-3 py-3">
-                  {formatHM(s.minutosClase)}
+                  <div className="font-medium">{s.items.filter((i) => i.tipo === "clase").length} clases</div>
+                  {s.minutosClase > 0 && <div className="text-xs text-muted-foreground">{formatHM(s.minutosClase)}</div>}
                   {s.ajusteMin !== 0 && (
-                    <span className="text-muted-foreground text-xs"> · ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</span>
+                    <div className="text-[11px] text-muted-foreground">Ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</div>
                   )}
                 </td>
-                <td className="px-3 py-3">{s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span></td>
-                <td className="px-3 py-3">{s.mensajesEstudiantes}</td>
+                <td className="px-3 py-3">
+                  <span className="font-medium">{s.sesiones1a1}</span>
+                  <span className="text-xs text-muted-foreground"> {s.sesiones1a1 === 1 ? "sesión" : "sesiones"}</span>
+                </td>
+                <td className="px-3 py-3 text-right font-medium tabular-nums">{s.bonos > 0 ? `$${s.bonos.toFixed(2)}` : "—"}</td>
                 <td className="px-3 py-3">
                   {s.califCount > 0 ? (
                     <span className="inline-flex items-center gap-1">
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                       <span className="font-medium">{s.califPromedio.toFixed(1)}</span>
                     </span>
-                  ) : <span className="text-muted-foreground text-xs">—</span>}
+                  ) : <span className="text-muted-foreground text-xs">Sin calificar</span>}
                 </td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(2)}</td>
                 <td className="px-3 py-3">
@@ -562,10 +570,10 @@ function Page() {
             {!loading && staff.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">Sin actividad este mes.</td></tr>}
             {!loading && staff.length > 0 && (
               <tr className="bg-muted/40 border-t">
-                <td className="px-4 py-3" colSpan={5} />
+                <td className="px-4 py-3" colSpan={4} />
                 <td className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold">Total a pagar</td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(2)}</td>
-                <td />
+                <td colSpan={2} />
               </tr>
             )}
           </tbody>
