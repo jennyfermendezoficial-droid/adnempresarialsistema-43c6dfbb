@@ -161,18 +161,6 @@ export function TopNav() {
               </Link>
             ))}
 
-            {groups.map((g) => {
-              const active = g.items.some((i) => isActive(i.to));
-              return (
-                <HoverGroup
-                  key={g.label}
-                  label={g.label}
-                  items={g.items}
-                  active={active}
-                  isActive={isActive}
-                />
-              );
-            })}
           </nav>
         </div>
       </div>
