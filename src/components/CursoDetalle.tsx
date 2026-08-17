@@ -358,6 +358,12 @@ export function CursoDetalle({
     if (!file || !active) return;
     try {
       setUploadingRecurso(true);
+      if (esImagen(file)) {
+        const url = await subirImagen(file, "adn/cursos");
+        await addRecurso({ tipo: "archivo", nombre: file.name, url });
+        toast.success("Archivo subido");
+        return;
+      }
       const path = `${cursoId}/${active.id}/${Date.now()}-${file.name}`;
       const { error: upErr } = await supabase.storage.from("course-media").upload(path, file, { upsert: false });
       if (upErr) throw upErr;
