@@ -1,3 +1,4 @@
+import { subirImagen, esImagen } from "@/lib/cloudinary";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
