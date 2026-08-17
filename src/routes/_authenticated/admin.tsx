@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ShieldCheck, BookOpen, Radio } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { PermisosPanel } from "./permisos";
+import { PermisosPanel } from "@/components/PermisosPanel";
 import { AccesoCursosPanel } from "@/components/AccesoCursosPanel";
 
 export const Route = createFileRoute("/_authenticated/admin")({
