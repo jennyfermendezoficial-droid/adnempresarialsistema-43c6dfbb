@@ -1,0 +1,1 @@
+ALTER TABLE public.disponibilidad ADD CONSTRAINT disponibilidad_profesor_dia_key UNIQUE (profesor_id, dia_semana);
