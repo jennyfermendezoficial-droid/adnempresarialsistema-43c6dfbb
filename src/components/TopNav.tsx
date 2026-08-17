@@ -81,10 +81,11 @@ export function TopNav() {
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
   const isStaff = role === "admin" || role === "soporte";
-  const flat: NavItem[] = isStaff ? [...mainItems, ...staffItems] : mainItems;
-  const groups: { label: string; items: NavItem[] }[] = isStaff
-    ? [{ label: "Admin", items: adminItems }]
-    : [];
+  const flat: NavItem[] = [
+    ...mainItems,
+    ...(isStaff ? staffItems : []),
+    ...(role === "admin" ? adminItems : []),
+  ];
 
   const initial = (formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase();
 
