@@ -466,37 +466,17 @@ function Page() {
         </button>
         <div className="flex-1" />
         {role === "admin" && (
+          <button onClick={() => setVerCuentas(true)} className="px-4 py-2 rounded-xl bg-violet-gradient text-white text-sm font-semibold flex items-center gap-2 shadow-md">
+            <Landmark className="w-4 h-4" /> Cuentas bancarias
+          </button>
+        )}
+        {role === "admin" && (
           <button onClick={cerrarMes} className="px-4 py-2 rounded-xl bg-violet-gradient text-white text-sm font-semibold flex items-center gap-2 shadow-md">
             <Lock className="w-4 h-4" /> Cerrar mes y generar pagos
           </button>
         )}
       </div>
 
-      {/* Pestañas */}
-      <div className="flex flex-wrap gap-1 mb-5 p-1 rounded-xl border bg-card w-fit">
-        {TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${tab === t.id ? "bg-violet-gradient text-white" : "text-muted-foreground hover:text-foreground"}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "precios" && (
-        <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={role === "admin"} onRefresh={cargar} />
-      )}
-      {tab === "abonos" && (
-        <PagosAbonos abonos={abonos} nombres={nombresStaff} totales={totalesPor} mes={mes} anio={anio} />
-      )}
-      {tab === "bonos" && (
-        <PagosBonos mes={mes} anio={anio} nombres={nombresStaff} puedeEditar={role === "admin"} onChanged={cargar} />
-      )}
-      {tab === "cuentas" && (
-        <PagosCuentas puedeEditar={role === "admin"} onChanged={cargarCuentas} />
-      )}
-
-      {tab === "resumen" && (
-      <>
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
