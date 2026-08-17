@@ -1,3 +1,4 @@
+import { subirImagen, esImagen, esUrlAbsoluta } from "@/lib/cloudinary";
 import { useEffect, useRef, useState } from "react";
 import { X, Upload, Loader2, Trash2, Landmark } from "lucide-react";
 import { toast } from "sonner";
@@ -112,11 +113,17 @@ export function RegistrarAbonoModal({
     setGuardando(true);
     let archivoUrl: string | null = null;
     if (archivo) {
-      const ext = archivo.name.split(".").pop() || "jpg";
-      const path = `${anio}/${String(mes).padStart(2, "0")}/${profesorId}-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("comprobantes").upload(path, archivo, { upsert: false });
-      if (upErr) { setGuardando(false); return toast.error(upErr.message); }
-      archivoUrl = path;
+      if (esImagen(archivo)) {
+        try {
+          archivoUrl = await subirImagen(archivo, "adn/comprobantes");
+        } catch (err) { setGuardando(false); return toast.error((err as Error).message); }
+      } else {
+        const ext = archivo.name.split(".").pop() || "jpg";
+        const path = `${anio}/${String(mes).padStart(2, "0")}/${profesorId}-${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("comprobantes").upload(path, archivo, { upsert: false });
+        if (upErr) { setGuardando(false); return toast.error(upErr.message); }
+        archivoUrl = path;
+      }
     }
     const cuenta = cuentas.find((c) => c.id === cuentaId);
     const { error } = await supabase.from("pagos_comprobantes").insert({
@@ -136,13 +143,16 @@ export function RegistrarAbonoModal({
     if (!confirm("¿Borrar este abono?")) return;
     const { error } = await supabase.from("pagos_comprobantes").delete().eq("id", a.id);
     if (error) return toast.error(error.message);
-    if (a.archivo_url) await supabase.storage.from("comprobantes").remove([a.archivo_url]);
+    if (a.archivo_url && !esUrlAbsoluta(a.archivo_url)) {
+      await supabase.storage.from("comprobantes").remove([a.archivo_url]);
+    }
     toast.success("Abono borrado");
     onSaved();
   };
 
   const verComprobante = async (a: Abono) => {
     if (!a.archivo_url) return;
+    if (esUrlAbsoluta(a.archivo_url)) { window.open(a.archivo_url, "_blank", "noreferrer"); return; }
     const { data, error } = await supabase.storage.from("comprobantes").createSignedUrl(a.archivo_url, 3600);
     if (error || !data) return toast.error("No se pudo abrir el comprobante");
     window.open(data.signedUrl, "_blank", "noreferrer");

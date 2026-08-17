@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { subirImagen } from "@/lib/cloudinary";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { InstallAppButton } from "@/components/InstallAppButton";
@@ -51,11 +52,11 @@ function Page() {
   const uploadAvatar = async (file: File) => {
     if (!uid) return;
     setUploading(true);
-    const path = `${uid}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
-    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    if (upErr) { setUploading(false); return toast.error(upErr.message); }
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    const { error } = await supabase.from("profiles").update({ avatar_url: data.publicUrl }).eq("id", uid);
+    let url: string;
+    try {
+      url = await subirImagen(file, "adn/avatares");
+    } catch (err) { setUploading(false); return toast.error((err as Error).message); }
+    const { error } = await supabase.from("profiles").update({ avatar_url: url }).eq("id", uid);
     setUploading(false);
     if (error) return toast.error(error.message);
     await refresh();
@@ -65,14 +66,14 @@ function Page() {
   const uploadNegocio = async (file: File) => {
     if (!uid) return;
     setUploadingNegocio(true);
-    const path = `${uid}/negocio-${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
-    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    if (upErr) { setUploadingNegocio(false); return toast.error(upErr.message); }
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    const { error } = await supabase.from("profiles").update({ negocio_foto_url: data.publicUrl }).eq("id", uid);
+    let url: string;
+    try {
+      url = await subirImagen(file, "adn/avatares");
+    } catch (err) { setUploadingNegocio(false); return toast.error((err as Error).message); }
+    const { error } = await supabase.from("profiles").update({ negocio_foto_url: url }).eq("id", uid);
     setUploadingNegocio(false);
     if (error) return toast.error(error.message);
-    setNegocioFoto(data.publicUrl);
+    setNegocioFoto(url);
     toast.success("Foto de negocio actualizada");
   };
 

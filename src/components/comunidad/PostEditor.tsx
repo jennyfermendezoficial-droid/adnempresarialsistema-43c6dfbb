@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { subirImagen, esImagen } from "@/lib/cloudinary";
 import { toast } from "sonner";
 import { X, ImagePlus } from "lucide-react";
 import type { Categoria, Post } from "@/lib/comunidad";
@@ -23,13 +24,24 @@ export function PostEditor({ uid, categorias, post, onClose, onSaved }: Props) {
 
   const subir = async (file: File) => {
     setSubiendo(true);
-    const path = `${uid}/comunidad-${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
-    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    setSubiendo(false);
-    if (error) return toast.error(error.message);
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    setMediaUrl(data.publicUrl);
-    setMediaTipo(file.type.startsWith("video") ? "video" : "imagen");
+    try {
+      if (esImagen(file)) {
+        const url = await subirImagen(file, "adn/comunidad");
+        setMediaUrl(url);
+        setMediaTipo("imagen");
+      } else {
+        const path = `${uid}/comunidad-${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
+        const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+        if (error) throw error;
+        const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+        setMediaUrl(data.publicUrl);
+        setMediaTipo("video");
+      }
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSubiendo(false);
+    }
   };
 
   const guardar = async () => {
