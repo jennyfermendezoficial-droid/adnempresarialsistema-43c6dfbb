@@ -1,0 +1,63 @@
+name: Patch pagos summary incrementally
+
+on:
+  push:
+    branches:
+      - feature/pagos-informes-redisenio
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/pagos-informes-redisenio
+          fetch-depth: 0
+
+      - name: Apply narrow Pagos summary patch
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/routes/_authenticated/pagos.tsx')
+          text = path.read_text()
+          original = text
+
+          text = text.replace(
+          '''              <th className="text-left px-3 py-3 font-semibold">Tiempo clase</th>\n              <th className="text-left px-3 py-3 font-semibold">Sesiones 1:1</th>\n              <th className="text-left px-3 py-3 font-semibold">Chats</th>\n              <th className="text-left px-3 py-3 font-semibold">Calif.</th>''',
+          '''              <th className="text-left px-3 py-3 font-semibold">Clases realizadas</th>\n              <th className="text-left px-3 py-3 font-semibold">Sesiones 1:1</th>\n              <th className="text-right px-3 py-3 font-semibold">Bonos</th>\n              <th className="text-left px-3 py-3 font-semibold">Calificación</th>''')
+
+          text = text.replace(
+          '''                    <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white" style={{ background: colorDe(s.id) }}>\n                      {(s.nombre).slice(0,2).toUpperCase()}\n                    </div>''',
+          '''                    {profiles[s.id]?.avatar_url ? (\n                      <img src={profiles[s.id].avatar_url!} alt={s.nombre} className="w-10 h-10 rounded-full object-cover border bg-muted flex-shrink-0" />\n                    ) : (\n                      <div className="w-10 h-10 rounded-full grid place-items-center text-xs font-bold text-white flex-shrink-0" style={{ background: colorDe(s.id) }}>\n                        {(s.nombre).slice(0,2).toUpperCase()}\n                      </div>\n                    )}''')
+
+          text = text.replace(
+          '''                <td className="px-3 py-3">\n                  {formatHM(s.minutosClase)}\n                  {s.ajusteMin !== 0 && (\n                    <span className="text-muted-foreground text-xs"> · ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</span>\n                  )}\n                </td>\n                <td className="px-3 py-3">{s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span></td>\n                <td className="px-3 py-3">{s.mensajesEstudiantes}</td>''',
+          '''                <td className="px-3 py-3">\n                  <div className="font-medium">{s.items.filter((i) => i.tipo === "clase").length} clases</div>\n                  {s.minutosClase > 0 && <div className="text-xs text-muted-foreground">{formatHM(s.minutosClase)}</div>}\n                  {s.ajusteMin !== 0 && (\n                    <div className="text-[11px] text-muted-foreground">Ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</div>\n                  )}\n                </td>\n                <td className="px-3 py-3">\n                  <span className="font-medium">{s.sesiones1a1}</span>\n                  <span className="text-xs text-muted-foreground"> {s.sesiones1a1 === 1 ? "sesión" : "sesiones"}</span>\n                </td>\n                <td className="px-3 py-3 text-right font-medium tabular-nums">{s.bonos > 0 ? `$${s.bonos.toFixed(2)}` : "—"}</td>''')
+
+          text = text.replace(
+          ''') : <span className="text-muted-foreground text-xs">—</span>}''',
+          ''') : <span className="text-muted-foreground text-xs">Sin calificar</span>}''',
+          1)
+
+          text = text.replace(
+          '''                <td className="px-4 py-3" colSpan={5} />\n                <td className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold">Total a pagar</td>\n                <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(2)}</td>\n                <td />''',
+          '''                <td className="px-4 py-3" colSpan={4} />\n                <td className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold">Total a pagar</td>\n                <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(2)}</td>\n                <td colSpan={2} />''')
+
+          if text == original:
+              raise SystemExit('No se encontró el bloque esperado; no se modificó nada.')
+
+          path.write_text(text)
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/_authenticated/pagos.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Pagos: limpia resumen de profesores sin tocar funcionalidad"
+          git push origin HEAD:feature/pagos-informes-redisenio
