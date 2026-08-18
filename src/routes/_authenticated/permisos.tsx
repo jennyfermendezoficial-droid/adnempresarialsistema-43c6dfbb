@@ -40,7 +40,7 @@ function Page() {
 
   const isAdmin = role === "admin";
   const isStaff = isAdmin || role === "soporte";
-  if (!isStaff) return <div className="p-8 text-center text-muted-foreground">Solo administradores o soporte.</div>;
+  if (!isStaff) return <div className="p-8 text-center text-muted-foreground">Solo Líder / Dueño o Profesor.</div>;
 
   const setEstado = async (id: string, estado: "activo" | "pendiente_aprobacion" | "inactivo") => {
     const { error } = await supabase.from("profiles").update({ estado }).eq("id", id);
@@ -49,7 +49,6 @@ function Page() {
   };
 
   const setRole = async (uid: string, newRole: "admin" | "soporte" | "usuario") => {
-    // delete existing roles, insert new one
     await supabase.from("user_roles").delete().eq("user_id", uid);
     const { error } = await supabase.from("user_roles").insert({ user_id: uid, role: newRole });
     if (error) return toast.error(error.message);
@@ -106,9 +105,9 @@ function Page() {
                 {isAdmin && (
                   <td className="px-3 py-2">
                     <select value={userRole(p.id)} onChange={(e) => setRole(p.id, e.target.value as "admin" | "soporte" | "usuario")} className="px-2 py-1 rounded border bg-background text-xs">
-                      <option value="usuario">usuario</option>
-                      <option value="soporte">soporte</option>
-                      <option value="admin">admin</option>
+                      <option value="usuario">Alumno</option>
+                      <option value="soporte">Profesor</option>
+                      <option value="admin">Líder / Dueño</option>
                     </select>
                   </td>
                 )}
