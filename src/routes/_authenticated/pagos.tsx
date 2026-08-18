@@ -62,9 +62,7 @@ interface StaffRow {
 type Tab = "resumen" | "precios" | "abonos" | "bonos" | "cuentas";
 const TABS: { id: Tab; label: string }[] = [
   { id: "resumen", label: "Resumen" },
-  { id: "precios", label: "Clases y sesiones" },
   { id: "abonos", label: "Pagos realizados" },
-  { id: "bonos", label: "Bonos" },
   { id: "cuentas", label: "Cuentas bancarias" },
 ];
 
@@ -131,11 +129,9 @@ function Page() {
       const iniTs = `${ini}T00:00:00`;
       const finTs = `${fin}T23:59:59`;
 
-      // Pagos ya generados para este mes
       const { data: pagosMes } = await supabase.from("pagos_mensuales")
         .select("*").eq("mes", mes).eq("anio", anio);
 
-      // Sesiones canceladas / no registradas del mes
       const { data: canc } = await supabase.from("sesiones_canceladas")
         .select("id,tipo,profesor_id,contraparte_id,titulo,fecha,estado,razon")
         .gte("fecha", ini).lte("fecha", fin).order("fecha", { ascending: false });
@@ -152,13 +148,11 @@ function Page() {
       const pagoMap = new Map<string, PagoHist>();
       ((pagosMes ?? []) as PagoHist[]).forEach((p) => pagoMap.set(p.profesor_id, p));
 
-      // Abonos (pagos realizados) del mes
       const { data: abs } = await supabase.from("pagos_comprobantes")
         .select("*").eq("mes", mes).eq("anio", anio).order("fecha_pago", { ascending: false });
       setAbonos((abs as Abono[]) ?? []);
       await cargarCuentas();
 
-      // Precios por clase/sesión y ajustes manuales del mes
       const [{ data: precios }, { data: ajustes }, { data: reemp }] = await Promise.all([
         supabase.from("pagos_items_precio").select("tipo,referencia_id,monto").eq("mes", mes).eq("anio", anio),
         supabase.from("pagos_ajustes").select("profesor_id,minutos").eq("mes", mes).eq("anio", anio),
@@ -186,7 +180,6 @@ function Page() {
           supabase.from("bonos").select("monto").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
         ]);
 
-        // Items con su precio (lo pone el administrador por fecha y hora)
         const items: ItemPago[] = [];
         let minutosClase = 0;
         ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
@@ -211,7 +204,6 @@ function Page() {
         });
         items.sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio));
 
-        // Calificación promedio
         const vals: number[] = [];
         ((califRes.data ?? []) as { claridad: number|null; didactica: number|null; practico: number|null; desenvolvimiento: number|null }[]).forEach((c) => {
           [c.claridad, c.didactica, c.practico, c.desenvolvimiento].forEach((v) => { if (typeof v === "number") vals.push(v); });
@@ -219,7 +211,6 @@ function Page() {
         const califPromedio = vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : 0;
         const califCount = (califRes.data ?? []).length;
 
-        // Mensajes solo a estudiantes (chats donde la contraparte es usuario)
         const chatsConEstudiantes = ((chatsRes.data ?? []) as { id: string; usuario_a_id: string; usuario_b_id: string }[])
           .filter((c) => {
             const otro = c.usuario_a_id === pid ? c.usuario_b_id : c.usuario_a_id;
@@ -238,7 +229,6 @@ function Page() {
         const sesiones1a1 = sesionesData.length;
         const bonos = ((bonosRes.data ?? []) as { monto: number }[]).reduce((a,b)=>a + Number(b.monto), 0);
         const total = Math.round((items.reduce((a, i) => a + i.monto, 0) + bonos) * 100) / 100;
-
         const pago = pagoMap.get(pid);
 
         return {
@@ -268,7 +258,6 @@ function Page() {
         setNombresAlumnas(nm);
       } else setNombresAlumnas({});
 
-      // Historial de meses cerrados
       const { data: hist } = await supabase.from("pagos_mensuales")
         .select("*").order("anio",{ascending:false}).order("mes",{ascending:false}).limit(24);
       setHistorial((hist as PagoHist[]) ?? []);
@@ -279,27 +268,38 @@ function Page() {
 
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [mes, anio]);
 
+  const abonadoPor = useMemo(() => {
+    const m: Record<string, number> = {};
+    abonos.filter((a) => !a.es_descuento).forEach((a) => { m[a.profesor_id] = (m[a.profesor_id] ?? 0) + Number(a.monto); });
+    return m;
+  }, [abonos]);
+  const descuentosPor = useMemo(() => {
+    const m: Record<string, number> = {};
+    abonos.filter((a) => a.es_descuento).forEach((a) => { m[a.profesor_id] = (m[a.profesor_id] ?? 0) + Number(a.monto); });
+    return m;
+  }, [abonos]);
+  const aplicadoPor = useMemo(() => {
+    const m: Record<string, number> = {};
+    staff.forEach((s) => { m[s.id] = (abonadoPor[s.id] ?? 0) + (descuentosPor[s.id] ?? 0); });
+    return m;
+  }, [staff, abonadoPor, descuentosPor]);
+
   const tot = useMemo(() => {
     const minutos = staff.reduce((a,b) => a + b.minutosClase + b.minutos1a1, 0);
     const sesiones = staff.reduce((a,b) => a + b.sesiones1a1, 0);
-    const pagar = staff.filter(s => s.estado === "por_pagar").reduce((a,b) => a + b.total, 0);
-    const pendCount = staff.filter(s => s.estado === "por_pagar").length;
+    const pagar = staff.reduce((a, s) => a + Math.max(0, s.total - (aplicadoPor[s.id] ?? 0)), 0);
+    const pendCount = staff.filter((s) => s.estado !== "pagado" && (aplicadoPor[s.id] ?? 0) + 0.009 < s.total).length;
     const califs = staff.filter(s => s.califCount > 0).map(s => s.califPromedio);
     const califEq = califs.length ? califs.reduce((a,b)=>a+b,0)/califs.length : 0;
     return { minutos, sesiones, pagar, pendCount, califEq };
-  }, [staff]);
+  }, [staff, aplicadoPor]);
 
-  const abonadoPor = useMemo(() => {
-    const m: Record<string, number> = {};
-    abonos.forEach((a) => { m[a.profesor_id] = (m[a.profesor_id] ?? 0) + Number(a.monto); });
-    return m;
-  }, [abonos]);
   const totalesPor = useMemo(() => Object.fromEntries(staff.map((s) => [s.id, s.total])), [staff]);
   const nombresStaff = useMemo(() => Object.fromEntries(staff.map((s) => [s.id, s.nombre])), [staff]);
   const estadoDe = (s: StaffRow): "pagado" | "parcial" | "por_pagar" => {
-    const ab = abonadoPor[s.id] ?? 0;
-    if (ab > 0 && ab + 0.009 >= s.total) return "pagado";
-    if (ab > 0) return "parcial";
+    const aplicado = aplicadoPor[s.id] ?? 0;
+    if (aplicado > 0 && aplicado + 0.009 >= s.total) return "pagado";
+    if (aplicado > 0) return "parcial";
     return s.estado === "pagado" ? "pagado" : "por_pagar";
   };
 
@@ -313,22 +313,24 @@ function Page() {
 
   const sincronizarPago = async (row: StaffRow) => {
     const { data } = await supabase.from("pagos_comprobantes")
-      .select("monto").eq("profesor_id", row.id).eq("mes", mes).eq("anio", anio);
-    const ab = ((data ?? []) as { monto: number }[]).reduce((a, b) => a + Number(b.monto), 0);
+      .select("*").eq("profesor_id", row.id).eq("mes", mes).eq("anio", anio);
+    const movimientos = ((data ?? []) as Abono[]);
+    const aplicado = movimientos.reduce((a, b) => a + Number(b.monto), 0);
+    const pagadoReal = movimientos.filter((a) => !a.es_descuento).reduce((a, b) => a + Number(b.monto), 0);
     const payload = {
       profesor_id: row.id, mes, anio,
       total_horas: horasDecimal(row.minutosClase + row.minutos1a1), total_bonos: row.bonos,
-      monto_total: row.total, estado: ab + 0.009 >= row.total && ab > 0 ? "pagado" : "por_pagar",
-      fecha_pago: ab > 0 ? new Date().toISOString() : null,
+      monto_total: row.total, estado: aplicado + 0.009 >= row.total && aplicado > 0 ? "pagado" : "por_pagar",
+      fecha_pago: pagadoReal > 0 ? new Date().toISOString() : null,
     };
     if (row.pagoId) await supabase.from("pagos_mensuales").update(payload).eq("id", row.pagoId);
     else await supabase.from("pagos_mensuales").insert(payload);
   };
 
   const cerrarMes = async () => {
-    const pendientes = staff.filter(s => s.estado === "por_pagar");
+    const pendientes = staff.filter(s => estadoDe(s) !== "pagado");
     if (!pendientes.length) return toast.info("No hay pagos pendientes");
-    if (!confirm(`Generar ${pendientes.length} pagos por un total de $${tot.pagar.toFixed(2)}?`)) return;
+    if (!confirm(`Generar ${pendientes.length} pagos por un saldo total de $${tot.pagar.toFixed(2)}?`)) return;
     for (const r of pendientes) {
       if (r.pagoId) continue;
       await supabase.from("pagos_mensuales").insert({
@@ -360,10 +362,10 @@ function Page() {
         fecha: a.fecha_pago,
         profesor: formatNombre(profiles[a.profesor_id]?.nombre_completo) || profiles[a.profesor_id]?.email || "—",
         monto: Number(a.monto),
-        tipo: a.tipo_pago,
-        banco: a.banco_texto || "",
-        numero: a.numero_comprobante || "",
-        observacion: a.observacion || "",
+        tipo: a.es_descuento ? "Descuento" : a.tipo_pago,
+        banco: a.es_descuento ? "" : (a.banco_texto || ""),
+        numero: a.es_descuento ? "" : (a.numero_comprobante || ""),
+        observacion: a.es_descuento ? (a.motivo_descuento || a.observacion || "") : (a.observacion || ""),
       }));
 
   const descargarInforme = (row: StaffRow) => {
@@ -422,7 +424,6 @@ function Page() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      {/* Header */}
       <div className="flex flex-wrap items-center gap-2 mb-5">
         <select value={`${anio}-${mes}`} onChange={(e) => { const [a,m] = e.target.value.split("-").map(Number); setAnio(a); setMes(m); }} className="px-3 py-2 rounded-lg border bg-card text-sm font-medium">
           {listaMeses().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -447,7 +448,6 @@ function Page() {
         )}
       </div>
 
-      {/* Pestañas */}
       <div className="flex flex-wrap gap-1 mb-5 p-1 rounded-xl border bg-card w-fit">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
@@ -457,14 +457,8 @@ function Page() {
         ))}
       </div>
 
-      {tab === "precios" && (
-        <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={role === "admin"} onRefresh={cargar} />
-      )}
       {tab === "abonos" && (
         <PagosAbonos abonos={abonos} nombres={nombresStaff} totales={totalesPor} mes={mes} anio={anio} />
-      )}
-      {tab === "bonos" && (
-        <PagosBonos mes={mes} anio={anio} nombres={nombresStaff} puedeEditar={role === "admin"} onChanged={cargar} />
       )}
       {tab === "cuentas" && (
         <PagosCuentas puedeEditar={role === "admin"} onChanged={cargarCuentas} />
@@ -472,11 +466,10 @@ function Page() {
 
       {tab === "resumen" && (
       <>
-      {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
           <div aria-hidden className="absolute -top-10 -right-10 w-40 h-40 rounded-full" style={{ background: "radial-gradient(circle, rgba(124,107,255,.5), transparent 70%)" }} />
-          <div className="text-[10px] uppercase tracking-wider opacity-70">Total a pagar · {MESES[mes-1]}</div>
+          <div className="text-[10px] uppercase tracking-wider opacity-70">Saldo a pagar · {MESES[mes-1]}</div>
           <div className="text-3xl font-bold mt-1 tabular-nums">${tot.pagar.toFixed(2)}</div>
           <div className="text-xs opacity-80 mt-1">{tot.pendCount} {tot.pendCount === 1 ? "profesor" : "profesores"} · pendiente</div>
         </div>
@@ -485,7 +478,21 @@ function Page() {
         <KPI label="Calif. equipo" value={tot.califEq ? tot.califEq.toFixed(2) : "—"} sub={tot.califEq ? "promedio del equipo" : "Sin calificaciones"} />
       </div>
 
-      {/* Tabla */}
+      <div className="space-y-2 mb-6">
+        <details className="rounded-2xl border bg-card p-4">
+          <summary className="cursor-pointer font-semibold text-sm">Valores por hora · clases y sesiones</summary>
+          <div className="mt-4">
+            <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={role === "admin"} onRefresh={cargar} />
+          </div>
+        </details>
+        <details className="rounded-2xl border bg-card p-4">
+          <summary className="cursor-pointer font-semibold text-sm">Bonos del mes</summary>
+          <div className="mt-4">
+            <PagosBonos mes={mes} anio={anio} nombres={nombresStaff} puedeEditar={role === "admin"} onChanged={cargar} />
+          </div>
+        </details>
+      </div>
+
       <div className="flex items-baseline justify-between mb-3 px-1">
         <h2 className="text-lg font-semibold">Resumen del equipo · {MESES[mes-1]} {anio}</h2>
         <span className="text-xs text-muted-foreground">Click en el nombre para ver el detalle</span>
@@ -538,18 +545,25 @@ function Page() {
                 <td className="px-3 py-3">
                   {s.califCount > 0 ? (
                     <span className="inline-flex items-center gap-1">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      <span className="font-medium">{s.califPromedio.toFixed(1)}</span>
+                      <span className="inline-flex gap-0.5">
+                        {[1,2,3,4,5].map((n) => <Star key={n} className={`w-3.5 h-3.5 ${n <= Math.round(s.califPromedio) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />)}
+                      </span>
+                      <span className="font-medium text-xs">{s.califPromedio.toFixed(1)}</span>
                     </span>
                   ) : <span className="text-muted-foreground text-xs">Sin calificar</span>}
                 </td>
-                <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(2)}</td>
+                <td className="px-3 py-3 text-right font-bold tabular-nums">
+                  ${Math.max(0, s.total - (descuentosPor[s.id] ?? 0)).toFixed(2)}
+                  {(descuentosPor[s.id] ?? 0) > 0 && <div className="text-[10px] font-normal text-amber-600">−${(descuentosPor[s.id] ?? 0).toFixed(2)} desc.</div>}
+                </td>
                 <td className="px-3 py-3">
                   {estadoDe(s) === "pagado" ? (
                     <span className="px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Pagado</span>
                   ) : estadoDe(s) === "parcial" ? (
                     <span className="px-2 py-1 rounded-md text-xs font-medium bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
-                      Abono ${(abonadoPor[s.id] ?? 0).toFixed(2)} · saldo ${(s.total - (abonadoPor[s.id] ?? 0)).toFixed(2)}
+                      Abono ${(abonadoPor[s.id] ?? 0).toFixed(2)}
+                      {(descuentosPor[s.id] ?? 0) > 0 ? ` · descuento $${(descuentosPor[s.id] ?? 0).toFixed(2)}` : ""}
+                      {` · saldo $${Math.max(0, s.total - (aplicadoPor[s.id] ?? 0)).toFixed(2)}`}
                     </span>
                   ) : (
                     <span className="px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Por pagar</span>
@@ -571,7 +585,7 @@ function Page() {
             {!loading && staff.length > 0 && (
               <tr className="bg-muted/40 border-t">
                 <td className="px-4 py-3" colSpan={4} />
-                <td className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold">Total a pagar</td>
+                <td className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold">Saldo pendiente</td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(2)}</td>
                 <td colSpan={2} />
               </tr>
@@ -580,7 +594,6 @@ function Page() {
         </table>
       </div>
 
-      {/* Historial */}
       {historial.length > 0 && (
         <div className="mt-8">
           <h2 className="text-lg font-semibold mb-3">Historial de pagos</h2>
@@ -649,8 +662,6 @@ function KPI({ label, value, sub }: { label: string; value: string; sub?: string
     </div>
   );
 }
-
-// ===================== DETALLE PROFESOR =====================
 
 function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, canceladas = [], nombresAlumnas = {}, puedeEditar = false, onRefresh, onInforme, reemplazos = [] }: {
   row: StaffRow; profile?: Profile; mes: number; anio: number;
@@ -758,7 +769,6 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       </div>
 
-      {/* Resumen + actividad */}
       <div className="grid lg:grid-cols-2 gap-4 mb-4">
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Resumen económico</div>
@@ -778,13 +788,11 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
           <div className="space-y-3">
             <Item icon="🎓" titulo={`${bitacora.filter(b=>b.tipo==="Clase en vivo").length} clases impartidas`} sub={`${formatHM(row.minutosClase)} en total`} />
             <Item icon="📅" titulo={`${row.sesiones1a1} sesiones 1:1 realizadas`} sub={`${formatHM(row.minutos1a1)} en total`} />
-            <Item icon="💬" titulo={`${row.mensajesEstudiantes} mensajes a estudiantes`} sub="canal privado" />
             <Item icon="⭐" titulo={`${row.califCount} calificaciones recibidas`} sub={row.califCount ? `Promedio ${row.califPromedio.toFixed(2)}` : "Sin respuestas"} />
           </div>
         </div>
       </div>
 
-      {/* Calificaciones + bitácora */}
       <div className="grid lg:grid-cols-2 gap-4 mb-6">
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Calificaciones ({row.califCount} respuestas)</div>
@@ -819,7 +827,6 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       </div>
 
-      {/* Precios por clase / sesión */}
       <div className="rounded-2xl border bg-card p-5 mb-6">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
@@ -875,7 +882,6 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         {!puedeEditar && <div className="text-xs text-muted-foreground mt-2">Solo un administrador puede cambiar los valores.</div>}
       </div>
 
-      {/* Reemplazos reportados */}
       {reemplazos.length > 0 && (
         <div className="rounded-2xl border bg-card p-5 mb-6">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">
@@ -897,7 +903,6 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       )}
 
-      {/* Canceladas / no registradas */}
       <div className="rounded-2xl border bg-card p-5 mb-6">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">
           Sesiones canceladas o no registradas · no cuentan horas
@@ -924,7 +929,6 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         )}
       </div>
 
-      {/* Selector otros profes */}
       <div className="mb-2 text-sm font-semibold">Ver informe de otro profesor</div>
       <div className="flex gap-2 flex-wrap">
         {staff.map((s) => (
