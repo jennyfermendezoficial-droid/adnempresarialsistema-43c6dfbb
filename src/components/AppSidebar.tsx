@@ -12,7 +12,7 @@ interface Item { to: string; label: string; icon: typeof Home; }
 interface AppSidebarProps { onNavigate?: () => void }
 
 export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
-  const { profile, role, signOut } = useAuth();
+  const { profile, role, signOut, session } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
