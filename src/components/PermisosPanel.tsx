@@ -108,7 +108,7 @@ export function PermisosPanel() {
                   {isAdmin && (
                     <td className="px-3 py-2">
                       <select value={userRole(p.id)} onChange={(e) => setRole(p.id, e.target.value as "admin" | "soporte" | "usuario")} className="px-2 py-1 rounded border bg-background text-xs">
-                        {ROLE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        {ROLE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.value === "admin" ? "Líder / Dueño" : o.label}</option>)}
                       </select>
                     </td>
                   )}
