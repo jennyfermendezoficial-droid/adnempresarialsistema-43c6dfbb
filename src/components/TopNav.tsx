@@ -45,29 +45,15 @@ function HoverGroup({
         onMouseEnter={show}
         onMouseLeave={hide}
         className="flex items-center gap-1.5 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors outline-none"
-        style={
-          active
-            ? { color: "#fff", borderColor: "var(--violet)" }
-            : { color: "var(--violet-light)", borderColor: "transparent" }
-        }
+        style={active ? { color: "#fff", borderColor: "var(--violet)" } : { color: "var(--violet-light)", borderColor: "transparent" }}
       >
         {label}
         <ChevronDown className="w-3.5 h-3.5 opacity-70" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="center"
-        sideOffset={0}
-        onMouseEnter={show}
-        onMouseLeave={hide}
-        className="w-60"
-      >
+      <DropdownMenuContent align="center" sideOffset={0} onMouseEnter={show} onMouseLeave={hide} className="w-60">
         {items.map(({ to, label: l, icon: Icon }) => (
           <DropdownMenuItem key={to} asChild>
-            <Link
-              to={to}
-              className="flex items-center gap-2 cursor-pointer"
-              data-active={isActive(to) ? "true" : undefined}
-            >
+            <Link to={to} className="flex items-center gap-2 cursor-pointer" data-active={isActive(to) ? "true" : undefined}>
               <Icon className="w-4 h-4" /> {l}
             </Link>
           </DropdownMenuItem>
@@ -84,24 +70,16 @@ export function TopNav() {
 
   const isStaff = role === "admin" || role === "soporte";
   const flat: NavItem[] = isStaff ? [...mainItems, ...staffItems] : mainItems;
-  const groups: { label: string; items: NavItem[] }[] = isStaff
-    ? [{ label: "Admin", items: adminItems }]
-    : [];
+  const groups: { label: string; items: NavItem[] }[] = isStaff ? [{ label: "Admin", items: adminItems }] : [];
   const puedePagos = puedeGestionarPagos(role, session?.user.email);
+  const PagosIcon = pagosItem.icon;
 
   const initial = (formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase();
 
   return (
-    <header
-      className="sticky top-0 z-40 w-full border-b"
-      style={{ background: BAR, color: "var(--violet-light)", borderColor: "var(--line-dark)" }}
-    >
+    <header className="sticky top-0 z-40 w-full border-b" style={{ background: BAR, color: "var(--violet-light)", borderColor: "var(--line-dark)" }}>
       <div className="relative">
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: "radial-gradient(circle at top right, rgba(124,107,255,.15), transparent 60%)" }}
-        />
+        <div aria-hidden className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at top right, rgba(124,107,255,.15), transparent 60%)" }} />
         <div className="relative z-10 mx-auto w-full max-w-[1400px] px-6">
           <div className="h-14 flex items-center gap-4">
             <Link to="/comunidad" className="flex items-center gap-3 min-w-0">
@@ -116,10 +94,7 @@ export function TopNav() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-white/10 transition-colors outline-none">
-                  <div
-                    className="w-8 h-8 rounded-full grid place-items-center text-white text-sm font-semibold"
-                    style={{ background: "linear-gradient(135deg,var(--violet),var(--violet-2))" }}
-                  >
+                  <div className="w-8 h-8 rounded-full grid place-items-center text-white text-sm font-semibold" style={{ background: "linear-gradient(135deg,var(--violet),var(--violet-2))" }}>
                     {initial}
                   </div>
                   <ChevronDown className="w-4 h-4 opacity-70" />
@@ -127,18 +102,12 @@ export function TopNav() {
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-2 py-1.5">
                     <div className="text-sm font-semibold truncate">{formatNombre(profile?.nombre_completo) || "Mi cuenta"}</div>
-                    <div className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">
-                      {roleLabel(role)}
-                    </div>
+                    <div className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">{roleLabel(role)}</div>
                   </div>
                   <DropdownMenuItem asChild>
-                    <Link to="/perfil" className="flex items-center gap-2 cursor-pointer">
-                      <User className="w-4 h-4" /> Mi perfil
-                    </Link>
+                    <Link to="/perfil" className="flex items-center gap-2 cursor-pointer"><User className="w-4 h-4" /> Mi perfil</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => signOut()} className="flex items-center gap-2 cursor-pointer">
-                    <LogOut className="w-4 h-4" /> Cerrar sesión
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => signOut()} className="flex items-center gap-2 cursor-pointer"><LogOut className="w-4 h-4" /> Cerrar sesión</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -146,16 +115,8 @@ export function TopNav() {
 
           <nav className="flex items-stretch justify-center gap-1 overflow-x-auto">
             {flat.map(({ to, label, icon: Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                className="group flex items-center gap-2 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors"
-                style={
-                  isActive(to)
-                    ? { color: "#fff", borderColor: "var(--violet)" }
-                    : { color: "var(--violet-light)", borderColor: "transparent" }
-                }
-              >
+              <Link key={to} to={to} className="group flex items-center gap-2 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors"
+                style={isActive(to) ? { color: "#fff", borderColor: "var(--violet)" } : { color: "var(--violet-light)", borderColor: "transparent" }}>
                 <Icon className="w-[17px] h-[17px] shrink-0 opacity-80" />
                 <span>{label}</span>
               </Link>
@@ -163,28 +124,13 @@ export function TopNav() {
 
             {groups.map((g) => {
               const active = g.items.some((i) => isActive(i.to));
-              return (
-                <HoverGroup
-                  key={g.label}
-                  label={g.label}
-                  items={g.items}
-                  active={active}
-                  isActive={isActive}
-                />
-              );
+              return <HoverGroup key={g.label} label={g.label} items={g.items} active={active} isActive={isActive} />;
             })}
 
             {puedePagos && (
-              <Link
-                to={pagosItem.to}
-                className="group flex items-center gap-2 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors"
-                style={
-                  isActive(pagosItem.to)
-                    ? { color: "#fff", borderColor: "var(--violet)" }
-                    : { color: "var(--violet-light)", borderColor: "transparent" }
-                }
-              >
-                <pagosItem.icon className="w-[17px] h-[17px] shrink-0 opacity-80" />
+              <Link to={pagosItem.to} className="group flex items-center gap-2 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors"
+                style={isActive(pagosItem.to) ? { color: "#fff", borderColor: "var(--violet)" } : { color: "var(--violet-light)", borderColor: "transparent" }}>
+                <PagosIcon className="w-[17px] h-[17px] shrink-0 opacity-80" />
                 <span>{pagosItem.label}</span>
               </Link>
             )}
