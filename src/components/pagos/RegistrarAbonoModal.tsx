@@ -7,7 +7,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { leerComprobante } from "@/lib/comprobante-ocr.functions";
 
 export interface CuentaEmpresa {
-  id: string; nombre: string; tipo: string; numero_cuenta: string; titular: string | null; activo: boolean;
+  id: string; nombre: string; tipo: string; numero_cuenta: string; titular: string | null; activo: boolean; logo_url?: string | null;
+}
+interface PerfilPago {
+  id: string; nombre_completo: string; email: string; avatar_url: string | null; cedula: string | null;
+  banco: string | null; tipo_cuenta: string | null; numero_cuenta: string | null;
+  titular_cuenta: string | null; banco_logo_url: string | null;
 }
 export interface Abono {
   id: string; profesor_id: string; mes: number; anio: number; fecha_pago: string; monto: number;
@@ -41,6 +46,7 @@ export function RegistrarAbonoModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const [descMonto, setDescMonto] = useState("");
   const [descMotivo, setDescMotivo] = useState("");
+  const [profesor, setProfesor] = useState<PerfilPago | null>(null);
 
   const abonado = abonos.reduce((a, b) => a + Number(b.monto), 0);
   const totalDesc = descuentos.reduce((a, d) => a + Number(d.monto), 0);
@@ -48,6 +54,7 @@ export function RegistrarAbonoModal({
   const saldo = Math.round((total - abonado) * 100) / 100;
   const montoNum = Number(monto || 0);
   const coincide = montoNum > 0 && Math.abs(montoNum - saldo) < 0.01;
+  const cuentaOrigen = cuentas.find((c) => c.id === cuentaId) ?? null;
 
   const agregarDescuento = async () => {
     const v = Number(descMonto);
@@ -97,6 +104,15 @@ export function RegistrarAbonoModal({
       setLeyendo(false);
     }
   };
+
+  useEffect(() => {
+    let cancel = false;
+    void (async () => {
+      const { data, error } = await supabase.rpc("perfiles_pagos", { _ids: [profesorId] });
+      if (!cancel && !error) setProfesor(((data ?? [])[0] as PerfilPago | undefined) ?? null);
+    })();
+    return () => { cancel = true; };
+  }, [profesorId]);
 
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
@@ -174,6 +190,47 @@ export function RegistrarAbonoModal({
           <Tot label="Abonado" value={abonado} color="#2563eb" />
           <Tot label="Descuentos" value={totalDesc} color="#d97706" />
           <Tot label="Saldo" value={saldo} color={saldo > 0 ? "#dc2626" : "#16a34a"} />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-3 px-5 pt-5">
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Destino · profesor</div>
+            <div className="flex items-start gap-3">
+              {profesor?.avatar_url ? (
+                <img src={profesor.avatar_url} alt={profesor.nombre_completo || profesorNombre} className="w-12 h-12 rounded-full object-cover border" />
+              ) : (
+                <div className="w-12 h-12 rounded-full grid place-items-center bg-violet-gradient text-white font-bold">{profesorNombre.slice(0, 2).toUpperCase()}</div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold truncate">{profesor?.nombre_completo || profesorNombre}</div>
+                {profesor?.cedula && <div className="text-xs text-muted-foreground">Cédula {profesor.cedula}</div>}
+                {profesor?.banco ? (
+                  <div className="mt-2 flex items-start gap-2 text-xs">
+                    {profesor.banco_logo_url ? <img src={profesor.banco_logo_url} alt="" className="w-6 h-6 rounded object-cover" /> : <Landmark className="w-4 h-4 mt-0.5 text-muted-foreground" />}
+                    <div>
+                      <div className="font-medium">{profesor.banco}</div>
+                      <div className="text-muted-foreground capitalize">{profesor.tipo_cuenta || "Cuenta"}{profesor.numero_cuenta ? ` · N° ${profesor.numero_cuenta}` : ""}</div>
+                      {profesor.titular_cuenta && <div className="text-muted-foreground">Titular: {profesor.titular_cuenta}</div>}
+                    </div>
+                  </div>
+                ) : <div className="text-xs text-amber-600 mt-2">Sin cuenta bancaria registrada.</div>}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Origen · empresa</div>
+            {cuentaOrigen ? (
+              <div className="flex items-start gap-3">
+                {cuentaOrigen.logo_url ? <img src={cuentaOrigen.logo_url} alt="" className="w-12 h-12 rounded-xl object-cover border" /> : <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center"><Landmark className="w-5 h-5" /></div>}
+                <div className="min-w-0">
+                  <div className="font-semibold truncate">{cuentaOrigen.nombre}</div>
+                  <div className="text-xs text-muted-foreground capitalize">{cuentaOrigen.tipo} · N° {cuentaOrigen.numero_cuenta}</div>
+                  {cuentaOrigen.titular && <div className="text-xs text-muted-foreground">Titular: {cuentaOrigen.titular}</div>}
+                </div>
+              </div>
+            ) : <div className="text-xs text-muted-foreground">Selecciona abajo la cuenta desde la que se realiza el pago.</div>}
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4 p-5">
