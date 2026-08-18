@@ -334,32 +334,32 @@ export function generarInformeProfesorPDF(input: InformeProfesorInput) {
   doc.text("Detalle de clases y sesiones", 40, 198);
   doc.setFont("helvetica", "normal");
 
+  // El detalle es informativo: muestra actividad real, no un precio por cada fila.
   autoTable(doc, {
     startY: 208,
-    head: [["Fecha", "Día", "Horario", "Tipo", "Con / Tema", "Duración", "Valor"]],
+    head: [["Fecha", "Día", "Horario", "Tipo", "Alumna / Tema", "Duración"]],
     body: items.length
       ? items.map((i) => [
-          i.fecha, diaDe(i.fecha),
+          i.fecha,
+          diaDe(i.fecha),
           `${(i.horaInicio || "").slice(0, 5)} - ${(i.horaFin || "").slice(0, 5)}`,
-          i.tipo, i.detalle, formatHM(i.minutos), `$${i.monto.toFixed(2)}`,
+          i.tipo,
+          i.detalle,
+          formatHM(i.minutos),
         ])
-      : [["-", "-", "-", "-", "Sin clases registradas este mes", "-", "$0.00"]],
-    foot: [[
-      "", "", "", "", "Subtotal clases y sesiones",
-      formatHM(minClase + min1a1),
-      `$${items.reduce((a, i) => a + i.monto, 0).toFixed(2)}`,
-    ]],
+      : [["-", "-", "-", "-", "Sin clases registradas este mes", "-"]],
+    foot: [["", "", "", "", "Tiempo total registrado", formatHM(minClase + min1a1)]],
     styles: { fontSize: 8.5, cellPadding: 5, textColor: [40, 38, 60] },
     headStyles: { fillColor: [124, 107, 255], textColor: 255, fontStyle: "bold" },
     footStyles: { fillColor: [240, 238, 250], textColor: [30, 28, 50], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [250, 249, 255] },
-    columnStyles: { 6: { halign: "right" }, 5: { halign: "center" } },
+    columnStyles: { 5: { halign: "center" } },
     margin: { left: 40, right: 40 },
   });
 
   let y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 240;
 
-  // Resumen económico
+  // Resumen económico separado del detalle de actividad.
   autoTable(doc, {
     startY: y + 24,
     head: [["Concepto", "Detalle", "Monto"]],
@@ -416,8 +416,8 @@ export function generarInformeProfesorPDF(input: InformeProfesorInput) {
     doc.setFont("helvetica", "normal");
     autoTable(doc, {
       startY: y + 38,
-      head: [["Fecha", "Tipo", "Con / Titulo", "Estado", "Razon", "Monto"]],
-      body: canceladas.map((c) => [c.fecha, c.tipo, c.con, c.estado, c.razon || "-", "$0.00"]),
+      head: [["Fecha", "Tipo", "Con / Titulo", "Estado", "Razon"]],
+      body: canceladas.map((c) => [c.fecha, c.tipo, c.con, c.estado, c.razon || "-"]),
       styles: { fontSize: 8, cellPadding: 4, textColor: [40, 38, 60] },
       headStyles: { fillColor: [200, 70, 70], textColor: 255, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [255, 248, 248] },
