@@ -498,7 +498,7 @@ function Page() {
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
               <th className="text-left px-4 py-3 font-semibold">Profesor</th>
-              <th className="text-left px-3 py-3 font-semibold">Tiempo clase</th>
+              <th className="text-left px-3 py-3 font-semibold">Clases realizadas</th>
               <th className="text-left px-3 py-3 font-semibold">Sesiones 1:1</th>
               <th className="text-left px-3 py-3 font-semibold">Calificación</th>
               <th className="text-right px-3 py-3 font-semibold">Bonos</th>
@@ -514,9 +514,13 @@ function Page() {
               <tr key={s.id} className="border-t hover:bg-muted/30 transition">
                 <td className="px-4 py-3">
                   <button onClick={() => setDetalleId(s.id)} className="flex items-center gap-3 text-left">
-                    <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white" style={{ background: colorDe(s.id) }}>
-                      {(s.nombre).slice(0,2).toUpperCase()}
-                    </div>
+                    {profiles[s.id]?.avatar_url ? (
+                      <img src={profiles[s.id]?.avatar_url ?? ""} alt={s.nombre} className="w-9 h-9 rounded-full object-cover border" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white" style={{ background: colorDe(s.id) }}>
+                        {(s.nombre).slice(0,2).toUpperCase()}
+                      </div>
+                    )}
                     <div>
                       <div className="font-semibold">{s.nombre}</div>
                       <div className="text-[11px] text-muted-foreground flex items-center gap-1">
@@ -531,14 +535,20 @@ function Page() {
                   </button>
                 </td>
                 <td className="px-3 py-3">
-                  {formatHM(s.minutosClase)}
+                  <div className="font-medium">
+                    {s.items.filter((i) => i.tipo === "clase").length > 0
+                      ? `${s.items.filter((i) => i.tipo === "clase").length} ${s.items.filter((i) => i.tipo === "clase").length === 1 ? "clase" : "clases"}`
+                      : "—"}
+                  </div>
+                  {s.minutosClase > 0 && <div className="text-xs text-muted-foreground mt-0.5">{formatHM(s.minutosClase)}</div>}
                   {s.ajusteMin !== 0 && (
-                    <span className="text-muted-foreground text-xs"> · ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</span>
+                    <div className="text-muted-foreground text-xs">Ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</div>
                   )}
                   <TarifaInput profesorId={s.id} campo="valor_hora_clase" valor={s.tarifaClase} mes={mes} anio={anio} puedeEditar={role === "admin"} onSaved={cargar} />
                 </td>
                 <td className="px-3 py-3">
-                  {s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span>
+                  <div className="font-medium">{s.sesiones1a1 > 0 ? `${s.sesiones1a1} ${s.sesiones1a1 === 1 ? "sesión" : "sesiones"}` : "—"}</div>
+                  {s.minutos1a1 > 0 && <div className="text-xs text-muted-foreground mt-0.5">{formatHM(s.minutos1a1)}</div>}
                   <TarifaInput profesorId={s.id} campo="valor_hora_sesion" valor={s.tarifaSesion} mes={mes} anio={anio} puedeEditar={role === "admin"} onSaved={cargar} />
                 </td>
                 <td className="px-3 py-3">
