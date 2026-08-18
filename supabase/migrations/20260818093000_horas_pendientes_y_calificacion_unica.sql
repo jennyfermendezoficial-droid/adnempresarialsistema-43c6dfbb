@@ -2,8 +2,8 @@
 CREATE UNIQUE INDEX IF NOT EXISTS calificaciones_mensuales_unica_mes
 ON public.calificaciones_mensuales (profesor_id, alumna_id, mes, anio);
 
--- Revisa horas pendientes. Un profesor solo puede revisar las suyas;
--- un admin puede revisar todo el equipo. También actualiza/crea la alerta del Líder/Dueño.
+-- Revisa horas pendientes. Un profesor normal solo revisa las suyas;
+-- quienes gestionan Pagos (admin + Erick) pueden revisar todo el equipo.
 CREATE OR REPLACE FUNCTION public.revisar_horas_pendientes(_profesor_id uuid DEFAULT NULL)
 RETURNS TABLE(profesor_id uuid, pendientes integer, dias_max integer)
 LANGUAGE plpgsql
@@ -22,7 +22,7 @@ BEGIN
     RAISE EXCEPTION 'No autenticado';
   END IF;
 
-  IF public.has_role(caller, 'admin'::public.app_role) THEN
+  IF public.puede_pagos(caller) THEN
     target := _profesor_id;
   ELSE
     target := caller;
