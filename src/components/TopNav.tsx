@@ -10,7 +10,9 @@ import { NotificationsPopover } from "./NotificationsPopover";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { mainItems, staffItems, adminItems, type NavItem } from "@/lib/nav-items";
+import { mainItems, staffItems, adminItems, pagosItem, type NavItem } from "@/lib/nav-items";
+import { roleLabel } from "@/lib/roles";
+import { puedeGestionarPagos } from "@/lib/access";
 
 const BAR = "var(--deep-2)";
 
@@ -76,7 +78,7 @@ function HoverGroup({
 }
 
 export function TopNav() {
-  const { profile, role, signOut } = useAuth();
+  const { profile, role, session, signOut } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
@@ -85,6 +87,7 @@ export function TopNav() {
   const groups: { label: string; items: NavItem[] }[] = isStaff
     ? [{ label: "Admin", items: adminItems }]
     : [];
+  const puedePagos = puedeGestionarPagos(role, session?.user.email);
 
   const initial = (formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase();
 
@@ -100,7 +103,6 @@ export function TopNav() {
           style={{ background: "radial-gradient(circle at top right, rgba(124,107,255,.15), transparent 60%)" }}
         />
         <div className="relative z-10 mx-auto w-full max-w-[1400px] px-6">
-          {/* Fila 1 */}
           <div className="h-14 flex items-center gap-4">
             <Link to="/comunidad" className="flex items-center gap-3 min-w-0">
               <Logo size={30} />
@@ -126,7 +128,7 @@ export function TopNav() {
                   <div className="px-2 py-1.5">
                     <div className="text-sm font-semibold truncate">{formatNombre(profile?.nombre_completo) || "Mi cuenta"}</div>
                     <div className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">
-                      {role || "usuario"}
+                      {roleLabel(role)}
                     </div>
                   </div>
                   <DropdownMenuItem asChild>
@@ -142,7 +144,6 @@ export function TopNav() {
             </div>
           </div>
 
-          {/* Fila 2: pestañas */}
           <nav className="flex items-stretch justify-center gap-1 overflow-x-auto">
             {flat.map(({ to, label, icon: Icon }) => (
               <Link
@@ -172,6 +173,21 @@ export function TopNav() {
                 />
               );
             })}
+
+            {puedePagos && (
+              <Link
+                to={pagosItem.to}
+                className="group flex items-center gap-2 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors"
+                style={
+                  isActive(pagosItem.to)
+                    ? { color: "#fff", borderColor: "var(--violet)" }
+                    : { color: "var(--violet-light)", borderColor: "transparent" }
+                }
+              >
+                <pagosItem.icon className="w-[17px] h-[17px] shrink-0 opacity-80" />
+                <span>{pagosItem.label}</span>
+              </Link>
+            )}
           </nav>
         </div>
       </div>
