@@ -50,7 +50,6 @@ jobs:
           rep('  if (role !== "admin" && role !== "soporte") {\n    return <div className="p-8 text-center text-muted-foreground">Solo el equipo puede ver esta sección.</div>;\n  }', '  if (!puedeEditar) {\n    return <div className="p-8 text-center text-muted-foreground">No tienes permiso para ver Pagos e informes.</div>;\n  }')
           s = s.replace('role === "admin"', 'puedeEditar')
           rep('                  {formatHM(s.minutosClase)}', '                  <span className="font-medium">{s.clasesRealizadas} {s.clasesRealizadas === 1 ? "clase" : "clases"}</span> <span className="text-muted-foreground text-xs">· {formatHM(s.minutosClase)}</span>')
-
           old_avatar = '''                    <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white" style={{ background: colorDe(s.id) }}>
                       {(s.nombre).slice(0,2).toUpperCase()}
                     </div>'''
@@ -73,7 +72,6 @@ jobs:
               if old not in s:
                   raise SystemExit('No se encontró patrón en RegistrarAbonoModal: ' + old[:100])
               s = s.replace(old, new, n)
-
           repm('  id: string; nombre: string; tipo: string; numero_cuenta: string; titular: string | null; activo: boolean;', '  id: string; nombre: string; tipo: string; numero_cuenta: string; titular: string | null; activo: boolean; logo_url?: string | null;')
           repm('  observacion: string | null; archivo_url: string | null;\n}', '  observacion: string | null; archivo_url: string | null; datos_ocr?: unknown;\n}')
           repm('  const [descMotivo, setDescMotivo] = useState("");', '''  const [descMotivo, setDescMotivo] = useState("");
@@ -116,3 +114,4 @@ jobs:
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "Pagos: conecta horas reales y permisos finales"
           git push
+# trigger-2
