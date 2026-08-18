@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Lock, Star, ChevronLeft, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
+import { formatHM, horasDecimal } from "@/lib/tiempo";
 import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo, type AbonoExportRow } from "@/lib/pagos-export";
 import { formatNombre } from "@/lib/nombres";
+import { puedeGestionarPagos } from "@/lib/access";
 import { RegistrarAbonoModal, type Abono, type CuentaEmpresa } from "@/components/pagos/RegistrarAbonoModal";
 import { PagosPrecios, type FilaPrecio } from "@/components/pagos/PagosPrecios";
 import { PagosAbonos } from "@/components/pagos/PagosAbonos";
@@ -79,10 +80,10 @@ function temaDe(p: Profile) {
 }
 const COLORS = ["#7C6BFF","#22A06B","#E78A3C","#3C8FE7","#C2756B"];
 function colorDe(id: string) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; }
-function inicial(p: Profile) { return (p.nombre_completo || p.email).slice(0,1).toUpperCase(); }
 
 function Page() {
-  const { role } = useAuth();
+  const { role, session } = useAuth();
+  const puedeEditarPagos = puedeGestionarPagos(role, session?.user.email);
   const today = new Date();
   const [mes, setMes] = useState(today.getMonth() + 1);
   const [anio, setAnio] = useState(today.getFullYear());
@@ -183,23 +184,23 @@ function Page() {
         const items: ItemPago[] = [];
         let minutosClase = 0;
         ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
-          const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
+          const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : 0;
           minutosClase += min;
           items.push({
             tipo: "clase", refId: c.id, fecha: c.fecha, horaInicio: c.hora_inicio, horaFin: c.hora_fin ?? "",
-            minutos: min, titulo: c.titulo, alumnaId: null, monto: precioMap.get(`clase:${c.id}`) ?? 0,
+            minutos: min, titulo: c.titulo, alumnaId: null, monto: min > 0 ? (precioMap.get(`clase:${c.id}`) ?? 0) : 0,
           });
         });
 
         const sesionesData = (sesionesRes.data ?? []) as { id: string; fecha: string; alumna_id: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[];
         let minutos1a1 = 0;
         sesionesData.forEach((s) => {
-          const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
+          const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : 0;
           minutos1a1 += min;
           alumnaIds.add(s.alumna_id);
           items.push({
             tipo: "1a1", refId: s.id, fecha: s.fecha, horaInicio: s.hora_inicio, horaFin: s.hora_fin ?? "",
-            minutos: min, titulo: null, alumnaId: s.alumna_id, monto: precioMap.get(`1a1:${s.id}`) ?? 0,
+            minutos: min, titulo: null, alumnaId: s.alumna_id, monto: min > 0 ? (precioMap.get(`1a1:${s.id}`) ?? 0) : 0,
           });
         });
         items.sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio));
@@ -226,9 +227,9 @@ function Page() {
           mensajesEstudiantes = count ?? 0;
         }
 
-        const sesiones1a1 = sesionesData.length;
+        const sesiones1a1 = sesionesData.filter((s) => Number(s.duracion_min ?? 0) > 0).length;
         const bonos = ((bonosRes.data ?? []) as { monto: number }[]).reduce((a,b)=>a + Number(b.monto), 0);
-        const total = Math.round((items.reduce((a, i) => a + i.monto, 0) + bonos) * 100) / 100;
+        const total = Math.round((items.reduce((a, i) => a + (i.minutos > 0 ? i.monto : 0), 0) + bonos) * 100) / 100;
         const pago = pagoMap.get(pid);
 
         return {
@@ -369,7 +370,7 @@ function Page() {
       }));
 
   const descargarInforme = (row: StaffRow) => {
-    const items: InformeItem[] = row.items.map((i) => ({
+    const items: InformeItem[] = row.items.filter((i) => i.minutos > 0).map((i) => ({
       fecha: i.fecha,
       tipo: i.tipo === "clase" ? "Clase en vivo" : "Sesión 1:1",
       detalle: nombreItem(i),
@@ -396,8 +397,8 @@ function Page() {
     });
   };
 
-  if (role !== "admin" && role !== "soporte") {
-    return <div className="p-8 text-center text-muted-foreground">Solo el equipo puede ver esta sección.</div>;
+  if (!puedeEditarPagos) {
+    return <div className="p-8 text-center text-muted-foreground">Esta sección es privada para el Líder / Dueño y las cuentas autorizadas.</div>;
   }
 
   if (detalleId) {
@@ -405,7 +406,7 @@ function Page() {
     if (!row) return null;
     return <DetalleProfesor row={row} profile={profiles[detalleId]} mes={mes} anio={anio} onBack={() => setDetalleId(null)} onSelect={(id) => setDetalleId(id)} staff={staff}
       nombresAlumnas={nombresAlumnas}
-      puedeEditar={role === "admin"}
+      puedeEditar={puedeEditarPagos}
       onRefresh={cargar}
       onInforme={() => descargarInforme(row)}
       reemplazos={reemplazos.filter((r) => r.profesor_reporta === row.id).map((r) => ({
@@ -441,7 +442,7 @@ function Page() {
           <FileText className="w-4 h-4" /> Generar PDF
         </button>
         <div className="flex-1" />
-        {role === "admin" && (
+        {puedeEditarPagos && (
           <button onClick={cerrarMes} className="px-4 py-2 rounded-xl bg-violet-gradient text-white text-sm font-semibold flex items-center gap-2 shadow-md">
             <Lock className="w-4 h-4" /> Cerrar mes y generar pagos
           </button>
@@ -461,7 +462,7 @@ function Page() {
         <PagosAbonos abonos={abonos} nombres={nombresStaff} totales={totalesPor} mes={mes} anio={anio} />
       )}
       {tab === "cuentas" && (
-        <PagosCuentas puedeEditar={role === "admin"} onChanged={cargarCuentas} />
+        <PagosCuentas puedeEditar={puedeEditarPagos} onChanged={cargarCuentas} />
       )}
 
       {tab === "resumen" && (
@@ -474,7 +475,7 @@ function Page() {
           <div className="text-xs opacity-80 mt-1">{tot.pendCount} {tot.pendCount === 1 ? "profesor" : "profesores"} · pendiente</div>
         </div>
         <KPI label="Tiempo dictado" value={formatHM(tot.minutos)} sub={`${staff.length} miembros activos`} />
-        <KPI label="Sesiones 1:1" value={String(tot.sesiones)} sub="reservadas" />
+        <KPI label="Sesiones 1:1" value={String(tot.sesiones)} sub="realizadas" />
         <KPI label="Calif. equipo" value={tot.califEq ? tot.califEq.toFixed(2) : "—"} sub={tot.califEq ? "promedio del equipo" : "Sin calificaciones"} />
       </div>
 
@@ -482,13 +483,13 @@ function Page() {
         <details className="rounded-2xl border bg-card p-4">
           <summary className="cursor-pointer font-semibold text-sm">Valores por hora · clases y sesiones</summary>
           <div className="mt-4">
-            <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={role === "admin"} onRefresh={cargar} />
+            <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={puedeEditarPagos} onRefresh={cargar} />
           </div>
         </details>
         <details className="rounded-2xl border bg-card p-4">
           <summary className="cursor-pointer font-semibold text-sm">Bonos del mes</summary>
           <div className="mt-4">
-            <PagosBonos mes={mes} anio={anio} nombres={nombresStaff} puedeEditar={role === "admin"} onChanged={cargar} />
+            <PagosBonos mes={mes} anio={anio} nombres={nombresStaff} puedeEditar={puedeEditarPagos} onChanged={cargar} />
           </div>
         </details>
       </div>
@@ -531,7 +532,7 @@ function Page() {
                   </button>
                 </td>
                 <td className="px-3 py-3">
-                  <div className="font-medium">{s.items.filter((i) => i.tipo === "clase").length} clases</div>
+                  <div className="font-medium">{s.items.filter((i) => i.tipo === "clase" && i.minutos > 0).length} clases</div>
                   {s.minutosClase > 0 && <div className="text-xs text-muted-foreground">{formatHM(s.minutosClase)}</div>}
                   {s.ajusteMin !== 0 && (
                     <div className="text-[11px] text-muted-foreground">Ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</div>
@@ -573,7 +574,7 @@ function Page() {
                   <button onClick={() => descargarInforme(s)} className="px-3 py-1.5 rounded-lg border text-xs font-semibold mr-2 inline-flex items-center gap-1">
                     <FileText className="w-3.5 h-3.5" /> Informe
                   </button>
-                  {role === "admin" && (
+                  {puedeEditarPagos && (
                     <button onClick={() => setAbonoDe(s.id)} className="px-3 py-1.5 rounded-lg bg-violet-gradient text-white text-xs font-semibold">
                       {estadoDe(s) === "pagado" ? "Ver pagos" : "Marcar pagado"}
                     </button>
@@ -712,7 +713,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
     onRefresh?.();
   };
 
-  const bitacora = row.items.slice(0, 10).map((i) => ({
+  const bitacora = row.items.filter((i) => i.minutos > 0).slice(0, 10).map((i) => ({
     fecha: i.fecha,
     tipo: i.tipo === "clase" ? "Clase en vivo" : "Sesión 1:1",
     detalle: `${nombreItem(i)} · ${formatHM(i.minutos)}`,
@@ -773,8 +774,8 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Resumen económico</div>
           <div className="space-y-3">
-            <Linea titulo="Clases grupales" sub={formatHM(row.minutosClase)} monto={row.items.filter((i) => i.tipo === "clase").reduce((a, i) => a + i.monto, 0)} />
-            <Linea titulo="Sesiones 1:1" sub={`${row.sesiones1a1} sesiones · ${formatHM(row.minutos1a1)}`} monto={row.items.filter((i) => i.tipo === "1a1").reduce((a, i) => a + i.monto, 0)} />
+            <Linea titulo="Clases grupales" sub={formatHM(row.minutosClase)} monto={row.items.filter((i) => i.tipo === "clase" && i.minutos > 0).reduce((a, i) => a + i.monto, 0)} />
+            <Linea titulo="Sesiones 1:1" sub={`${row.sesiones1a1} sesiones · ${formatHM(row.minutos1a1)}`} monto={row.items.filter((i) => i.tipo === "1a1" && i.minutos > 0).reduce((a, i) => a + i.monto, 0)} />
             {row.bonos > 0 && <Linea titulo="Bonos del mes" sub="otorgados por admin" monto={row.bonos} />}
             <div className="border-t pt-3 flex items-baseline justify-between">
               <div className="text-sm font-semibold">Total a pagar</div>
@@ -786,7 +787,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Actividad del mes</div>
           <div className="space-y-3">
-            <Item icon="🎓" titulo={`${bitacora.filter(b=>b.tipo==="Clase en vivo").length} clases impartidas`} sub={`${formatHM(row.minutosClase)} en total`} />
+            <Item icon="🎓" titulo={`${row.items.filter((i) => i.tipo === "clase" && i.minutos > 0).length} clases impartidas`} sub={`${formatHM(row.minutosClase)} en total`} />
             <Item icon="📅" titulo={`${row.sesiones1a1} sesiones 1:1 realizadas`} sub={`${formatHM(row.minutos1a1)} en total`} />
             <Item icon="⭐" titulo={`${row.califCount} calificaciones recibidas`} sub={row.califCount ? `Promedio ${row.califPromedio.toFixed(2)}` : "Sin respuestas"} />
           </div>
@@ -822,7 +823,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
                 <div className="font-semibold text-emerald-600 tabular-nums">+${b.monto.toFixed(2)}</div>
               </div>
             ))}
-            {bitacora.length === 0 && <div className="text-xs text-muted-foreground">Sin movimientos este mes.</div>}
+            {bitacora.length === 0 && <div className="text-xs text-muted-foreground">Sin movimientos registrados este mes.</div>}
           </div>
         </div>
       </div>
@@ -863,14 +864,14 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
                       <td className="px-2 py-2 whitespace-nowrap">{i.horaInicio.slice(0,5)}{i.horaFin ? ` – ${i.horaFin.slice(0,5)}` : ""}</td>
                       <td className="px-2 py-2">{i.tipo === "clase" ? "Clase en vivo" : "1 a 1"}</td>
                       <td className="px-2 py-2">{nombreItem(i)}</td>
-                      <td className="px-2 py-2">{formatHM(i.minutos)}</td>
+                      <td className="px-2 py-2">{i.minutos > 0 ? formatHM(i.minutos) : <span className="text-amber-600 text-xs">Pendiente de registrar</span>}</td>
                       <td className="px-2 py-2 text-right">
-                        <input type="number" step="0.01" min="0" disabled={!puedeEditar || guardando}
+                        <input type="number" step="0.01" min="0" disabled={!puedeEditar || guardando || i.minutos <= 0}
                           value={precios[key] ?? ""}
                           onChange={(e) => setPrecios((p) => ({ ...p, [key]: e.target.value }))}
                           onBlur={() => guardarPrecio(i)}
                           placeholder="0.00"
-                          className="w-24 px-2 py-1 rounded-lg border bg-background text-right tabular-nums" />
+                          className="w-24 px-2 py-1 rounded-lg border bg-background text-right tabular-nums disabled:opacity-50" />
                       </td>
                     </tr>
                   );
@@ -879,7 +880,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
             </table>
           </div>
         )}
-        {!puedeEditar && <div className="text-xs text-muted-foreground mt-2">Solo un administrador puede cambiar los valores.</div>}
+        {!puedeEditar && <div className="text-xs text-muted-foreground mt-2">Solo una cuenta autorizada puede cambiar los valores.</div>}
       </div>
 
       {reemplazos.length > 0 && (
