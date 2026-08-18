@@ -22,9 +22,11 @@ export const staffItems: NavItem[] = [
   { to: "/mis-clases-asignadas", label: "Mis clases asignadas", icon: Bell },
 ];
 
+/** Herramientas administrativas. Pagos se mantiene separado de este grupo. */
 export const adminItems: NavItem[] = [
   { to: "/permisos", label: "Permisos", icon: ShieldCheck },
   { to: "/acceso-cursos", label: "Acceso a cursos", icon: BookOpen },
   { to: "/acceso-clases-en-vivo", label: "Acceso a clases en vivo", icon: Radio },
-  { to: "/pagos", label: "Pagos e informes", icon: Wallet },
 ];
+
+export const pagosItem: NavItem = { to: "/pagos", label: "Pagos e informes", icon: Wallet };
