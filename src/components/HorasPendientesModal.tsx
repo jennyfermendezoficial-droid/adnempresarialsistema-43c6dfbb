@@ -17,13 +17,27 @@ export function HorasPendientesModal() {
   const [resumen, setResumen] = useState<ResumenPendientes | null>(null);
 
   useEffect(() => {
-    if (!session?.user.id || role !== "soporte") {
+    if (!session?.user.id) {
       setResumen(null);
       return;
     }
 
     let cancelado = false;
     (async () => {
+      // El Líder/Dueño sincroniza en segundo plano las incidencias de todo el equipo.
+      // No se le muestra el modal de profesor; las alertas llegan por notificaciones.
+      if (role === "admin") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.rpc as any)("sincronizar_incidencias_horas_equipo");
+        if (!cancelado) setResumen(null);
+        return;
+      }
+
+      if (role !== "soporte") {
+        if (!cancelado) setResumen(null);
+        return;
+      }
+
       // La función se agrega en la migración de esta misma rama. El cast solo
       // mantiene compatibilidad hasta que Lovable regenere los tipos de Supabase.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
