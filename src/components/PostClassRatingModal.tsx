@@ -11,7 +11,12 @@ interface Pending {
   profesor_nombre: string;
   fecha: string;
   hora_inicio: string;
+  mes: number;
+  anio: number;
+  obligatorio: boolean;
 }
+
+interface ProfesorLista { id: string; nombre_completo: string; email?: string | null }
 
 const CRITERIOS = [
   { key: "claridad", label: "Claridad" },
@@ -45,11 +50,39 @@ export function PostClassRatingModal() {
     let timer: number | undefined;
 
     const check = async () => {
+      if (pending) return;
       const today = new Date();
       const dStr = today.toISOString().slice(0, 10);
       const nowHHMM = today.toTimeString().slice(0, 8);
+      const mes = today.getMonth() + 1;
+      const anio = today.getFullYear();
 
-      // Sesiones de esta alumna terminadas hoy (por webhook o por hora_fin)
+      // Al cierre del mes la evaluación de todos los profesores pendientes es obligatoria.
+      // Se reutiliza la misma tabla mensual que ya consumen Pagos e Informes.
+      if (today.getDate() >= 28) {
+        const [{ data: profes }, { data: hechas }] = await Promise.all([
+          supabase.rpc("listar_profesores"),
+          supabase.from("calificaciones_mensuales").select("profesor_id")
+            .eq("alumna_id", uid).eq("mes", mes).eq("anio", anio),
+        ]);
+        const calificados = new Set(((hechas ?? []) as { profesor_id: string }[]).map((c) => c.profesor_id));
+        const faltante = ((profes ?? []) as ProfesorLista[]).find((p) => p.id !== uid && !calificados.has(p.id));
+        if (faltante) {
+          setPending({
+            id: `mensual:${anio}-${mes}:${faltante.id}`,
+            profesor_id: faltante.id,
+            profesor_nombre: faltante.nombre_completo || faltante.email || "Tu profesor",
+            fecha: dStr,
+            hora_inicio: "",
+            mes,
+            anio,
+            obligatorio: true,
+          });
+          return;
+        }
+      }
+
+      // Conservamos el aviso que ya existía al terminar una sesión 1:1.
       const { data: ses } = await supabase
         .from("sesiones_1a1")
         .select("id, profesor_id, fecha, hora_inicio, hora_fin, estado, finalizada_at")
@@ -61,9 +94,6 @@ export function PostClassRatingModal() {
         s.estado === "finalizada" || s.finalizada_at || s.hora_fin <= nowHHMM
       );
       if (!candidatas.length) return;
-
-      const mes = today.getMonth() + 1;
-      const anio = today.getFullYear();
 
       for (const s of candidatas) {
         if (dismissed.has(s.id)) continue;
@@ -78,24 +108,33 @@ export function PostClassRatingModal() {
         if (ya) continue;
 
         const [prof] = await fetchPerfiles([s.profesor_id]);
-
         setPending({
           id: s.id,
           profesor_id: s.profesor_id,
           profesor_nombre: prof?.nombre_completo || "Tu profesor",
           fecha: s.fecha,
           hora_inicio: s.hora_inicio,
+          mes,
+          anio,
+          obligatorio: false,
         });
         return;
       }
     };
 
-    check();
+    void check();
     timer = window.setInterval(check, 60_000);
     return () => { if (timer) clearInterval(timer); };
-  }, [uid, role, dismissed]);
+  }, [uid, role, dismissed, pending]);
 
   if (!pending) return null;
+
+  const limpiar = () => {
+    setPending(null);
+    setVals({ claridad: 0, didactica: 0, desenvolvimiento: 0, practico: 0 });
+    setComentario("");
+    setConfirmSkip(false);
+  };
 
   const enviar = async () => {
     if (!uid) return;
@@ -104,38 +143,38 @@ export function PostClassRatingModal() {
       return;
     }
     setSaving(true);
-    const now = new Date();
     const { error } = await supabase.from("calificaciones_mensuales").insert({
       profesor_id: pending.profesor_id,
       alumna_id: uid,
-      mes: now.getMonth() + 1,
-      anio: now.getFullYear(),
+      mes: pending.mes,
+      anio: pending.anio,
       ...vals,
-      comentario: comentario || null,
+      comentario: comentario.trim() || null,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
-    toast.success("¡Gracias por tu calificación!");
+    toast.success("¡Gracias! Tu opinión nos ayuda a mejorar.");
     setDismissed((s) => {
       const next = new Set(s).add(pending.id);
       persistDismissed(next);
       return next;
     });
-    setPending(null);
-    setVals({ claridad: 0, didactica: 0, desenvolvimiento: 0, practico: 0 });
-    setComentario("");
+    limpiar();
   };
 
-  const intentarCerrar = () => setConfirmSkip(true);
+  const intentarCerrar = () => {
+    if (pending.obligatorio) return;
+    setConfirmSkip(true);
+  };
 
   const omitirDefinitivo = () => {
+    if (pending.obligatorio) return;
     setDismissed((s) => {
       const next = new Set(s).add(pending.id);
       persistDismissed(next);
       return next;
     });
-    setConfirmSkip(false);
-    setPending(null);
+    limpiar();
   };
 
   const volverACalificar = () => setConfirmSkip(false);
@@ -143,12 +182,22 @@ export function PostClassRatingModal() {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center z-[100] p-4">
       <div className="bg-card rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-        <button onClick={intentarCerrar} className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-muted">
-          <X className="w-4 h-4" />
-        </button>
-        <div className="text-xs uppercase tracking-wider text-violet font-semibold mb-1">Tu clase acaba de terminar</div>
-        <h3 className="text-xl font-semibold mb-1">¿Cómo te fue con {pending.profesor_nombre}?</h3>
-        <p className="text-sm text-muted-foreground mb-5">Tu opinión nos ayuda a mejorar. Calificación del 1 al 5.</p>
+        {!pending.obligatorio && (
+          <button onClick={intentarCerrar} className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-muted">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        <div className="text-xs uppercase tracking-wider text-violet font-semibold mb-1">
+          {pending.obligatorio ? "Evaluación mensual" : "Tu clase acaba de terminar"}
+        </div>
+        <h3 className="text-xl font-semibold mb-1">
+          {pending.obligatorio ? `Queremos conocer tu opinión sobre ${pending.profesor_nombre}` : `¿Cómo te fue con ${pending.profesor_nombre}?`}
+        </h3>
+        <p className="text-sm text-muted-foreground mb-5">
+          {pending.obligatorio
+            ? "Antes de cerrar el mes, cuéntanos cómo fue tu experiencia. Tu opinión nos permite reconocer lo que funciona y saber en qué podemos mejorar."
+            : "Tu opinión nos ayuda a mejorar. Calificación del 1 al 5."}
+        </p>
 
         <div className="grid grid-cols-2 gap-3 mb-4">
           {CRITERIOS.map((c) => (
@@ -160,6 +209,7 @@ export function PostClassRatingModal() {
                     key={n}
                     onClick={() => setVals((v) => ({ ...v, [c.key]: n }))}
                     className="p-0.5 transition hover:scale-110"
+                    aria-label={`${c.label}: ${n} de 5`}
                   >
                     <Star className={`w-5 h-5 ${n <= vals[c.key] ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40"}`} />
                   </button>
@@ -170,31 +220,30 @@ export function PostClassRatingModal() {
         </div>
 
         <textarea
-          placeholder="Comentario (opcional)"
+          placeholder="¿En qué podría mejorar este profesor? (opcional)"
           value={comentario}
           onChange={(e) => setComentario(e.target.value)}
-          rows={2}
+          rows={3}
           className="w-full px-3 py-2 rounded-lg border bg-background mb-4 text-sm"
         />
 
         <div className="flex gap-2 justify-end">
-          <button onClick={intentarCerrar} className="px-4 py-2 rounded-lg border text-sm">Ahora no</button>
+          {!pending.obligatorio && <button onClick={intentarCerrar} className="px-4 py-2 rounded-lg border text-sm">Ahora no</button>}
           <button onClick={enviar} disabled={saving} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm disabled:opacity-50">
             {saving ? "Enviando…" : "Enviar calificación"}
           </button>
         </div>
 
-        {confirmSkip && (
+        {confirmSkip && !pending.obligatorio && (
           <div className="absolute inset-0 bg-card/95 backdrop-blur-sm rounded-2xl grid place-items-center p-6">
             <div className="text-center max-w-sm">
               <div className="text-2xl mb-2">⚠️</div>
-              <h4 className="text-lg font-semibold mb-2">¿Estás segura?</h4>
+              <h4 className="text-lg font-semibold mb-2">¿Calificar después?</h4>
               <p className="text-sm text-muted-foreground mb-5">
-                Calificar a tu mentor es <b>obligatorio</b> y nos ayuda a mejorar el sistema.
-                Si omites ahora, no volveremos a mostrarte este aviso para esta sesión.
+                Puedes omitir este aviso posterior a la sesión. Al cierre del mes, las evaluaciones pendientes sí serán obligatorias.
               </p>
               <div className="flex gap-2 justify-center">
-                <button onClick={omitirDefinitivo} className="px-4 py-2 rounded-lg border text-sm">Sí, omitir</button>
+                <button onClick={omitirDefinitivo} className="px-4 py-2 rounded-lg border text-sm">Omitir ahora</button>
                 <button onClick={volverACalificar} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm">Calificar ahora</button>
               </div>
             </div>
