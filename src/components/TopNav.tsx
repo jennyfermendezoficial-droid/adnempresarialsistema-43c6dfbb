@@ -28,7 +28,6 @@ export function TopNav() {
   ];
 
   const initial = (formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase();
-  const roleLabel = role === "admin" ? "Líder / Dueño" : labelRol(role);
 
   return (
     <header
@@ -68,7 +67,7 @@ export function TopNav() {
                   <div className="px-2 py-1.5">
                     <div className="text-sm font-semibold truncate">{formatNombre(profile?.nombre_completo) || "Mi cuenta"}</div>
                     <div className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">
-                      {roleLabel}
+                      {labelRol(role)}
                     </div>
                   </div>
                   <DropdownMenuItem asChild>
