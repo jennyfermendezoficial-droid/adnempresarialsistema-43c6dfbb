@@ -24,5 +24,9 @@ export const staffItems: NavItem[] = [
 
 export const adminItems: NavItem[] = [
   { to: "/admin", label: "Admin", icon: ShieldCheck },
+];
+
+/** Acceso privado (líderes y Erick Silva). */
+export const pagosItems: NavItem[] = [
   { to: "/pagos", label: "Pagos e informes", icon: Wallet },
 ];
