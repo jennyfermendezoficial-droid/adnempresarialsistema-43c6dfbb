@@ -6,6 +6,7 @@ import { TopNav } from "@/components/TopNav";
 import { Logo, BrandName } from "@/components/Logo";
 import { PostClassRatingModal } from "@/components/PostClassRatingModal";
 import { FichaProfesorModal } from "@/components/FichaProfesorModal";
+import { HorasPendientesModal } from "@/components/HorasPendientesModal";
 import { ChatsPopover } from "@/components/ChatsPopover";
 import { NotificationsPopover } from "@/components/NotificationsPopover";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
@@ -121,6 +122,7 @@ function AuthedLayout() {
       </main>
       <PostClassRatingModal />
       <FichaProfesorModal />
+      <HorasPendientesModal />
     </div>
   );
 }
