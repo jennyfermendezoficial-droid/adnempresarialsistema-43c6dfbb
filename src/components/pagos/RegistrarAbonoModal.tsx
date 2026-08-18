@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, Upload, Loader2, Trash2, Landmark, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useServerFn } from "@tanstack/react-start";
 import { leerComprobante } from "@/lib/comprobante-ocr.functions";
 
@@ -12,6 +13,7 @@ export interface Abono {
   id: string; profesor_id: string; mes: number; anio: number; fecha_pago: string; monto: number;
   tipo_pago: string; numero_comprobante: string | null; cuenta_id: string | null; banco_texto: string | null;
   observacion: string | null; archivo_url: string | null;
+  datos_ocr?: Json | null; es_descuento?: boolean; motivo_descuento?: string | null;
 }
 
 type DestinoProfesor = {
@@ -42,13 +44,20 @@ export function RegistrarAbonoModal({
   const [observacion, setObservacion] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [datosOcr, setDatosOcr] = useState<Json | null>(null);
   const [leyendo, setLeyendo] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [descuentoMonto, setDescuentoMonto] = useState("");
+  const [descuentoMotivo, setDescuentoMotivo] = useState("");
+  const [guardandoDescuento, setGuardandoDescuento] = useState(false);
   const [destino, setDestino] = useState<DestinoProfesor>({ avatarUrl: null, cedula: null, banco: null, bancoLogo: null, tipoCuenta: null, numeroCuenta: null, titular: null });
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const abonado = abonos.reduce((a, b) => a + Number(b.monto), 0);
-  const saldo = Math.round((total - abonado) * 100) / 100;
+  const pagos = abonos.filter((a) => !a.es_descuento);
+  const descuentos = abonos.filter((a) => a.es_descuento);
+  const abonado = pagos.reduce((a, b) => a + Number(b.monto), 0);
+  const descuentosTotal = descuentos.reduce((a, b) => a + Number(b.monto), 0);
+  const saldo = Math.max(0, Math.round((total - abonado - descuentosTotal) * 100) / 100);
   const cuentaOrigen = cuentas.find((c) => c.id === cuentaId) ?? null;
 
   useEffect(() => {
@@ -96,6 +105,7 @@ export function RegistrarAbonoModal({
     setLeyendo(true);
     try {
       const d = await leer({ data: { imagenBase64: dataUrl } });
+      setDatosOcr(JSON.parse(JSON.stringify(d)) as Json);
       if (d.monto) setMonto(String(d.monto));
       if (d.fecha && /^\d{4}-\d{2}-\d{2}$/.test(d.fecha)) setFecha(d.fecha);
       if (d.numero_comprobante) setNumero(d.numero_comprobante);
@@ -107,6 +117,7 @@ export function RegistrarAbonoModal({
       if (d.observacion && !observacion) setObservacion(d.observacion);
       toast.success("Comprobante leído · revisa los datos");
     } catch (e) {
+      setDatosOcr(null);
       toast.error(e instanceof Error ? e.message : "No se pudo leer el comprobante");
     } finally {
       setLeyendo(false);
@@ -140,20 +151,42 @@ export function RegistrarAbonoModal({
       tipo_pago: tipoPago, numero_comprobante: numero.trim() || null,
       cuenta_id: cuentaId || null, banco_texto: cuenta ? `${cuenta.nombre} · ${cuenta.numero_cuenta}` : null,
       observacion: observacion.trim() || null, archivo_url: archivoUrl,
-    });
+      datos_ocr: datosOcr ?? {}, es_descuento: false, motivo_descuento: null,
+    } as never);
     setGuardando(false);
     if (error) return toast.error(error.message);
     toast.success("Abono registrado");
-    setMonto(""); setNumero(""); setObservacion(""); setArchivo(null); setPreview(null);
+    setMonto(""); setNumero(""); setObservacion(""); setArchivo(null); setPreview(null); setDatosOcr(null);
+    onSaved();
+  };
+
+  const crearDescuento = async () => {
+    const valor = Number(descuentoMonto);
+    const motivo = descuentoMotivo.trim();
+    if (!Number.isFinite(valor) || valor <= 0) return toast.error("Escribe el monto del descuento");
+    if (!motivo) return toast.error("Escribe el motivo del descuento");
+    if (valor > saldo + 0.009) return toast.error("El descuento no puede superar el saldo pendiente");
+    setGuardandoDescuento(true);
+    const { error } = await supabase.from("pagos_comprobantes").insert({
+      profesor_id: profesorId, mes, anio, fecha_pago: hoyISO(), monto: valor,
+      tipo_pago: "descuento", numero_comprobante: null, cuenta_id: null, banco_texto: null,
+      observacion: motivo, archivo_url: null, datos_ocr: {},
+      es_descuento: true, motivo_descuento: motivo,
+    } as never);
+    setGuardandoDescuento(false);
+    if (error) return toast.error(error.message);
+    setDescuentoMonto("");
+    setDescuentoMotivo("");
+    toast.success("Descuento aplicado al mes");
     onSaved();
   };
 
   const borrar = async (a: Abono) => {
-    if (!confirm("¿Borrar este abono?")) return;
+    if (!confirm(a.es_descuento ? "¿Borrar este descuento?" : "¿Borrar este abono?")) return;
     const { error } = await supabase.from("pagos_comprobantes").delete().eq("id", a.id);
     if (error) return toast.error(error.message);
     if (a.archivo_url) await supabase.storage.from("comprobantes").remove([a.archivo_url]);
-    toast.success("Abono borrado");
+    toast.success(a.es_descuento ? "Descuento borrado" : "Abono borrado");
     onSaved();
   };
 
@@ -183,6 +216,7 @@ export function RegistrarAbonoModal({
               <div className="font-semibold truncate">{profesorNombre}</div>
               <div className="text-xs text-muted-foreground">Cédula: {destino.cedula || "Sin registrar"}</div>
               <div className="text-xs text-muted-foreground truncate">{destino.banco ? `${destino.banco} · ${destino.tipoCuenta || "Cuenta"} · ${destino.numeroCuenta || "Sin número"}` : "Datos bancarios pendientes de registrar"}</div>
+              {destino.titular && <div className="text-xs text-muted-foreground truncate">Titular: {destino.titular}</div>}
             </div>
             {destino.bancoLogo && <img src={destino.bancoLogo} alt={destino.banco || "Banco"} className="w-12 h-12 rounded-xl object-contain border bg-white p-1" />}
           </div>
@@ -199,7 +233,7 @@ export function RegistrarAbonoModal({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-4 border-b">
           <Tot label="Total" value={total} color="var(--foreground)" />
           <Tot label="Abonado" value={abonado} color="#2563eb" />
-          <Tot label="Descuentos" value={0} color="#d97706" />
+          <Tot label="Descuentos" value={descuentosTotal} color="#d97706" />
           <Tot label="Saldo" value={saldo} color={saldo > 0 ? "#dc2626" : "#16a34a"} />
         </div>
 
@@ -216,13 +250,30 @@ export function RegistrarAbonoModal({
             <Campo label="Cuenta bancaria de origen">
               {cuentas.length === 0 ? <div className="text-xs text-muted-foreground border rounded-lg px-3 py-2">Crea tus cuentas en la pestaña “Cuentas bancarias”.</div> : <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm"><option value="">— Sin cuenta —</option>{cuentas.map((c) => <option key={c.id} value={c.id}>{c.nombre} · {c.tipo} · N° {c.numero_cuenta}{c.titular ? ` · ${c.titular}` : ""}</option>)}</select>}
             </Campo>
-            <Campo label="Observación"><textarea rows={3} value={observacion} onChange={(e) => setObservacion(e.target.value)} placeholder="Opcional" className="w-full px-3 py-2 rounded-lg border bg-background text-sm" /></Campo>
+
+            <div className="rounded-xl border p-3 space-y-2" style={{ background: "color-mix(in oklab, #d97706 5%, transparent)" }}>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Descuento del mes</div>
+              <div className="grid grid-cols-[110px_1fr] gap-2">
+                <input type="number" step="0.01" min="0" value={descuentoMonto} onChange={(e) => setDescuentoMonto(e.target.value)} placeholder="$ 0.00" className="px-3 py-2 rounded-lg border bg-background text-sm text-right" />
+                <input value={descuentoMotivo} onChange={(e) => setDescuentoMotivo(e.target.value)} placeholder="Motivo del descuento" className="px-3 py-2 rounded-lg border bg-background text-sm" />
+              </div>
+              <button onClick={crearDescuento} disabled={guardandoDescuento || saldo <= 0} className="w-full px-3 py-2 rounded-lg border text-xs font-semibold disabled:opacity-50">{guardandoDescuento ? "Guardando…" : "+ Aplicar descuento"}</button>
+              {descuentos.map((d) => (
+                <div key={d.id} className="flex items-center gap-2 text-xs rounded-lg border bg-background px-3 py-2">
+                  <span className="font-semibold tabular-nums">-${Number(d.monto).toFixed(2)}</span>
+                  <span className="flex-1 text-muted-foreground truncate">{d.motivo_descuento || d.observacion || "Sin motivo"}</span>
+                  <button onClick={() => borrar(d)} className="text-destructive opacity-70 hover:opacity-100" aria-label="Borrar descuento"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              ))}
+            </div>
+
+            <Campo label="Observación"><textarea rows={2} value={observacion} onChange={(e) => setObservacion(e.target.value)} placeholder="Opcional" className="w-full px-3 py-2 rounded-lg border bg-background text-sm" /></Campo>
           </div>
 
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Imagen del comprobante</div>
-            <button onClick={() => inputRef.current?.click()} className="w-full h-[232px] rounded-xl border-2 border-dashed grid place-items-center text-sm overflow-hidden" style={{ borderColor: "var(--violet)", background: "color-mix(in oklab, var(--violet) 6%, transparent)" }}>
-              {preview ? <img src={preview} alt="Comprobante subido" className="w-full h-full object-contain" /> : leyendo ? <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Leyendo…</span> : <span className="inline-flex items-center gap-2 text-muted-foreground"><Upload className="w-4 h-4" /> Subir o pegar comprobante con Ctrl+V</span>}
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 text-center">Imagen del comprobante</div>
+            <button onClick={() => inputRef.current?.click()} className="w-full max-w-[240px] aspect-square mx-auto rounded-xl border-2 border-dashed grid place-items-center text-sm overflow-hidden p-2" style={{ borderColor: "var(--violet)", background: "color-mix(in oklab, var(--violet) 6%, transparent)" }}>
+              {preview ? <img src={preview} alt="Comprobante subido" className="w-full h-full object-contain" /> : leyendo ? <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Leyendo…</span> : <span className="inline-flex flex-col items-center gap-2 text-muted-foreground text-center"><Upload className="w-5 h-5" /> Subir o pegar comprobante<br />con Ctrl+V</span>}
             </button>
             <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void procesar(f); }} />
             {leyendo && preview && <div className="text-xs text-muted-foreground mt-2 inline-flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Detectando monto, fecha y número…</div>}
@@ -234,7 +285,7 @@ export function RegistrarAbonoModal({
           <button onClick={onClose} className="px-5 py-2 rounded-full border text-sm font-semibold">Cerrar</button>
         </div>
 
-        {abonos.length > 0 && <div className="border-t p-5 space-y-2"><div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Abonos registrados</div>{abonos.map((a) => <div key={a.id} className="flex items-center gap-3 text-sm border rounded-xl p-3 flex-wrap"><div className="text-xs text-muted-foreground w-24">{a.fecha_pago}</div><div className="font-semibold tabular-nums w-20">${Number(a.monto).toFixed(2)}</div><div className="capitalize w-28">{a.tipo_pago}</div><div className="flex-1 min-w-[140px] text-xs text-muted-foreground inline-flex items-center gap-1"><Landmark className="w-3 h-3" /> {a.banco_texto || "—"}{a.numero_comprobante ? ` · ${a.numero_comprobante}` : ""}</div>{a.archivo_url && <button onClick={() => verComprobante(a)} className="text-xs font-semibold underline">Ver comprobante</button>}<button onClick={() => borrar(a)} className="p-1.5 text-destructive opacity-70 hover:opacity-100" aria-label="Borrar abono"><Trash2 className="w-4 h-4" /></button></div>)}</div>}
+        {pagos.length > 0 && <div className="border-t p-5 space-y-2"><div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Abonos registrados</div>{pagos.map((a) => <div key={a.id} className="flex items-center gap-3 text-sm border rounded-xl p-3 flex-wrap"><div className="text-xs text-muted-foreground w-24">{a.fecha_pago}</div><div className="font-semibold tabular-nums w-20">${Number(a.monto).toFixed(2)}</div><div className="capitalize w-28">{a.tipo_pago}</div><div className="flex-1 min-w-[140px] text-xs text-muted-foreground inline-flex items-center gap-1"><Landmark className="w-3 h-3" /> {a.banco_texto || "—"}{a.numero_comprobante ? ` · ${a.numero_comprobante}` : ""}</div>{a.archivo_url && <button onClick={() => verComprobante(a)} className="text-xs font-semibold underline">Ver comprobante</button>}<button onClick={() => borrar(a)} className="p-1.5 text-destructive opacity-70 hover:opacity-100" aria-label="Borrar abono"><Trash2 className="w-4 h-4" /></button></div>)}</div>}
       </div>
     </div>
   );
