@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { Check, X, Pencil, Star, Video, Trash2, CalendarClock } from "lucide-react";
 import { formatNombre } from "@/lib/nombres";
+import { ROLE_OPTIONS } from "@/lib/roles";
 import { DisponibilidadAgendaModal } from "@/components/DisponibilidadAgendaModal";
 
 
@@ -107,9 +108,7 @@ export function PermisosPanel() {
                   {isAdmin && (
                     <td className="px-3 py-2">
                       <select value={userRole(p.id)} onChange={(e) => setRole(p.id, e.target.value as "admin" | "soporte" | "usuario")} className="px-2 py-1 rounded border bg-background text-xs">
-                        <option value="usuario">usuario</option>
-                        <option value="soporte">soporte</option>
-                        <option value="admin">admin</option>
+                        {ROLE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     </td>
                   )}
