@@ -1958,6 +1958,7 @@ export type Database = {
           avatar_url: string
           banco: string
           banco_logo_url: string
+          cedula: string
           email: string
           id: string
           nombre_completo: string
@@ -1988,6 +1989,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      puede_pagos: { Args: { _uid: string }; Returns: boolean }
       registrar_duracion_clase: {
         Args: {
           _clase_id: string
