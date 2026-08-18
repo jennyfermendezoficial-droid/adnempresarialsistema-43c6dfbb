@@ -9,12 +9,13 @@ import { NotificationsPopover } from "./NotificationsPopover";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { mainItems, staffItems, adminItems, type NavItem } from "@/lib/nav-items";
+import { mainItems, staffItems, adminItems, pagosItems, type NavItem } from "@/lib/nav-items";
+import { labelRol, puedeVerPagos } from "@/lib/roles";
 
 const BAR = "var(--deep-2)";
 
 export function TopNav() {
-  const { profile, role, signOut } = useAuth();
+  const { profile, role, signOut, session } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
@@ -23,6 +24,7 @@ export function TopNav() {
     ...mainItems,
     ...(isStaff ? staffItems : []),
     ...(role === "admin" ? adminItems : []),
+    ...(puedeVerPagos(role, session?.user.id) ? pagosItems : []),
   ];
 
   const initial = (formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase();
@@ -65,7 +67,7 @@ export function TopNav() {
                   <div className="px-2 py-1.5">
                     <div className="text-sm font-semibold truncate">{formatNombre(profile?.nombre_completo) || "Mi cuenta"}</div>
                     <div className="text-[11px] uppercase tracking-wider text-muted-foreground truncate">
-                      {role || "usuario"}
+                      {labelRol(role)}
                     </div>
                   </div>
                   <DropdownMenuItem asChild>
