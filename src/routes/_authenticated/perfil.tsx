@@ -223,7 +223,7 @@ function Page() {
             <div className="w-20 h-20 rounded-xl grid place-items-center text-white text-xl font-semibold border-2 border-dashed" style={{ background: "rgba(124,107,255,.1)", color: "var(--violet)" }}>📷</div>
           )}
           <label className="px-3 py-2 rounded-lg border cursor-pointer text-sm hover:bg-muted">
-            {uploadingNegocio ? "Subiendo…”" : "Foto del negocio"}
+            {uploadingNegocio ? "Subiendo…" : "Foto del negocio"}
             <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && uploadNegocio(e.target.files[0])} />
           </label>
         </div>
