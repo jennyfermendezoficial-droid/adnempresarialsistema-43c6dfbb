@@ -4,16 +4,19 @@ import { Home, LogOut } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
-import { mainItems, staffItems, adminItems } from "@/lib/nav-items";
+import { mainItems, staffItems, adminItems, pagosItem } from "@/lib/nav-items";
+import { roleLabel } from "@/lib/roles";
+import { puedeGestionarPagos } from "@/lib/access";
 
 interface Item { to: string; label: string; icon: typeof Home; }
 
 interface AppSidebarProps { onNavigate?: () => void }
 
 export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
-  const { profile, role, signOut } = useAuth();
+  const { profile, role, session, signOut } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
+  const puedePagos = puedeGestionarPagos(role, session?.user.email);
 
   return (
     <aside
@@ -49,6 +52,13 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
           </>
         )}
 
+        {puedePagos && (
+          <>
+            <SectionLabel className="mt-3">Pagos e informes</SectionLabel>
+            <Nav items={[pagosItem]} isActive={isActive} onClick={onNavigate} />
+          </>
+        )}
+
         <div className="mt-auto pt-4 border-t" style={{ borderColor: "var(--line-dark)" }}>
           <div className="mb-3"><InstallAppButton compact /></div>
           <Link
@@ -67,7 +77,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
                 {formatNombre(profile?.nombre_completo) || "Mi cuenta"}
               </div>
               <div className="text-[11px] uppercase tracking-wider opacity-70 truncate">
-                {role || "usuario"}
+                {roleLabel(role)}
               </div>
             </div>
           </Link>
