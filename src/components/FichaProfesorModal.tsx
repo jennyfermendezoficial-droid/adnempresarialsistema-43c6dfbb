@@ -26,6 +26,32 @@ function nombreValido(nombre: string) {
   return nombre.trim().split(/\s+/).filter((p) => p.length >= 2).length >= 4;
 }
 
+function normalizarNombre(nombre: string) {
+  return nombre.trim().replace(/\s+/g, " ").split(" ").map((p) =>
+    p ? p.charAt(0).toLocaleUpperCase("es") + p.slice(1).toLocaleLowerCase("es") : p,
+  ).join(" ");
+}
+
+function fichaGuardadaValida(d: Record<string, string | boolean | null>) {
+  const nombre = (d.nombre_completo as string) ?? "";
+  const cedula = ((d.cedula as string) ?? "").trim();
+  const whatsapp = ((d.whatsapp as string) ?? "").trim();
+  const direccion = ((d.direccion as string) ?? "").trim();
+  const banco = ((d.banco as string) ?? "").trim();
+  const tipoCuenta = ((d.tipo_cuenta as string) ?? "").trim();
+  const numeroCuenta = ((d.numero_cuenta as string) ?? "").trim();
+  const titular = ((d.titular_cuenta as string) ?? "").trim();
+  return Boolean(d.avatar_url)
+    && nombreValido(nombre)
+    && /^\d{10}$/.test(cedula)
+    && whatsapp.length >= 7
+    && direccion.length >= 4
+    && banco.length >= 2
+    && ["ahorros", "corriente"].includes(tipoCuenta)
+    && numeroCuenta.length >= 5
+    && titular.length >= 3;
+}
+
 /** Ficha obligatoria para profesores: se muestra una sola vez hasta completarla. */
 export function FichaProfesorModal() {
   const { session, role, profile, refresh } = useAuth();
@@ -45,7 +71,7 @@ export function FichaProfesorModal() {
         .eq("id", uid).maybeSingle();
       if (cancel || !data) return;
       const d = data as Record<string, string | boolean | null>;
-      if (d.ficha_completa === true && d.avatar_url) return;
+      if (d.ficha_completa === true && fichaGuardadaValida(d)) return;
       const nombre = (d.nombre_completo as string) ?? "";
       setF({
         nombre_completo: nombre,
@@ -87,20 +113,22 @@ export function FichaProfesorModal() {
 
   const guardar = async () => {
     if (!uid) return;
+    const nombreLimpio = normalizarNombre(f.nombre_completo);
     const faltan: string[] = [];
     if (!foto) faltan.push("foto");
-    if (!nombreValido(f.nombre_completo)) faltan.push("dos nombres y dos apellidos");
+    if (!nombreValido(nombreLimpio)) faltan.push("dos nombres y dos apellidos");
     if (!/^\d{10}$/.test(f.cedula.trim())) faltan.push("cédula de 10 dígitos");
     if (f.whatsapp.trim().length < 7) faltan.push("WhatsApp");
     if (f.direccion.trim().length < 4) faltan.push("dirección");
     if (f.banco.trim().length < 2) faltan.push("banco/cooperativa");
+    if (!["ahorros", "corriente"].includes(f.tipo_cuenta)) faltan.push("tipo de cuenta");
     if (f.numero_cuenta.trim().length < 5) faltan.push("número de cuenta");
     if (f.titular_cuenta.trim().length < 3) faltan.push("titular de la cuenta");
     if (faltan.length) return toast.error(`Completa correctamente: ${faltan.join(", ")}`);
 
     setGuardando(true);
     const { error } = await supabase.from("profiles").update({
-      nombre_completo: f.nombre_completo.trim(),
+      nombre_completo: nombreLimpio,
       cedula: f.cedula.trim(),
       fecha_nacimiento: f.fecha_nacimiento || null,
       whatsapp: f.whatsapp.trim(),
@@ -108,7 +136,7 @@ export function FichaProfesorModal() {
       banco: f.banco.trim(),
       tipo_cuenta: f.tipo_cuenta,
       numero_cuenta: f.numero_cuenta.trim(),
-      titular_cuenta: f.titular_cuenta.trim() || f.nombre_completo.trim(),
+      titular_cuenta: f.titular_cuenta.trim() || nombreLimpio,
       avatar_url: foto,
       ficha_completa: true,
     }).eq("id", uid);
