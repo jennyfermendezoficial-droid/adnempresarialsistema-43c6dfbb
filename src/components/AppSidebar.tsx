@@ -4,14 +4,15 @@ import { Home, LogOut } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
-import { mainItems, staffItems, adminItems } from "@/lib/nav-items";
+import { mainItems, staffItems, adminItems, pagosItems } from "@/lib/nav-items";
+import { puedeVerPagos } from "@/lib/roles";
 
 interface Item { to: string; label: string; icon: typeof Home; }
 
 interface AppSidebarProps { onNavigate?: () => void }
 
 export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
-  const { profile, role, signOut } = useAuth();
+  const { profile, role, signOut, session } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
@@ -44,8 +45,18 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
           <>
             <SectionLabel className="mt-3">Profesores</SectionLabel>
             <Nav items={staffItems} isActive={isActive} onClick={onNavigate} />
-            <SectionLabel className="mt-3">Admin</SectionLabel>
-            <Nav items={adminItems} isActive={isActive} onClick={onNavigate} />
+            {role === "admin" && (
+              <>
+                <SectionLabel className="mt-3">Admin</SectionLabel>
+                <Nav items={adminItems} isActive={isActive} onClick={onNavigate} />
+              </>
+            )}
+          </>
+        )}
+        {puedeVerPagos(role, session?.user.id) && (
+          <>
+            <SectionLabel className="mt-3">Pagos</SectionLabel>
+            <Nav items={pagosItems} isActive={isActive} onClick={onNavigate} />
           </>
         )}
 

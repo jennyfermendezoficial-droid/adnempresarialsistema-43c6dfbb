@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { TopNav } from "@/components/TopNav";
 import { Logo, BrandName } from "@/components/Logo";
 import { PostClassRatingModal } from "@/components/PostClassRatingModal";
+import { FichaProfesorModal } from "@/components/FichaProfesorModal";
 import { ChatsPopover } from "@/components/ChatsPopover";
 import { NotificationsPopover } from "@/components/NotificationsPopover";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
@@ -119,6 +120,7 @@ function AuthedLayout() {
         </div>
       </main>
       <PostClassRatingModal />
+      <FichaProfesorModal />
     </div>
   );
 }
