@@ -1,3 +1,4 @@
+import { esUrlAbsoluta } from "@/lib/cloudinary";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Abono } from "./RegistrarAbonoModal";
@@ -10,6 +11,7 @@ export function PagosAbonos({ abonos, nombres, totales, mes, anio }: {
 
   const ver = async (a: Abono) => {
     if (!a.archivo_url) return;
+    if (esUrlAbsoluta(a.archivo_url)) { window.open(a.archivo_url, "_blank", "noreferrer"); return; }
     const { data, error } = await supabase.storage.from("comprobantes").createSignedUrl(a.archivo_url, 3600);
     if (error || !data) return toast.error("No se pudo abrir el comprobante");
     window.open(data.signedUrl, "_blank", "noreferrer");

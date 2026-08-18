@@ -3,20 +3,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createHash } from "crypto";
 
-function readConfig() {
+function getConfig() {
   const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID;
   const apiKey = process.env.BUNNY_STREAM_API_KEY;
   const cdnHostname = process.env.BUNNY_STREAM_CDN_HOSTNAME;
-  if (!libraryId || !apiKey || !cdnHostname) return null;
-  return { libraryId, apiKey, cdnHostname };
-}
-
-function getConfig() {
-  const cfg = readConfig();
-  if (!cfg) {
+  if (!libraryId || !apiKey || !cdnHostname) {
     throw new Error("Bunny no está configurado.");
   }
-  return cfg;
+  return { libraryId, apiKey, cdnHostname };
 }
 
 async function ensureStaff(supabase: any, userId: string) {
@@ -31,9 +25,8 @@ async function ensureStaff(supabase: any, userId: string) {
 export const getBunnyPublicConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const cfg = readConfig();
-    if (!cfg) return null;
-    return { libraryId: cfg.libraryId, cdnHostname: cfg.cdnHostname };
+    const { libraryId, cdnHostname } = getConfig();
+    return { libraryId, cdnHostname };
   });
 
 // Crea un video vacío en Bunny y devuelve credenciales TUS firmadas

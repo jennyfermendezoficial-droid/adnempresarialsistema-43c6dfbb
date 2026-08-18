@@ -33,6 +33,7 @@ import { Route as AuthenticatedChatProfesoresRouteImport } from './routes/_authe
 import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
 import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
 import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAccesoCursosRouteImport } from './routes/_authenticated/acceso-cursos'
 import { Route as AuthenticatedAccesoClasesEnVivoRouteImport } from './routes/_authenticated/acceso-clases-en-vivo'
 import { Route as AuthenticatedCursosIndexRouteImport } from './routes/_authenticated/cursos.index'
@@ -168,6 +169,11 @@ const AuthenticatedAgenda1a1Route = AuthenticatedAgenda1a1RouteImport.update({
   path: '/agenda-1a1',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAccesoCursosRoute =
   AuthenticatedAccesoCursosRouteImport.update({
     id: '/acceso-cursos',
@@ -223,6 +229,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/acceso-clases-en-vivo': typeof AuthenticatedAccesoClasesEnVivoRoute
   '/acceso-cursos': typeof AuthenticatedAccesoCursosRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
@@ -256,6 +263,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/acceso-clases-en-vivo': typeof AuthenticatedAccesoClasesEnVivoRoute
   '/acceso-cursos': typeof AuthenticatedAccesoCursosRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/bonos': typeof AuthenticatedBonosRoute
   '/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
@@ -291,6 +299,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/acceso-clases-en-vivo': typeof AuthenticatedAccesoClasesEnVivoRoute
   '/_authenticated/acceso-cursos': typeof AuthenticatedAccesoCursosRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/agenda-1a1': typeof AuthenticatedAgenda1a1Route
   '/_authenticated/bonos': typeof AuthenticatedBonosRoute
   '/_authenticated/calendario-clases': typeof AuthenticatedCalendarioClasesRoute
@@ -326,6 +335,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/acceso-clases-en-vivo'
     | '/acceso-cursos'
+    | '/admin'
     | '/agenda-1a1'
     | '/bonos'
     | '/calendario-clases'
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/acceso-clases-en-vivo'
     | '/acceso-cursos'
+    | '/admin'
     | '/agenda-1a1'
     | '/bonos'
     | '/calendario-clases'
@@ -393,6 +404,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/acceso-clases-en-vivo'
     | '/_authenticated/acceso-cursos'
+    | '/_authenticated/admin'
     | '/_authenticated/agenda-1a1'
     | '/_authenticated/bonos'
     | '/_authenticated/calendario-clases'
@@ -599,6 +611,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgenda1a1RouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/acceso-cursos': {
       id: '/_authenticated/acceso-cursos'
       path: '/acceso-cursos'
@@ -661,6 +680,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedAccesoClasesEnVivoRoute: typeof AuthenticatedAccesoClasesEnVivoRoute
   AuthenticatedAccesoCursosRoute: typeof AuthenticatedAccesoCursosRoute
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAgenda1a1Route: typeof AuthenticatedAgenda1a1Route
   AuthenticatedBonosRoute: typeof AuthenticatedBonosRoute
   AuthenticatedCalendarioClasesRoute: typeof AuthenticatedCalendarioClasesRoute
@@ -690,6 +710,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccesoClasesEnVivoRoute: AuthenticatedAccesoClasesEnVivoRoute,
   AuthenticatedAccesoCursosRoute: AuthenticatedAccesoCursosRoute,
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAgenda1a1Route: AuthenticatedAgenda1a1Route,
   AuthenticatedBonosRoute: AuthenticatedBonosRoute,
   AuthenticatedCalendarioClasesRoute: AuthenticatedCalendarioClasesRoute,

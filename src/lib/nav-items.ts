@@ -23,8 +23,6 @@ export const staffItems: NavItem[] = [
 ];
 
 export const adminItems: NavItem[] = [
-  { to: "/permisos", label: "Permisos", icon: ShieldCheck },
-  { to: "/acceso-cursos", label: "Acceso a cursos", icon: BookOpen },
-  { to: "/acceso-clases-en-vivo", label: "Acceso a clases en vivo", icon: Radio },
+  { to: "/admin", label: "Admin", icon: ShieldCheck },
   { to: "/pagos", label: "Pagos e informes", icon: Wallet },
 ];

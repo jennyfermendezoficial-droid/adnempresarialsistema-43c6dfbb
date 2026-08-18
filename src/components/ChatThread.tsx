@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Send, Paperclip, Mic, Square, Image as ImageIcon, Trash2, AtSign, X } from "lucide-react";
 import { toast } from "sonner";
 import { sendPushToUsers } from "@/lib/send-push.functions";
+import { subirImagen, esImagen, esUrlAbsoluta } from "@/lib/cloudinary";
 
 export interface ChatMessageRow {
   id: string;
@@ -146,6 +147,7 @@ export function ChatThread({
       await Promise.all(
         missing.map(async (m) => {
           const path = m.media_url!;
+          if (esUrlAbsoluta(path)) { next[m.id] = path; return; }
           const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
           if (data?.signedUrl) next[m.id] = data.signedUrl;
         })
@@ -187,9 +189,16 @@ export function ChatThread({
   const uploadAndSend = async (file: File, tipo: "imagen" | "video" | "audio" | "archivo") => {
     if (!uid) return;
     if (file.size > MAX_BYTES) return toast.error("Máx 25MB");
-    const path = `${uid}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
-    const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, { upsert: false });
-    if (upErr) return toast.error(upErr.message);
+    let path: string;
+    if (esImagen(file)) {
+      try {
+        path = await subirImagen(file, "adn/chats");
+      } catch (err) { return toast.error((err as Error).message); }
+    } else {
+      path = `${uid}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
+      const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, { upsert: false });
+      if (upErr) return toast.error(upErr.message);
+    }
     const { error } = await supabase.from(table).insert({
       autor_id: uid,
       tipo,

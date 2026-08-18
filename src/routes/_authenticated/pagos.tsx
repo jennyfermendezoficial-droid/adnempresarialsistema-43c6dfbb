@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Lock, Star, ChevronLeft, FileText, CheckCircle2 } from "lucide-react";
+import { Lock, Star, ChevronLeft, FileText, CheckCircle2, Landmark, Gift, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
 import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo, type AbonoExportRow } from "@/lib/pagos-export";
@@ -10,14 +10,19 @@ import { formatNombre } from "@/lib/nombres";
 import { RegistrarAbonoModal, type Abono, type CuentaEmpresa } from "@/components/pagos/RegistrarAbonoModal";
 import { PagosPrecios, type FilaPrecio } from "@/components/pagos/PagosPrecios";
 import { PagosAbonos } from "@/components/pagos/PagosAbonos";
-import { PagosBonos } from "@/components/pagos/PagosBonos";
 import { PagosCuentas } from "@/components/pagos/PagosCuentas";
 
 export const Route = createFileRoute("/_authenticated/pagos")({ component: Page });
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-interface Profile { id: string; nombre_completo: string; email: string; avatar_url?: string | null }
+interface Profile {
+  id: string; nombre_completo: string; email: string; avatar_url?: string | null;
+  banco?: string | null; tipo_cuenta?: string | null; numero_cuenta?: string | null;
+  titular_cuenta?: string | null; banco_logo_url?: string | null;
+}
+export interface BonoRow { id: string; monto: number; motivo: string | null; tipo: string }
+export interface DescuentoRow { id: string; monto: number; motivo: string }
 interface PagoHist { id: string; profesor_id: string; mes: number; anio: number; total_horas: number; total_bonos: number; monto_total: number; estado: string; fecha_pago: string | null }
 interface Cancelada {
   id: string; tipo: string; profesor_id: string; contraparte_id: string | null;
@@ -54,19 +59,15 @@ interface StaffRow {
   califPromedio: number;
   califCount: number;
   bonos: number;
+  bonosList: BonoRow[];
+  descuentos: number;
+  descuentosList: DescuentoRow[];
+  tarifaClase: number;
+  tarifaSesion: number;
   total: number;
   estado: "pagado" | "por_pagar";
   pagoId?: string;
 }
-
-type Tab = "resumen" | "precios" | "abonos" | "bonos" | "cuentas";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "resumen", label: "Resumen" },
-  { id: "precios", label: "Clases y sesiones" },
-  { id: "abonos", label: "Pagos realizados" },
-  { id: "bonos", label: "Bonos" },
-  { id: "cuentas", label: "Cuentas bancarias" },
-];
 
 const TEMAS: { match: string; tema: string }[] = [
   { match: "jennyfer", tema: "Marketing · WhatsApp" },
@@ -97,10 +98,11 @@ function Page() {
   const [nombresCancel, setNombresCancel] = useState<Record<string, string>>({});
   const [reemplazos, setReemplazos] = useState<Reemplazo[]>([]);
   const [nombresAlumnas, setNombresAlumnas] = useState<Record<string, string>>({});
-  const [tab, setTab] = useState<Tab>("resumen");
   const [abonos, setAbonos] = useState<Abono[]>([]);
   const [cuentas, setCuentas] = useState<CuentaEmpresa[]>([]);
   const [abonoDe, setAbonoDe] = useState<string | null>(null);
+  const [bonoDe, setBonoDe] = useState<string | null>(null);
+  const [verCuentas, setVerCuentas] = useState(false);
 
   const cargarCuentas = async () => {
     const { data } = await supabase.from("pagos_cuentas_bancarias").select("*").eq("activo", true).order("created_at", { ascending: false });
@@ -120,7 +122,7 @@ function Page() {
       const { data: estudiantes } = await supabase.from("user_roles").select("user_id").eq("role", "usuario");
       const studentIds = new Set(((estudiantes ?? []) as { user_id: string }[]).map((r) => r.user_id));
 
-      const { data: profs } = await supabase.from("profiles").select("id,nombre_completo,email,avatar_url").in("id", ids);
+      const { data: profs } = await supabase.rpc("perfiles_pagos", { _ids: ids });
       const profMap: Record<string, Profile> = {};
       ((profs ?? []) as Profile[]).forEach((p) => { profMap[p.id] = p; });
       setProfiles(profMap);
@@ -143,7 +145,7 @@ function Page() {
       setCanceladas(cancRows);
       const cids = Array.from(new Set(cancRows.map((c) => c.contraparte_id).filter(Boolean) as string[]));
       if (cids.length) {
-        const { data: cps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", cids);
+        const { data: cps } = await supabase.rpc("perfiles_basicos", { _ids: cids });
         const nm: Record<string, string> = {};
         ((cps ?? []) as Profile[]).forEach((p) => { nm[p.id] = formatNombre(p.nombre_completo) || p.email; });
         setNombresCancel(nm);
@@ -159,10 +161,12 @@ function Page() {
       await cargarCuentas();
 
       // Precios por clase/sesión y ajustes manuales del mes
-      const [{ data: precios }, { data: ajustes }, { data: reemp }] = await Promise.all([
+      const [{ data: precios }, { data: ajustes }, { data: reemp }, { data: tarifas }, { data: descs }] = await Promise.all([
         supabase.from("pagos_items_precio").select("tipo,referencia_id,monto").eq("mes", mes).eq("anio", anio),
         supabase.from("pagos_ajustes").select("profesor_id,minutos").eq("mes", mes).eq("anio", anio),
         supabase.from("reemplazos_clase").select("*").gte("fecha", ini).lte("fecha", fin),
+        supabase.from("pagos_tarifas_mes").select("profesor_id,valor_hora_clase,valor_hora_sesion").eq("mes", mes).eq("anio", anio),
+        supabase.from("pagos_descuentos").select("id,profesor_id,monto,motivo").eq("mes", mes).eq("anio", anio),
       ]);
       const precioMap = new Map<string, number>();
       ((precios ?? []) as { tipo: string; referencia_id: string; monto: number }[])
@@ -171,6 +175,15 @@ function Page() {
       ((ajustes ?? []) as { profesor_id: string; minutos: number }[])
         .forEach((a) => ajusteMap.set(a.profesor_id, Number(a.minutos)));
       setReemplazos((reemp ?? []) as Reemplazo[]);
+      const tarifaMap = new Map<string, { clase: number; sesion: number }>();
+      ((tarifas ?? []) as { profesor_id: string; valor_hora_clase: number; valor_hora_sesion: number }[])
+        .forEach((t) => tarifaMap.set(t.profesor_id, { clase: Number(t.valor_hora_clase), sesion: Number(t.valor_hora_sesion) }));
+      const descMap = new Map<string, DescuentoRow[]>();
+      ((descs ?? []) as { id: string; profesor_id: string; monto: number; motivo: string }[]).forEach((d) => {
+        const arr = descMap.get(d.profesor_id) ?? [];
+        arr.push({ id: d.id, monto: Number(d.monto), motivo: d.motivo });
+        descMap.set(d.profesor_id, arr);
+      });
 
       const alumnaIds = new Set<string>();
 
@@ -183,8 +196,9 @@ function Page() {
           supabase.from("sesiones_1a1").select("id,fecha,alumna_id,hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
           supabase.from("calificaciones_mensuales").select("claridad,didactica,practico,desenvolvimiento").eq("profesor_id", pid),
           supabase.from("chats_1a1").select("id,usuario_a_id,usuario_b_id").or(`usuario_a_id.eq.${pid},usuario_b_id.eq.${pid}`),
-          supabase.from("bonos").select("monto").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
+          supabase.from("bonos").select("id,monto,motivo,tipo").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
         ]);
+        const tarifa = tarifaMap.get(pid) ?? { clase: 0, sesion: 0 };
 
         // Items con su precio (lo pone el administrador por fecha y hora)
         const items: ItemPago[] = [];
@@ -192,9 +206,11 @@ function Page() {
         ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
           const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
           minutosClase += min;
+          const manual = precioMap.get(`clase:${c.id}`);
           items.push({
             tipo: "clase", refId: c.id, fecha: c.fecha, horaInicio: c.hora_inicio, horaFin: c.hora_fin ?? "",
-            minutos: min, titulo: c.titulo, alumnaId: null, monto: precioMap.get(`clase:${c.id}`) ?? 0,
+            minutos: min, titulo: c.titulo, alumnaId: null,
+            monto: manual != null && manual > 0 ? manual : Math.round((tarifa.clase * min / 60) * 100) / 100,
           });
         });
 
@@ -204,9 +220,11 @@ function Page() {
           const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
           minutos1a1 += min;
           alumnaIds.add(s.alumna_id);
+          const manual1 = precioMap.get(`1a1:${s.id}`);
           items.push({
             tipo: "1a1", refId: s.id, fecha: s.fecha, horaInicio: s.hora_inicio, horaFin: s.hora_fin ?? "",
-            minutos: min, titulo: null, alumnaId: s.alumna_id, monto: precioMap.get(`1a1:${s.id}`) ?? 0,
+            minutos: min, titulo: null, alumnaId: s.alumna_id,
+            monto: manual1 != null && manual1 > 0 ? manual1 : Math.round((tarifa.sesion * min / 60) * 100) / 100,
           });
         });
         items.sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio));
@@ -236,8 +254,12 @@ function Page() {
         }
 
         const sesiones1a1 = sesionesData.length;
-        const bonos = ((bonosRes.data ?? []) as { monto: number }[]).reduce((a,b)=>a + Number(b.monto), 0);
-        const total = Math.round((items.reduce((a, i) => a + i.monto, 0) + bonos) * 100) / 100;
+        const bonosList = ((bonosRes.data ?? []) as { id: string; monto: number; motivo: string | null; tipo: string }[])
+          .map((b) => ({ id: b.id, monto: Number(b.monto), motivo: b.motivo, tipo: b.tipo }));
+        const bonos = bonosList.reduce((a, b) => a + b.monto, 0);
+        const descuentosList = descMap.get(pid) ?? [];
+        const descuentos = descuentosList.reduce((a, d) => a + d.monto, 0);
+        const total = Math.round((items.reduce((a, i) => a + i.monto, 0) + bonos - descuentos) * 100) / 100;
 
         const pago = pagoMap.get(pid);
 
@@ -253,7 +275,8 @@ function Page() {
           items,
           mensajesEstudiantes,
           califPromedio, califCount,
-          bonos,
+          bonos, bonosList, descuentos, descuentosList,
+          tarifaClase: tarifa.clase, tarifaSesion: tarifa.sesion,
           total,
           estado: (pago?.estado === "pagado" ? "pagado" : "por_pagar") as "pagado" | "por_pagar",
           pagoId: pago?.id,
@@ -262,7 +285,7 @@ function Page() {
       setStaff(rows.filter(Boolean).sort((a,b) => b.total - a.total));
 
       if (alumnaIds.size) {
-        const { data: as } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", Array.from(alumnaIds));
+        const { data: as } = await supabase.rpc("perfiles_basicos", { _ids: Array.from(alumnaIds) });
         const nm: Record<string, string> = {};
         ((as ?? []) as Profile[]).forEach((p) => { nm[p.id] = formatNombre(p.nombre_completo) || p.email; });
         setNombresAlumnas(nm);
@@ -441,37 +464,17 @@ function Page() {
         </button>
         <div className="flex-1" />
         {role === "admin" && (
+          <button onClick={() => setVerCuentas(true)} className="px-4 py-2 rounded-xl bg-violet-gradient text-white text-sm font-semibold flex items-center gap-2 shadow-md">
+            <Landmark className="w-4 h-4" /> Cuentas bancarias
+          </button>
+        )}
+        {role === "admin" && (
           <button onClick={cerrarMes} className="px-4 py-2 rounded-xl bg-violet-gradient text-white text-sm font-semibold flex items-center gap-2 shadow-md">
             <Lock className="w-4 h-4" /> Cerrar mes y generar pagos
           </button>
         )}
       </div>
 
-      {/* Pestañas */}
-      <div className="flex flex-wrap gap-1 mb-5 p-1 rounded-xl border bg-card w-fit">
-        {TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${tab === t.id ? "bg-violet-gradient text-white" : "text-muted-foreground hover:text-foreground"}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "precios" && (
-        <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={role === "admin"} onRefresh={cargar} />
-      )}
-      {tab === "abonos" && (
-        <PagosAbonos abonos={abonos} nombres={nombresStaff} totales={totalesPor} mes={mes} anio={anio} />
-      )}
-      {tab === "bonos" && (
-        <PagosBonos mes={mes} anio={anio} nombres={nombresStaff} puedeEditar={role === "admin"} onChanged={cargar} />
-      )}
-      {tab === "cuentas" && (
-        <PagosCuentas puedeEditar={role === "admin"} onChanged={cargarCuentas} />
-      )}
-
-      {tab === "resumen" && (
-      <>
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
@@ -497,15 +500,16 @@ function Page() {
               <th className="text-left px-4 py-3 font-semibold">Profesor</th>
               <th className="text-left px-3 py-3 font-semibold">Tiempo clase</th>
               <th className="text-left px-3 py-3 font-semibold">Sesiones 1:1</th>
-              <th className="text-left px-3 py-3 font-semibold">Chats</th>
-              <th className="text-left px-3 py-3 font-semibold">Calif.</th>
+              <th className="text-left px-3 py-3 font-semibold">Calificación</th>
+              <th className="text-right px-3 py-3 font-semibold">Bonos</th>
+              <th className="text-right px-3 py-3 font-semibold">Descuentos</th>
               <th className="text-right px-3 py-3 font-semibold">A pagar</th>
               <th className="text-left px-3 py-3 font-semibold">Estado</th>
               <th className="px-3 py-3" />
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">Cargando…</td></tr>}
+            {loading && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">Cargando…</td></tr>}
             {!loading && staff.map((s) => (
               <tr key={s.id} className="border-t hover:bg-muted/30 transition">
                 <td className="px-4 py-3">
@@ -515,7 +519,14 @@ function Page() {
                     </div>
                     <div>
                       <div className="font-semibold">{s.nombre}</div>
-                      <div className="text-[11px] text-muted-foreground">{s.tema}</div>
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        {profiles[s.id]?.banco_logo_url
+                          ? <img src={profiles[s.id]?.banco_logo_url ?? ""} alt="" className="w-4 h-4 rounded object-cover" />
+                          : <Landmark className="w-3 h-3" />}
+                        {profiles[s.id]?.banco
+                          ? `${profiles[s.id]?.banco} · ${profiles[s.id]?.tipo_cuenta ?? ""} ${profiles[s.id]?.numero_cuenta ?? ""}`
+                          : "Sin cuenta bancaria registrada"}
+                      </div>
                     </div>
                   </button>
                 </td>
@@ -524,17 +535,17 @@ function Page() {
                   {s.ajusteMin !== 0 && (
                     <span className="text-muted-foreground text-xs"> · ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</span>
                   )}
+                  <TarifaInput profesorId={s.id} campo="valor_hora_clase" valor={s.tarifaClase} mes={mes} anio={anio} puedeEditar={role === "admin"} onSaved={cargar} />
                 </td>
-                <td className="px-3 py-3">{s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span></td>
-                <td className="px-3 py-3">{s.mensajesEstudiantes}</td>
                 <td className="px-3 py-3">
-                  {s.califCount > 0 ? (
-                    <span className="inline-flex items-center gap-1">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      <span className="font-medium">{s.califPromedio.toFixed(1)}</span>
-                    </span>
-                  ) : <span className="text-muted-foreground text-xs">—</span>}
+                  {s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span>
+                  <TarifaInput profesorId={s.id} campo="valor_hora_sesion" valor={s.tarifaSesion} mes={mes} anio={anio} puedeEditar={role === "admin"} onSaved={cargar} />
                 </td>
+                <td className="px-3 py-3">
+                  <Estrellas valor={s.califPromedio} count={s.califCount} />
+                </td>
+                <td className="px-3 py-3 text-right tabular-nums text-emerald-600">{s.bonos ? `+$${s.bonos.toFixed(2)}` : "—"}</td>
+                <td className="px-3 py-3 text-right tabular-nums text-red-600">{s.descuentos ? `−$${s.descuentos.toFixed(2)}` : "—"}</td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(2)}</td>
                 <td className="px-3 py-3">
                   {estadoDe(s) === "pagado" ? (
@@ -552,6 +563,11 @@ function Page() {
                     <FileText className="w-3.5 h-3.5" /> Informe
                   </button>
                   {role === "admin" && (
+                    <button onClick={() => setBonoDe(s.id)} className="px-3 py-1.5 rounded-lg border text-xs font-semibold mr-2 inline-flex items-center gap-1">
+                      <Gift className="w-3.5 h-3.5" /> Bono
+                    </button>
+                  )}
+                  {role === "admin" && (
                     <button onClick={() => setAbonoDe(s.id)} className="px-3 py-1.5 rounded-lg bg-violet-gradient text-white text-xs font-semibold">
                       {estadoDe(s) === "pagado" ? "Ver pagos" : "Marcar pagado"}
                     </button>
@@ -559,10 +575,10 @@ function Page() {
                 </td>
               </tr>
             ))}
-            {!loading && staff.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">Sin actividad este mes.</td></tr>}
+            {!loading && staff.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">Sin actividad este mes.</td></tr>}
             {!loading && staff.length > 0 && (
               <tr className="bg-muted/40 border-t">
-                <td className="px-4 py-3" colSpan={5} />
+                <td className="px-4 py-3" colSpan={6} />
                 <td className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold">Total a pagar</td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(2)}</td>
                 <td />
@@ -570,6 +586,16 @@ function Page() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Clases y sesiones */}
+      <div className="mt-8">
+        <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={role === "admin"} onRefresh={cargar} />
+      </div>
+
+      {/* Pagos realizados */}
+      <div className="mt-8">
+        <PagosAbonos abonos={abonos} nombres={nombresStaff} totales={totalesPor} mes={mes} anio={anio} />
       </div>
 
       {/* Historial */}
@@ -608,8 +634,6 @@ function Page() {
           </div>
         </div>
       )}
-      </>
-      )}
 
       {abonoDe && (() => {
         const row = staff.find((s) => s.id === abonoDe);
@@ -623,11 +647,139 @@ function Page() {
             total={row.total}
             abonos={abonos.filter((a) => a.profesor_id === row.id)}
             cuentas={cuentas}
+            bonos={row.bonosList}
+            descuentos={row.descuentosList}
             onClose={() => setAbonoDe(null)}
             onSaved={async () => { await cargar(); await sincronizarPago(row); }}
           />
         );
       })()}
+
+      {bonoDe && (() => {
+        const row = staff.find((s) => s.id === bonoDe);
+        if (!row) return null;
+        return <BonoModal row={row} mes={mes} anio={anio} onClose={() => setBonoDe(null)} onSaved={cargar} />;
+      })()}
+
+      {verCuentas && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm grid place-items-center p-4" onClick={() => setVerCuentas(false)}>
+          <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl bg-background p-1" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-end p-2">
+              <button onClick={() => setVerCuentas(false)} className="p-2 rounded-lg border"><X className="w-4 h-4" /></button>
+            </div>
+            <PagosCuentas puedeEditar={role === "admin"} onChanged={cargarCuentas} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Estrellas({ valor, count }: { valor: number; count: number }) {
+  if (!count) return <span className="text-muted-foreground text-xs">Sin calificar</span>;
+  return (
+    <span className="inline-flex items-center gap-0.5" title={`${valor.toFixed(2)} de 5 · ${count} respuestas`}>
+      {[1,2,3,4,5].map((n) => (
+        <Star key={n} className={`w-3.5 h-3.5 ${valor >= n - 0.25 ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"}`} />
+      ))}
+      <span className="ml-1 text-xs font-medium tabular-nums">{valor.toFixed(1)}</span>
+    </span>
+  );
+}
+
+function TarifaInput({ profesorId, campo, valor, mes, anio, puedeEditar, onSaved }: {
+  profesorId: string; campo: "valor_hora_clase" | "valor_hora_sesion"; valor: number;
+  mes: number; anio: number; puedeEditar: boolean; onSaved: () => void;
+}) {
+  const [v, setV] = useState(valor ? String(valor) : "");
+  useEffect(() => { setV(valor ? String(valor) : ""); }, [valor]);
+  const guardar = async () => {
+    const num = Number(v || 0);
+    if (!Number.isFinite(num) || num < 0) return toast.error("Valor inválido");
+    if (num === valor) return;
+    const otro = campo === "valor_hora_clase" ? "valor_hora_sesion" : "valor_hora_clase";
+    const { error } = await supabase.from("pagos_tarifas_mes").upsert({
+      profesor_id: profesorId, mes, anio, [campo]: num, [otro]: undefined,
+    } as never, { onConflict: "profesor_id,mes,anio" });
+    if (error) return toast.error(error.message);
+    toast.success("Valor por hora guardado");
+    onSaved();
+  };
+  return (
+    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+      <span>$/h</span>
+      <input type="number" step="0.01" min="0" value={v} disabled={!puedeEditar}
+        onChange={(e) => setV(e.target.value)} onBlur={guardar} placeholder="0.00"
+        className="w-20 px-2 py-1 rounded-lg border bg-background text-right tabular-nums" />
+    </div>
+  );
+}
+
+function BonoModal({ row, mes, anio, onClose, onSaved }: {
+  row: StaffRow; mes: number; anio: number; onClose: () => void; onSaved: () => void;
+}) {
+  const [monto, setMonto] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const guardar = async () => {
+    const num = Number(monto);
+    if (!Number.isFinite(num) || num <= 0) return toast.error("Escribe un monto válido");
+    if (motivo.trim().length < 3) return toast.error("Escribe el motivo del bono");
+    setSaving(true);
+    const { error } = await supabase.from("bonos").insert({
+      profesor_id: row.id, mes, anio, monto: num, motivo: motivo.trim(),
+      tipo: "bono", frecuencia: "mensual", estado: "pendiente",
+    } as never);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Bono registrado");
+    setMonto(""); setMotivo("");
+    onSaved();
+  };
+
+  const borrar = async (id: string) => {
+    const { error } = await supabase.from("bonos").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Bono eliminado");
+    onSaved();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm grid place-items-center p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border bg-card p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold">Bonos · {row.nombre}</h3>
+            <p className="text-xs text-muted-foreground">{MESES[mes-1]} {anio} · se suman al total a pagar.</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg border"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="space-y-2 mb-4">
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Valor del bono</label>
+          <input type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)}
+            placeholder="0.00" className="w-full px-3 py-2 rounded-lg border bg-background tabular-nums" />
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Motivo</label>
+          <input value={motivo} maxLength={140} onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ej. bono por clases extra" className="w-full px-3 py-2 rounded-lg border bg-background" />
+          <button onClick={guardar} disabled={saving}
+            className="w-full mt-1 px-4 py-2 rounded-xl bg-violet-gradient text-white text-sm font-semibold disabled:opacity-60">
+            {saving ? "Guardando…" : "Agregar bono"}
+          </button>
+        </div>
+        <div className="space-y-2">
+          {row.bonosList.length === 0 && <div className="text-xs text-muted-foreground">Sin bonos este mes.</div>}
+          {row.bonosList.map((b) => (
+            <div key={b.id} className="flex items-center justify-between gap-2 text-sm border-t pt-2">
+              <div className="min-w-0">
+                <div className="font-semibold tabular-nums">+${b.monto.toFixed(2)}</div>
+                <div className="text-xs text-muted-foreground truncate">{b.motivo || "Sin motivo"}</div>
+              </div>
+              <button onClick={() => borrar(b.id)} className="text-xs text-red-600 font-semibold">Borrar</button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -708,7 +860,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
       setCalifs((cals ?? []) as never);
       const aids = Array.from(new Set(((cals ?? []) as { alumna_id: string }[]).map((c) => c.alumna_id)));
       if (aids.length) {
-        const { data: ps } = await supabase.from("profiles").select("id,nombre_completo,email").in("id", aids);
+        const { data: ps } = await supabase.rpc("perfiles_basicos", { _ids: aids });
         const m: Record<string,string> = {};
         ((ps ?? []) as Profile[]).forEach((p) => { m[p.id] = formatNombre(p.nombre_completo) || p.email; });
         setAlumnaNombres(m);

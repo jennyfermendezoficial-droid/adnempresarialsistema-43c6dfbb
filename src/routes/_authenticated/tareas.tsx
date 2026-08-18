@@ -1,3 +1,4 @@
+import { subirImagen, esImagen, esUrlAbsoluta } from "@/lib/cloudinary";
 import { formatNombre } from "@/lib/nombres";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -187,6 +188,10 @@ function StudentUploader({
   const existing = mine ? getAllFiles(mine) : [];
 
   const uploadOne = async (file: File): Promise<ArchivoEntrega> => {
+    if (esImagen(file)) {
+      const url = await subirImagen(file, "adn/tareas");
+      return { url, nombre: file.name, tipo: file.type, size: file.size };
+    }
     const ext = file.name.split(".").pop() ?? "bin";
     const path = `${uid}/${tarea.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
     const { error: upErr } = await supabase.storage.from("tareas").upload(path, file, { upsert: false });
@@ -252,7 +257,9 @@ function StudentUploader({
     if (!target) return;
     if (!confirm(`¿Eliminar "${target.nombre}"?`)) return;
     const next = existing.filter((_, i) => i !== idx);
-    try { await supabase.storage.from("tareas").remove([target.url]); } catch {}
+    if (!esUrlAbsoluta(target.url)) {
+      try { await supabase.storage.from("tareas").remove([target.url]); } catch {}
+    }
     if (next.length === 0) {
       const { error } = await supabase.from("tareas_entregas").delete().eq("id", mine.id);
       if (error) return toast.error(error.message);
@@ -270,6 +277,7 @@ function StudentUploader({
   };
 
   const downloadFile = async (path: string) => {
+    if (esUrlAbsoluta(path)) { window.open(path, "_blank"); return; }
     const { data, error } = await supabase.storage.from("tareas").createSignedUrl(path, 60);
     if (error) return toast.error(error.message);
     window.open(data.signedUrl, "_blank");
@@ -796,13 +804,15 @@ function EntregaRow({
 
   const files = getAllFiles(entrega);
   const descargarUno = async (path: string) => {
+    if (esUrlAbsoluta(path)) { window.open(path, "_blank"); return; }
     const { data, error } = await supabase.storage.from("tareas").createSignedUrl(path, 60);
     if (error) return toast.error(error.message);
     window.open(data.signedUrl, "_blank");
   };
   const eliminar = async () => {
     if (!confirm("¿Eliminar esta entrega y todos sus archivos?")) return;
-    try { await supabase.storage.from("tareas").remove(files.map((f) => f.url)); } catch {}
+    const enStorage = files.map((f) => f.url).filter((u) => !esUrlAbsoluta(u));
+    if (enStorage.length) { try { await supabase.storage.from("tareas").remove(enStorage); } catch {} }
     const { error } = await supabase.from("tareas_entregas").delete().eq("id", entrega.id);
     if (error) return toast.error(error.message);
     toast.success("Eliminada");
