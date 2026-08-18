@@ -360,6 +360,9 @@ export type Database = {
       }
       app_config: {
         Row: {
+          comunidad_imagen_url: string | null
+          comunidad_mensaje: string | null
+          comunidad_titulo: string | null
           id: boolean
           inicio_mensaje: string | null
           inicio_titulo: string | null
@@ -367,6 +370,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          comunidad_imagen_url?: string | null
+          comunidad_mensaje?: string | null
+          comunidad_titulo?: string | null
           id?: boolean
           inicio_mensaje?: string | null
           inicio_titulo?: string | null
@@ -374,6 +380,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          comunidad_imagen_url?: string | null
+          comunidad_mensaje?: string | null
+          comunidad_titulo?: string | null
           id?: boolean
           inicio_mensaje?: string | null
           inicio_titulo?: string | null
@@ -1156,6 +1165,7 @@ export type Database = {
           activo: boolean
           created_at: string
           id: string
+          logo_url: string | null
           nombre: string
           numero_cuenta: string
           tipo: string
@@ -1166,6 +1176,7 @@ export type Database = {
           activo?: boolean
           created_at?: string
           id?: string
+          logo_url?: string | null
           nombre: string
           numero_cuenta: string
           tipo?: string
@@ -1176,11 +1187,45 @@ export type Database = {
           activo?: boolean
           created_at?: string
           id?: string
+          logo_url?: string | null
           nombre?: string
           numero_cuenta?: string
           tipo?: string
           titular?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      pagos_descuentos: {
+        Row: {
+          anio: number
+          creado_por: string | null
+          created_at: string
+          id: string
+          mes: number
+          monto: number
+          motivo: string
+          profesor_id: string
+        }
+        Insert: {
+          anio: number
+          creado_por?: string | null
+          created_at?: string
+          id?: string
+          mes: number
+          monto: number
+          motivo: string
+          profesor_id: string
+        }
+        Update: {
+          anio?: number
+          creado_por?: string | null
+          created_at?: string
+          id?: string
+          mes?: number
+          monto?: number
+          motivo?: string
+          profesor_id?: string
         }
         Relationships: []
       }
@@ -1256,6 +1301,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pagos_tarifas_mes: {
+        Row: {
+          anio: number
+          created_at: string
+          id: string
+          mes: number
+          profesor_id: string
+          updated_at: string
+          valor_hora_clase: number
+          valor_hora_sesion: number
+        }
+        Insert: {
+          anio: number
+          created_at?: string
+          id?: string
+          mes: number
+          profesor_id: string
+          updated_at?: string
+          valor_hora_clase?: number
+          valor_hora_sesion?: number
+        }
+        Update: {
+          anio?: number
+          created_at?: string
+          id?: string
+          mes?: number
+          profesor_id?: string
+          updated_at?: string
+          valor_hora_clase?: number
+          valor_hora_sesion?: number
+        }
+        Relationships: []
+      }
       permisos_cursos: {
         Row: {
           curso_id: string
@@ -1292,47 +1370,80 @@ export type Database = {
         Row: {
           actividad: string | null
           avatar_url: string | null
+          banco: string | null
+          banco_logo_url: string | null
           biografia: string | null
+          cedula: string | null
           created_at: string
+          direccion: string | null
           email: string
           estado: Database["public"]["Enums"]["user_estado"]
+          fecha_nacimiento: string | null
+          ficha_completa: boolean
           id: string
           negocio_foto_url: string | null
           negocio_nombre: string | null
           nombre_completo: string
+          numero_cuenta: string | null
+          observacion_ficha: string | null
           tarifa_hora_clase: number
           tarifa_sesion_1a1: number
+          tipo_cuenta: string | null
+          titular_cuenta: string | null
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
           actividad?: string | null
           avatar_url?: string | null
+          banco?: string | null
+          banco_logo_url?: string | null
           biografia?: string | null
+          cedula?: string | null
           created_at?: string
+          direccion?: string | null
           email: string
           estado?: Database["public"]["Enums"]["user_estado"]
+          fecha_nacimiento?: string | null
+          ficha_completa?: boolean
           id: string
           negocio_foto_url?: string | null
           negocio_nombre?: string | null
           nombre_completo?: string
+          numero_cuenta?: string | null
+          observacion_ficha?: string | null
           tarifa_hora_clase?: number
           tarifa_sesion_1a1?: number
+          tipo_cuenta?: string | null
+          titular_cuenta?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
           actividad?: string | null
           avatar_url?: string | null
+          banco?: string | null
+          banco_logo_url?: string | null
           biografia?: string | null
+          cedula?: string | null
           created_at?: string
+          direccion?: string | null
           email?: string
           estado?: Database["public"]["Enums"]["user_estado"]
+          fecha_nacimiento?: string | null
+          ficha_completa?: boolean
           id?: string
           negocio_foto_url?: string | null
           negocio_nombre?: string | null
           nombre_completo?: string
+          numero_cuenta?: string | null
+          observacion_ficha?: string | null
           tarifa_hora_clase?: number
           tarifa_sesion_1a1?: number
+          tipo_cuenta?: string | null
+          titular_cuenta?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }
@@ -1454,6 +1565,39 @@ export type Database = {
           profesor_reemplazado?: string
           profesor_reporta?: string
           referencia_id?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
+      registros_tardios: {
+        Row: {
+          created_at: string
+          fecha: string
+          id: string
+          motivo: string | null
+          profesor_id: string
+          referencia_id: string
+          registrado_at: string | null
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          fecha: string
+          id?: string
+          motivo?: string | null
+          profesor_id: string
+          referencia_id: string
+          registrado_at?: string | null
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          motivo?: string | null
+          profesor_id?: string
+          referencia_id?: string
+          registrado_at?: string | null
           tipo?: string
         }
         Relationships: []
@@ -1798,6 +1942,29 @@ export type Database = {
           _usuarios: string[]
         }
         Returns: undefined
+      }
+      perfiles_basicos: {
+        Args: { _ids: string[] }
+        Returns: {
+          avatar_url: string
+          email: string
+          id: string
+          nombre_completo: string
+        }[]
+      }
+      perfiles_pagos: {
+        Args: { _ids: string[] }
+        Returns: {
+          avatar_url: string
+          banco: string
+          banco_logo_url: string
+          email: string
+          id: string
+          nombre_completo: string
+          numero_cuenta: string
+          tipo_cuenta: string
+          titular_cuenta: string
+        }[]
       }
       perfiles_publicos: {
         Args: { _ids?: string[] }
