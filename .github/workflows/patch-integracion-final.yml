@@ -1,0 +1,118 @@
+name: Patch integracion final
+on:
+  push:
+    branches: [feature/entrega-final-integracion-18ago]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'Pagos: conecta horas reales y permisos finales'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Aplicar cambios acotados
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/routes/_authenticated/pagos.tsx')
+          s = p.read_text()
+
+          def rep(old, new, n=1):
+              global s
+              if old not in s:
+                  raise SystemExit('No se encontró patrón en pagos.tsx: ' + old[:100])
+              s = s.replace(old, new, n)
+
+          rep('import { formatNombre } from "@/lib/nombres";','import { formatNombre } from "@/lib/nombres";\nimport { puedeVerPagos } from "@/lib/roles";')
+          rep('import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";','import { formatHM, horasDecimal } from "@/lib/tiempo";')
+          rep('  id: string; nombre_completo: string; email: string; avatar_url?: string | null;\n  banco?: string | null;', '  id: string; nombre_completo: string; email: string; avatar_url?: string | null; cedula?: string | null;\n  banco?: string | null;')
+          rep('  minutosClase: number;\n  sesiones1a1: number;', '  minutosClase: number;\n  clasesRealizadas: number;\n  sesiones1a1: number;')
+          rep('  tarifaSesion: number;\n  total: number;', '  tarifaSesion: number;\n  pendientes: number;\n  total: number;')
+          rep('  const { role } = useAuth();', '  const { role, session } = useAuth();\n  const puedeEditar = puedeVerPagos(role, session?.user.id);')
+          rep('      const alumnaIds = new Set<string>();', '''      const alumnaIds = new Set<string>();
+      const rpcPendientes = supabase.rpc as unknown as (fn: string, args?: Record<string, unknown>) => Promise<{ data: Array<{ profesor_id: string; pendientes: number; dias_max: number }> | null }>;
+      const { data: pendientesRows } = await rpcPendientes("revisar_horas_pendientes", {});
+      const pendientesMap = new Map<string, number>();
+      (pendientesRows ?? []).forEach((r) => pendientesMap.set(r.profesor_id, Number(r.pendientes)));''')
+          rep('        let minutosClase = 0;\n        ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {', '''        let minutosClase = 0;
+        const clasesData = ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]);
+        const clasesRealizadas = clasesData.filter((c) => Number(c.duracion_min ?? 0) > 0).length;
+        clasesData.forEach((c) => {''')
+          rep('          const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);', '          const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : 0;')
+          rep('            monto: manual != null && manual > 0 ? manual : Math.round((tarifa.clase * min / 60) * 100) / 100,', '            monto: min > 0 ? (manual != null && manual > 0 ? manual : Math.round((tarifa.clase * min / 60) * 100) / 100) : 0,')
+          rep('          const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);', '          const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : 0;')
+          rep('            monto: manual1 != null && manual1 > 0 ? manual1 : Math.round((tarifa.sesion * min / 60) * 100) / 100,', '            monto: min > 0 ? (manual1 != null && manual1 > 0 ? manual1 : Math.round((tarifa.sesion * min / 60) * 100) / 100) : 0,')
+          rep('        const sesiones1a1 = sesionesData.length;', '        const sesiones1a1 = sesionesData.filter((x) => Number(x.duracion_min ?? 0) > 0).length;')
+          rep('          minutosClase,\n          sesiones1a1, minutos1a1,', '          minutosClase,\n          clasesRealizadas,\n          sesiones1a1, minutos1a1,')
+          rep('          tarifaClase: tarifa.clase, tarifaSesion: tarifa.sesion,\n          total,', '          tarifaClase: tarifa.clase, tarifaSesion: tarifa.sesion,\n          pendientes: pendientesMap.get(pid) ?? 0,\n          total,')
+          rep('  if (role !== "admin" && role !== "soporte") {\n    return <div className="p-8 text-center text-muted-foreground">Solo el equipo puede ver esta sección.</div>;\n  }', '  if (!puedeEditar) {\n    return <div className="p-8 text-center text-muted-foreground">No tienes permiso para ver Pagos e informes.</div>;\n  }')
+          s = s.replace('role === "admin"', 'puedeEditar')
+          rep('                  {formatHM(s.minutosClase)}', '                  <span className="font-medium">{s.clasesRealizadas} {s.clasesRealizadas === 1 ? "clase" : "clases"}</span> <span className="text-muted-foreground text-xs">· {formatHM(s.minutosClase)}</span>')
+
+          old_avatar = '''                    <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white" style={{ background: colorDe(s.id) }}>
+                      {(s.nombre).slice(0,2).toUpperCase()}
+                    </div>'''
+          new_avatar = '''                    {profiles[s.id]?.avatar_url ? (
+                      <img src={profiles[s.id]?.avatar_url ?? ""} alt={s.nombre} className="w-9 h-9 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white" style={{ background: colorDe(s.id) }}>
+                        {(s.nombre).slice(0,2).toUpperCase()}
+                      </div>
+                    )}'''
+          rep(old_avatar, new_avatar)
+          rep('                          : "Sin cuenta bancaria registrada"}\n                      </div>', '                          : "Sin cuenta bancaria registrada"}\n                      </div>\n                      {s.pendientes > 0 && <div className="text-[11px] text-amber-600 font-medium">{s.pendientes} registro{s.pendientes === 1 ? "" : "s"} de horas pendiente{s.pendientes === 1 ? "" : "s"}</div>}')
+          s = s.replace('            <Item icon="💬" titulo={`${row.mensajesEstudiantes} mensajes a estudiantes`} sub="canal privado" />\n', '')
+          p.write_text(s)
+
+          p = Path('src/components/pagos/RegistrarAbonoModal.tsx')
+          s = p.read_text()
+          def repm(old, new, n=1):
+              global s
+              if old not in s:
+                  raise SystemExit('No se encontró patrón en RegistrarAbonoModal: ' + old[:100])
+              s = s.replace(old, new, n)
+
+          repm('  id: string; nombre: string; tipo: string; numero_cuenta: string; titular: string | null; activo: boolean;', '  id: string; nombre: string; tipo: string; numero_cuenta: string; titular: string | null; activo: boolean; logo_url?: string | null;')
+          repm('  observacion: string | null; archivo_url: string | null;\n}', '  observacion: string | null; archivo_url: string | null; datos_ocr?: unknown;\n}')
+          repm('  const [descMotivo, setDescMotivo] = useState("");', '''  const [descMotivo, setDescMotivo] = useState("");
+  const [datosOcr, setDatosOcr] = useState<Record<string, unknown> | null>(null);
+  const [destino, setDestino] = useState<{ avatar_url?: string | null; cedula?: string | null; banco?: string | null; banco_logo_url?: string | null; tipo_cuenta?: string | null; numero_cuenta?: string | null; titular_cuenta?: string | null } | null>(null);
+
+  useEffect(() => {
+    const rpc = supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown[] | null }>;
+    void rpc("perfiles_pagos", { _ids: [profesorId] }).then(({ data }) => setDestino((data?.[0] as typeof destino) ?? null));
+  }, [profesorId]);''')
+          repm('      const d = await leer({ data: { imagenBase64: dataUrl } });', '      const d = await leer({ data: { imagenBase64: dataUrl } });\n      setDatosOcr(d as unknown as Record<string, unknown>);')
+          repm('      observacion: observacion.trim() || null, archivo_url: archivoUrl,', '      observacion: observacion.trim() || null, archivo_url: archivoUrl, datos_ocr: datosOcr,')
+          repm('        <div className="grid md:grid-cols-2 gap-4 p-5">', '''        <div className="px-5 pt-4">
+          <div className="rounded-xl border p-3 bg-muted/20 flex items-center gap-3">
+            {destino?.avatar_url ? <img src={destino.avatar_url} alt="" className="w-11 h-11 rounded-full object-cover" /> : <div className="w-11 h-11 rounded-full bg-muted grid place-items-center font-bold">{profesorNombre.slice(0,1)}</div>}
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Cuenta destino del profesor</div>
+              <div className="font-semibold truncate">{profesorNombre}{destino?.cedula ? ` · CI ${destino.cedula}` : ""}</div>
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                {destino?.banco_logo_url && <img src={destino.banco_logo_url} alt="" className="w-4 h-4 rounded object-cover" />}
+                <span>{destino?.banco ? `${destino.banco} · ${destino.tipo_cuenta ?? ""} · ${destino.numero_cuenta ?? ""}` : "Sin cuenta bancaria registrada"}</span>
+                {destino?.titular_cuenta && <span>· Titular: {destino.titular_cuenta}</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4 p-5">''')
+          p.write_text(s)
+          PY
+      - name: Instalar dependencias
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bunx tsgo --noEmit
+      - name: Guardar parche
+        run: |
+          git config user.name "OpenAI Integration Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/routes/_authenticated/pagos.tsx src/components/pagos/RegistrarAbonoModal.tsx
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Pagos: conecta horas reales y permisos finales"
+          git push
