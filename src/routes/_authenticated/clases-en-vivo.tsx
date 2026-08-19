@@ -4,6 +4,7 @@ import { ArrowRight, BookOpen, CheckCircle2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { CursoDetalle } from "@/components/CursoDetalle";
+import { GestionContenidosEquipo } from "@/components/GestionContenidosEquipo";
 
 interface Curso {
   id: string;
@@ -12,6 +13,8 @@ interface Curso {
   color_cover: string | null;
   image_url: string | null;
   orden: number;
+  solo_equipo?: boolean | null;
+  parent_curso_id?: string | null;
 }
 
 export const Route = createFileRoute("/_authenticated/clases-en-vivo")({
@@ -38,12 +41,16 @@ function Page() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isStaff) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       const [{ data: cs }, { data: ps }] = await Promise.all([
         supabase
           .from("cursos")
-          .select("id,nombre,descripcion,color_cover,image_url,orden")
+          .select("*")
           .eq("tipo", "clase_en_vivo")
           .order("orden"),
         uid
@@ -52,15 +59,18 @@ function Page() {
       ]);
 
       if (cancelled) return;
-      setCursos((cs as Curso[]) ?? []);
+      const visibles = ((cs ?? []) as Curso[]).filter((c) => c.solo_equipo !== true && !c.parent_curso_id);
+      setCursos(visibles);
       setPermisos(new Set(((ps ?? []) as { curso_id: string }[]).map((p) => p.curso_id)));
       setLoading(false);
     };
-    load();
+    void load();
     return () => {
       cancelled = true;
     };
-  }, [uid]);
+  }, [uid, isStaff]);
+
+  if (isStaff) return <GestionContenidosEquipo />;
 
   if (activeId) {
     return (
@@ -91,7 +101,7 @@ function Page() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {cursos.map((curso) => {
-            const acceso = isStaff || permisos.has(curso.id);
+            const acceso = permisos.has(curso.id);
             return (
               <div key={curso.id} className="rounded-2xl border bg-card overflow-hidden group shadow-sm">
                 <div className="relative aspect-square">
