@@ -1,12 +1,12 @@
 import {
   Home, BookOpen, CalendarDays, Users,
   ShieldCheck, Wallet, Calendar,
-  Bell, Radio, Sparkles,
+  Bell, Radio, Sparkles, Layers3,
 } from "lucide-react";
 
 export interface NavItem { to: string; label: string; icon: typeof Home }
 
-/** Orden principal del menú (todos los usuarios). */
+/** Orden principal del menú para alumnos. El equipo filtra Cursos/Clases y usa la gestión unificada. */
 export const mainItems: NavItem[] = [
   { to: "/comunidad", label: "Comunidad", icon: Sparkles },
   { to: "/cursos", label: "Cursos", icon: BookOpen },
@@ -19,6 +19,7 @@ export const mainItems: NavItem[] = [
 
 /** Solo profesores (soporte) y admin. */
 export const staffItems: NavItem[] = [
+  { to: "/clases-en-vivo", label: "Cursos y clases", icon: Layers3 },
   { to: "/mis-clases-asignadas", label: "Mis clases asignadas", icon: Bell },
 ];
 
