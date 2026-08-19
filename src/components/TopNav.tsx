@@ -20,8 +20,11 @@ export function TopNav() {
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
   const isStaff = role === "admin" || role === "soporte";
+  const mainForRole = isStaff
+    ? mainItems.filter((item) => item.to !== "/cursos" && item.to !== "/clases-en-vivo")
+    : mainItems;
   const flat: NavItem[] = [
-    ...mainItems,
+    ...mainForRole,
     ...(isStaff ? staffItems : []),
     ...(role === "admin" ? adminItems : []),
     ...(puedeVerPagos(role, session?.user.id) ? pagosItems : []),
@@ -41,7 +44,6 @@ export function TopNav() {
           style={{ background: "radial-gradient(circle at top right, rgba(124,107,255,.15), transparent 60%)" }}
         />
         <div className="relative z-10 mx-auto w-full max-w-[1400px] px-6">
-          {/* Fila 1 */}
           <div className="h-14 flex items-center gap-4">
             <Link to="/comunidad" className="flex items-center gap-3 min-w-0">
               <Logo size={30} />
@@ -83,11 +85,10 @@ export function TopNav() {
             </div>
           </div>
 
-          {/* Fila 2: pestañas */}
           <nav className="flex items-stretch justify-center gap-1 overflow-x-auto">
             {flat.map(({ to, label, icon: Icon }) => (
               <Link
-                key={to}
+                key={`${to}-${label}`}
                 to={to}
                 className="group flex items-center gap-2 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors"
                 style={
@@ -100,7 +101,6 @@ export function TopNav() {
                 <span>{label}</span>
               </Link>
             ))}
-
           </nav>
         </div>
       </div>
