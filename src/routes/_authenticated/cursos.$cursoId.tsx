@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { CursoDetalle } from "@/components/CursoDetalle";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { esContenidoEquipo } from "@/lib/contenido-equipo";
 
 export const Route = createFileRoute("/_authenticated/cursos/$cursoId")({ component: Page });
 
@@ -18,7 +19,8 @@ function Page() {
     void (async () => {
       const { data } = await supabase.from("cursos").select("*").eq("id", cursoId).maybeSingle();
       if (cancel) return;
-      const soloEquipo = Boolean((data as { solo_equipo?: boolean | null } | null)?.solo_equipo);
+      const row = data as { descripcion?: string | null; solo_equipo?: boolean | null } | null;
+      const soloEquipo = Boolean(row?.solo_equipo) || esContenidoEquipo(row?.descripcion);
       setRestringido(soloEquipo && !isStaff);
       setLoading(false);
     })();
