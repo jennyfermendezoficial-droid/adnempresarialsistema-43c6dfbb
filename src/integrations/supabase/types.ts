@@ -2010,6 +2010,14 @@ export type Database = {
         Args: { _dispositivo: string; _session_id: string }
         Returns: undefined
       }
+      revisar_horas_pendientes: {
+        Args: { _profesor_id?: string }
+        Returns: {
+          dias_max: number
+          pendientes: number
+          profesor_id: string
+        }[]
+      }
       titlecase_nombre: { Args: { _txt: string }; Returns: string }
       validar_sesion: { Args: { _session_id: string }; Returns: boolean }
     }
