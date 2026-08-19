@@ -6,7 +6,7 @@ import { Check, Search } from "lucide-react";
 import { formatNombre } from "@/lib/nombres";
 
 interface Profile { id: string; nombre_completo: string; email: string; avatar_url: string | null }
-interface Curso { id: string; nombre: string; color_cover: string | null }
+interface Curso { id: string; nombre: string; color_cover: string | null; solo_equipo?: boolean | null; parent_curso_id?: string | null }
 interface Perm { id: string; usuario_id: string; curso_id: string }
 
 interface Props { tipo: "curso" | "clase_en_vivo"; titulo: string; plural: string }
@@ -26,19 +26,19 @@ export function AccesoCursosPanel({ tipo, titulo, plural }: Props) {
     (async () => {
       const [{ data: p }, { data: c }, { data: pc }, { data: roles }] = await Promise.all([
         supabase.from("profiles").select("id,nombre_completo,email,avatar_url").order("nombre_completo"),
-        supabase.from("cursos").select("id,nombre,color_cover").eq("tipo", tipo).order("orden"),
+        supabase.from("cursos").select("*").eq("tipo", tipo).order("orden"),
         supabase.from("permisos_cursos").select("id,usuario_id,curso_id"),
         supabase.from("user_roles").select("user_id,role"),
       ]);
-      // Excluir admin/soporte de la lista (solo asignar acceso a alumnos)
       const staffIds = new Set(
         (roles ?? [])
           .filter((r: { role: string }) => r.role === "admin" || r.role === "soporte")
           .map((r: { user_id: string }) => r.user_id),
       );
+      const cursosPublicos = ((c as Curso[]) ?? []).filter((x) => x.solo_equipo !== true && !x.parent_curso_id);
       setProfiles(((p as Profile[]) ?? []).filter((x) => !staffIds.has(x.id)));
-      setCursos((c as Curso[]) ?? []);
-      const ids = new Set((((c as Curso[]) ?? [])).map((x) => x.id));
+      setCursos(cursosPublicos);
+      const ids = new Set(cursosPublicos.map((x) => x.id));
       setPerms((((pc as Perm[]) ?? [])).filter((x) => ids.has(x.curso_id)));
       setLoading(false);
     })();
