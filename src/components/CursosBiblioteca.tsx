@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { esContenidoEquipo } from "@/lib/contenido-equipo";
 import { BookOpen, Plus, Trash2, ImagePlus, Loader2, Pencil, X, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,7 +35,9 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
 
   const reloadCursos = () =>
     supabase.from("cursos").select("*").eq("tipo", tipo).order("orden").then(({ data }) => {
-      const visibles = ((data ?? []) as Curso[]).filter((c) => c.solo_equipo !== true && !c.parent_curso_id);
+      const visibles = ((data ?? []) as Curso[]).filter(
+        (c) => c.solo_equipo !== true && !c.parent_curso_id && !esContenidoEquipo(c.descripcion),
+      );
       setCursos(visibles);
     });
 
@@ -52,6 +55,7 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
     if (error) return toast.error(error.message);
     setCursos((c) => [...c, data as Curso]);
   };
+
   const borrarCurso = async (id: string) => {
     if (!confirm(`¿Eliminar ${etiqueta} (y sus módulos/lecciones)?`)) return;
     const { error } = await supabase.from("cursos").delete().eq("id", id);
@@ -125,19 +129,10 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
                 )}
                 {isStaff && (
                   <div className="absolute top-2 right-2 flex gap-1">
-                    <button
-                      onClick={() => cambiarPortada(c.id)}
-                      disabled={uploadingCover === c.id}
-                      title="Cambiar portada (1:1)"
-                      className="px-2 py-1 rounded-md bg-black/60 backdrop-blur text-white text-xs flex items-center gap-1 hover:bg-black/80"
-                    >
+                    <button onClick={() => cambiarPortada(c.id)} disabled={uploadingCover === c.id} title="Cambiar portada (1:1)" className="px-2 py-1 rounded-md bg-black/60 backdrop-blur text-white text-xs flex items-center gap-1 hover:bg-black/80">
                       {uploadingCover === c.id ? <Loader2 className="w-3 h-3 animate-spin"/> : <ImagePlus className="w-3 h-3"/>}
                     </button>
-                    <button
-                      onClick={() => setEditing(c)}
-                      title="Editar curso"
-                      className="px-2 py-1 rounded-md bg-black/60 backdrop-blur text-white text-xs flex items-center gap-1 hover:bg-black/80"
-                    >
+                    <button onClick={() => setEditing(c)} title="Editar curso" className="px-2 py-1 rounded-md bg-black/60 backdrop-blur text-white text-xs flex items-center gap-1 hover:bg-black/80">
                       <Pencil className="w-3 h-3"/> Editar
                     </button>
                   </div>
@@ -150,11 +145,7 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
                 </div>
                 {c.descripcion && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.descripcion}</p>}
                 {acceso ? (
-                  <Link
-                    to="/cursos/$cursoId"
-                    params={{ cursoId: c.id }}
-                    className="mt-3 w-full px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center justify-center gap-1"
-                  >
+                  <Link to="/cursos/$cursoId" params={{ cursoId: c.id }} className="mt-3 w-full px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center justify-center gap-1">
                     <BookOpen className="w-4 h-4" /> Entrar
                   </Link>
                 ) : (
@@ -177,61 +168,30 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
             <div className="p-5 space-y-4">
               <div className="flex gap-4 items-start">
                 <div className="relative w-32 h-32 rounded-lg overflow-hidden border shrink-0 bg-muted">
-                  {editing.image_url ? (
-                    <img src={editing.image_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${editing.color_cover || "#7C6BFF"}, var(--violet-2))` }} />
-                  )}
+                  {editing.image_url ? <img src={editing.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${editing.color_cover || "#7C6BFF"}, var(--violet-2))` }} />}
                 </div>
                 <div className="flex-1">
                   <p className="text-xs text-muted-foreground mb-2">Portada cuadrada (1:1). Recomendado: 800×800px.</p>
-                  <button
-                    onClick={() => cambiarPortada(editing.id)}
-                    disabled={uploadingCover === editing.id}
-                    className="px-3 py-2 rounded-lg border text-sm flex items-center gap-1"
-                  >
-                    {uploadingCover === editing.id ? <Loader2 className="w-3 h-3 animate-spin"/> : <ImagePlus className="w-3 h-3"/>}
-                    Subir imagen
+                  <button onClick={() => cambiarPortada(editing.id)} disabled={uploadingCover === editing.id} className="px-3 py-2 rounded-lg border text-sm flex items-center gap-1">
+                    {uploadingCover === editing.id ? <Loader2 className="w-3 h-3 animate-spin"/> : <ImagePlus className="w-3 h-3"/>} Subir imagen
                   </button>
                 </div>
               </div>
               <div>
                 <label className="text-xs font-medium">Nombre</label>
-                <input
-                  value={editing.nombre}
-                  onChange={(e) => setEditing({ ...editing, nombre: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm"
-                />
+                <input value={editing.nombre} onChange={(e) => setEditing({ ...editing, nombre: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm" />
               </div>
               <div>
                 <label className="text-xs font-medium">Descripción</label>
-                <textarea
-                  value={editing.descripcion ?? ""}
-                  onChange={(e) => setEditing({ ...editing, descripcion: e.target.value })}
-                  rows={4}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none"
-                  placeholder="Descripción del curso, objetivos, a quién va dirigido…"
-                />
+                <textarea value={editing.descripcion ?? ""} onChange={(e) => setEditing({ ...editing, descripcion: e.target.value })} rows={4} className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none" placeholder="Descripción del curso, objetivos, a quién va dirigido…" />
               </div>
-              <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-                Para añadir clases, módulos, links y archivos entra al curso desde "Entrar al curso".
-              </div>
+              <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">Para añadir clases, módulos, links y archivos entra al curso desde "Entrar al curso".</div>
             </div>
             <div className="px-5 py-3 border-t flex justify-end gap-2">
               <button onClick={() => setEditing(null)} className="px-3 py-2 rounded-lg border text-sm">Cancelar</button>
-              <button
-                onClick={() => { const id = editing.id; setEditing(null); navigate({ to: "/cursos/$cursoId", params: { cursoId: id } }); }}
-                className="px-3 py-2 rounded-lg border text-sm flex items-center gap-1"
-              >
-                <ArrowRight className="w-3 h-3"/> Entrar al curso
-              </button>
-              <button
-                onClick={guardarEdicion}
-                disabled={savingEdit}
-                className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center gap-1"
-              >
-                {savingEdit && <Loader2 className="w-3 h-3 animate-spin"/>}
-                Guardar
+              <button onClick={() => { const id = editing.id; setEditing(null); navigate({ to: "/cursos/$cursoId", params: { cursoId: id } }); }} className="px-3 py-2 rounded-lg border text-sm flex items-center gap-1"><ArrowRight className="w-3 h-3"/> Entrar al curso</button>
+              <button onClick={guardarEdicion} disabled={savingEdit} className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center gap-1">
+                {savingEdit && <Loader2 className="w-3 h-3 animate-spin"/>} Guardar
               </button>
             </div>
           </div>
