@@ -6,7 +6,16 @@ import { useAuth } from "@/lib/auth-context";
 import { BookOpen, Plus, Trash2, ImagePlus, Loader2, Pencil, X, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
-interface Curso { id: string; nombre: string; descripcion: string | null; color_cover: string | null; image_url: string | null; orden: number }
+interface Curso {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  color_cover: string | null;
+  image_url: string | null;
+  orden: number;
+  solo_equipo?: boolean | null;
+  parent_curso_id?: string | null;
+}
 
 interface Props { tipo: "curso" | "clase_en_vivo"; titulo: string; subtitulo: string; etiqueta: string }
 
@@ -24,7 +33,10 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
   const pendingCursoId = useRef<string | null>(null);
 
   const reloadCursos = () =>
-    supabase.from("cursos").select("*").eq("tipo", tipo).order("orden").then(({ data }) => setCursos((data as Curso[]) ?? []));
+    supabase.from("cursos").select("*").eq("tipo", tipo).order("orden").then(({ data }) => {
+      const visibles = ((data ?? []) as Curso[]).filter((c) => c.solo_equipo !== true && !c.parent_curso_id);
+      setCursos(visibles);
+    });
 
   useEffect(() => {
     reloadCursos();
