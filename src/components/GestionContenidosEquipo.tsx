@@ -96,7 +96,7 @@ export function GestionContenidosEquipo() {
     if (actual === siguiente) return true;
 
     if (actual && !siguiente) {
-      const { data } = await supabase.from("cursos").select("id").eq("tipo", b.tipo);
+      const { data } = await supabase.from("cursos").select("*").eq("tipo", b.tipo);
       const hijos = ((data ?? []) as Bloque[]).filter((x) => x.parent_curso_id === b.id && x.solo_equipo === true);
       if (hijos.length) {
         toast.error("Primero elimina o mueve los submódulos que están dentro de este bloque.");
@@ -145,7 +145,9 @@ export function GestionContenidosEquipo() {
         if (error) throw error;
         toast.success(parent ? "Submódulo creado" : "Bloque creado");
       }
-      cerrarEditor();
+      setCreating(false);
+      setEditing(null);
+      setForm(FORM_VACIO);
       await cargar();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "No se pudo guardar");
