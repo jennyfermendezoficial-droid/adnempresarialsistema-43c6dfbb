@@ -159,7 +159,7 @@ export function GestionContenidosEquipo() {
       if (editing && !(await validarCambioEstructura(editing, form.nested))) return;
 
       let imageUrl = form.imageUrl;
-      if (imageFile) imageUrl = await subirImagen(imageFile, "adn/cursos-equipo");
+      if (imageFile) imageUrl = await subirImagen(imageFile, "adn/cursos");
 
       const descripcion = serializarContenidoEquipo(
         form.descripcion,
