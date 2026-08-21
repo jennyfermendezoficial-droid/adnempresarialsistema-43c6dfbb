@@ -15,10 +15,6 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
   const { profile, role, signOut, session } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
-  const isStaff = role === "admin" || role === "soporte";
-  const mainForRole = isStaff
-    ? mainItems.filter((item) => item.to !== "/cursos" && item.to !== "/clases-en-vivo")
-    : mainItems;
 
   return (
     <aside
@@ -43,9 +39,9 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
         </Link>
 
         <SectionLabel>Menú</SectionLabel>
-        <Nav items={mainForRole} isActive={isActive} onClick={onNavigate} />
+        <Nav items={mainItems} isActive={isActive} onClick={onNavigate} />
 
-        {isStaff && (
+        {(role === "admin" || role === "soporte") && (
           <>
             <SectionLabel className="mt-3">Profesores</SectionLabel>
             <Nav items={staffItems} isActive={isActive} onClick={onNavigate} />
@@ -117,7 +113,7 @@ function Nav({ items, isActive, onClick }: { items: Item[]; isActive: (p: string
         const active = isActive(to);
         return (
           <Link
-            key={`${to}-${label}`}
+            key={to}
             to={to}
             onClick={onClick}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-colors border border-transparent"
