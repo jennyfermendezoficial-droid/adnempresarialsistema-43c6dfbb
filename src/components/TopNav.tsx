@@ -20,11 +20,8 @@ export function TopNav() {
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
   const isStaff = role === "admin" || role === "soporte";
-  const mainForRole = isStaff
-    ? mainItems.filter((item) => item.to !== "/cursos" && item.to !== "/clases-en-vivo")
-    : mainItems;
   const flat: NavItem[] = [
-    ...mainForRole,
+    ...mainItems,
     ...(isStaff ? staffItems : []),
     ...(role === "admin" ? adminItems : []),
     ...(puedeVerPagos(role, session?.user.id) ? pagosItems : []),
@@ -88,7 +85,7 @@ export function TopNav() {
           <nav className="flex items-stretch justify-center gap-1 overflow-x-auto">
             {flat.map(({ to, label, icon: Icon }) => (
               <Link
-                key={`${to}-${label}`}
+                key={to}
                 to={to}
                 className="group flex items-center gap-2 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors"
                 style={
