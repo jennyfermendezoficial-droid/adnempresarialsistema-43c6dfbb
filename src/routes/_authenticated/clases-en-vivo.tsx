@@ -3,8 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, BookOpen, CheckCircle2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { CursoDetalle } from "@/components/CursoDetalle";
-import { GestionContenidosEquipo } from "@/components/GestionContenidosEquipo";
+import { ClasesEnVivoModulosTarjetas } from "@/components/ClasesEnVivoModulosTarjetas";
 import { esContenidoEquipo, descripcionVisible } from "@/lib/contenido-equipo";
 
 interface Curso {
@@ -42,10 +41,6 @@ function Page() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isStaff) {
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
     const load = async () => {
       const [{ data: cs }, { data: ps }] = await Promise.all([
@@ -63,19 +58,26 @@ function Page() {
     };
     void load();
     return () => { cancelled = true; };
-  }, [uid, isStaff]);
-
-  if (isStaff) return <GestionContenidosEquipo />;
+  }, [uid]);
 
   if (activeId) {
-    return <CursoDetalle cursoId={activeId} volver volverLabel="Volver a clases en vivo" onVolver={() => setActiveId(null)} />;
+    return (
+      <ClasesEnVivoModulosTarjetas
+        cursoId={activeId}
+        onVolverBiblioteca={() => setActiveId(null)}
+      />
+    );
   }
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-3xl font-semibold">Clases en vivo</h1>
-        <p className="text-sm text-muted-foreground mt-1">Accede a las clases en vivo que tienes habilitadas.</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {isStaff
+            ? "Accede a las bibliotecas de clases en vivo y administra sus módulos desde dentro."
+            : "Accede a las clases en vivo que tienes habilitadas."}
+        </p>
       </div>
 
       {loading ? (
@@ -85,7 +87,7 @@ function Page() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {cursos.map((curso) => {
-            const acceso = permisos.has(curso.id);
+            const acceso = isStaff || permisos.has(curso.id);
             return (
               <div key={curso.id} className="rounded-2xl border bg-card overflow-hidden group shadow-sm">
                 <div className="relative aspect-square">
