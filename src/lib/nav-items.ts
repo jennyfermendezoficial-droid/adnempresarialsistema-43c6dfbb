@@ -1,7 +1,7 @@
 import {
   Home, BookOpen, CalendarDays, Users,
   ShieldCheck, Wallet, Calendar,
-  Bell, Radio, Sparkles,
+  Bell, Radio, Sparkles, Layers3,
 } from "lucide-react";
 
 export interface NavItem { to: string; label: string; icon: typeof Home }
@@ -19,6 +19,7 @@ export const mainItems: NavItem[] = [
 
 /** Solo profesores (soporte) y admin. */
 export const staffItems: NavItem[] = [
+  { to: "/cursos-y-clases-equipo", label: "Cursos y clases", icon: Layers3 },
   { to: "/mis-clases-asignadas", label: "Mis clases asignadas", icon: Bell },
 ];
 
