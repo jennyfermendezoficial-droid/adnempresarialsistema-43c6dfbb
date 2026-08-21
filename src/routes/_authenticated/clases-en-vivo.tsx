@@ -4,6 +4,7 @@ import { ArrowRight, BookOpen, CheckCircle2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { ClasesEnVivoModulosTarjetas } from "@/components/ClasesEnVivoModulosTarjetas";
+import { OrganizadorClasesEnVivo } from "@/components/OrganizadorClasesEnVivo";
 import { esContenidoEquipo, descripcionVisible } from "@/lib/contenido-equipo";
 
 interface Curso {
@@ -49,23 +50,28 @@ function Page() {
       ]);
 
       if (cancelled) return;
-      const visibles = ((cs ?? []) as Curso[]).filter(
-        (c) => c.solo_equipo !== true && !c.parent_curso_id && !esContenidoEquipo(c.descripcion),
-      );
+      const todos = ((cs ?? []) as Curso[]);
+      const visibles = isStaff
+        ? todos
+        : todos.filter((c) => c.solo_equipo !== true && !c.parent_curso_id && !esContenidoEquipo(c.descripcion));
+
       setCursos(visibles);
       setPermisos(new Set(((ps ?? []) as { curso_id: string }[]).map((p) => p.curso_id)));
       setLoading(false);
     };
     void load();
     return () => { cancelled = true; };
-  }, [uid]);
+  }, [uid, isStaff]);
 
   if (activeId) {
     return (
-      <ClasesEnVivoModulosTarjetas
-        cursoId={activeId}
-        onVolverBiblioteca={() => setActiveId(null)}
-      />
+      <div>
+        <OrganizadorClasesEnVivo cursoId={activeId} />
+        <ClasesEnVivoModulosTarjetas
+          cursoId={activeId}
+          onVolverBiblioteca={() => setActiveId(null)}
+        />
+      </div>
     );
   }
 
@@ -75,7 +81,7 @@ function Page() {
         <h1 className="text-3xl font-semibold">Clases en vivo</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {isStaff
-            ? "Accede a las bibliotecas de clases en vivo y administra sus módulos desde dentro."
+            ? "Accede a todas las bibliotecas de clases en vivo y organiza sus módulos desde dentro."
             : "Accede a las clases en vivo que tienes habilitadas."}
         </p>
       </div>
