@@ -97,8 +97,9 @@ function hora(v: string | null) {
 }
 
 export function AlertaRegistroProfesor() {
-  const { session, role, profile } = useAuth();
+  const { session, role, roles, profile } = useAuth();
   const uid = session?.user.id;
+  const isProfesor = roles.includes("soporte") || role === "soporte";
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -112,7 +113,7 @@ export function AlertaRegistroProfesor() {
   const [forzarEdicionDatos, setForzarEdicionDatos] = useState(false);
 
   const cargar = async () => {
-    if (!uid || role !== "soporte") {
+    if (!uid || !isProfesor) {
       setDatos(VACIO);
       setDatosCompletos(true);
       setPendientes([]);
@@ -152,6 +153,8 @@ export function AlertaRegistroProfesor() {
     ]);
 
     if (perfilRes.error) {
+      setDatos({ ...VACIO, titular_cuenta: profile?.nombre_completo ?? "" });
+      setDatosCompletos(false);
       toast.error(`Datos de pago: ${perfilRes.error.message}`);
     } else {
       const raw = perfilRes.data as Partial<DatosPago> | null;
@@ -198,26 +201,34 @@ export function AlertaRegistroProfesor() {
     setLoading(false);
   };
 
+  // Al entrar a la plataforma, toda cuenta que tenga el rol soporte ve sus datos de pago.
+  // Si ya están completos puede cerrar el formulario; si faltan datos queda obligatorio.
+  useEffect(() => {
+    if (uid && isProfesor) setForzarEdicionDatos(true);
+  }, [uid, isProfesor]);
+
   useEffect(() => {
     setLoading(true);
     void cargar();
-    if (!uid || role !== "soporte") return;
+    if (!uid || !isProfesor) return;
 
     const refrescar = () => void cargar();
+    const abrirDatos = () => setForzarEdicionDatos(true);
     const timer = window.setInterval(refrescar, 30_000);
     window.addEventListener("focus", refrescar);
     window.addEventListener("adn:horas-actualizadas", refrescar);
     window.addEventListener("adn:datos-pago-actualizados", refrescar);
-    window.addEventListener("adn:abrir-datos-pago", () => setForzarEdicionDatos(true));
+    window.addEventListener("adn:abrir-datos-pago", abrirDatos);
 
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", refrescar);
       window.removeEventListener("adn:horas-actualizadas", refrescar);
       window.removeEventListener("adn:datos-pago-actualizados", refrescar);
+      window.removeEventListener("adn:abrir-datos-pago", abrirDatos);
     };
     // Se vuelve a comprobar también al cambiar de pantalla.
-  }, [uid, role, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [uid, isProfesor, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const faltantes = useMemo(() => {
     const f: string[] = [];
@@ -229,7 +240,7 @@ export function AlertaRegistroProfesor() {
     return f;
   }, [datos]);
 
-  if (role !== "soporte" || !uid || loading) return null;
+  if (!isProfesor || !uid || loading) return null;
 
   const subirImagen = async (file?: File) => {
     if (!file) return;
@@ -300,10 +311,10 @@ export function AlertaRegistroProfesor() {
               </button>
             )}
             <div className="w-11 h-11 rounded-xl bg-white/15 grid place-items-center mb-3"><Landmark className="w-6 h-6" /></div>
-            <div className="text-xs uppercase tracking-wider opacity-80">Registro obligatorio del Profesor</div>
-            <h2 className="text-xl font-bold mt-1">Completa tus datos de pago</h2>
+            <div className="text-xs uppercase tracking-wider opacity-80">Registro del Profesor</div>
+            <h2 className="text-xl font-bold mt-1">Datos para recibir tus pagos</h2>
             <p className="text-sm opacity-90 mt-1">
-              Para continuar usando la plataforma como Profesor, estos datos deben quedar registrados al 100%.
+              Revisa tu cuenta de pago. Si falta algún dato, debes completarlo al 100% para continuar usando la plataforma.
             </p>
           </div>
 
@@ -361,7 +372,7 @@ export function AlertaRegistroProfesor() {
 
             <button onClick={() => void guardarDatos()} disabled={saving || uploading} className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-gradient text-white font-semibold disabled:opacity-60">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? "Guardando…" : "Guardar y completar registro"}
+              {saving ? "Guardando…" : "Guardar datos de pago"}
             </button>
           </div>
         </div>
