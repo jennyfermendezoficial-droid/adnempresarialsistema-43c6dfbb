@@ -95,6 +95,7 @@ function ModalCuenta({ cuenta, onClose, onSaved }: { cuenta: CuentaConLogo | nul
   };
 
   const guardar = async () => {
+    if (!logoUrl) return toast.error("La imagen o logo del banco es obligatorio.");
     if (!nombre.trim() || !numero.trim() || !titular.trim()) return toast.error("Completa banco, número de cuenta y titular");
     setGuardando(true);
     const payload = {
@@ -102,7 +103,7 @@ function ModalCuenta({ cuenta, onClose, onSaved }: { cuenta: CuentaConLogo | nul
       tipo,
       numero_cuenta: numero.trim(),
       titular: titular.trim(),
-      logo_url: logoUrl || null,
+      logo_url: logoUrl,
       activo: true,
     };
     const { error } = cuenta
@@ -128,10 +129,10 @@ function ModalCuenta({ cuenta, onClose, onSaved }: { cuenta: CuentaConLogo | nul
           <div>
             <label className="px-3 py-2 rounded-lg border cursor-pointer text-sm inline-flex items-center gap-2 bg-background hover:bg-muted">
               {subiendoLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-              {subiendoLogo ? "Subiendo…" : logoUrl ? "Cambiar imagen" : "Subir imagen / logo"}
+              {subiendoLogo ? "Subiendo…" : logoUrl ? "Cambiar imagen" : "Subir imagen / logo *"}
               <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={subiendoLogo} onChange={(e) => void subirLogo(e.target.files?.[0])} />
             </label>
-            <div className="text-[11px] text-muted-foreground mt-1">JPG, PNG o WEBP · máximo 5 MB.</div>
+            <div className="text-[11px] text-muted-foreground mt-1">Obligatorio · JPG, PNG o WEBP · máximo 5 MB.</div>
           </div>
         </div>
 
