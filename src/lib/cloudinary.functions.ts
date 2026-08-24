@@ -10,6 +10,7 @@ const CARPETAS = [
   "adn/chats",
   "adn/tareas",
   "adn/comprobantes",
+  "adn/sistema",
 ] as const;
 
 // Devuelve una firma de subida para que el navegador suba la imagen
