@@ -50,17 +50,6 @@ export function TopNav() {
             </Link>
 
             <div className="ml-auto flex items-center gap-2 shrink-0">
-              {isProfesor && (
-                <button
-                  type="button"
-                  onClick={abrirDatosPago}
-                  className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold border border-white/10 hover:bg-white/10 transition-colors"
-                  title="Datos para recibir tus pagos"
-                >
-                  <Landmark className="w-4 h-4" />
-                  <span className="hidden xl:inline">Datos de pago</span>
-                </button>
-              )}
               <ChatsPopover />
               <NotificationsPopover />
               <InstallAppButton variant="icon" />
@@ -88,10 +77,7 @@ export function TopNav() {
                     </Link>
                   </DropdownMenuItem>
                   {isProfesor && (
-                    <DropdownMenuItem
-                      onSelect={abrirDatosPago}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
+                    <DropdownMenuItem onSelect={abrirDatosPago} className="flex items-center gap-2 cursor-pointer">
                       <Landmark className="w-4 h-4" /> Datos de pago
                     </DropdownMenuItem>
                   )}
@@ -119,6 +105,17 @@ export function TopNav() {
                 <span>{label}</span>
               </Link>
             ))}
+            {isProfesor && (
+              <button
+                type="button"
+                onClick={abrirDatosPago}
+                className="group flex items-center gap-2 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 border-transparent transition-colors"
+                style={{ color: "var(--violet-light)" }}
+              >
+                <Landmark className="w-[17px] h-[17px] shrink-0 opacity-80" />
+                <span>Datos de pago</span>
+              </button>
+            )}
           </nav>
         </div>
       </div>
