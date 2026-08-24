@@ -14,11 +14,6 @@ function validar(file: File) {
   if (file.size > MAX_BYTES) throw new Error("La imagen no puede superar 5 MB.");
 }
 
-function bucketNoExiste(message: string) {
-  const m = message.toLowerCase();
-  return m.includes("bucket not found") || m.includes("bucket does not exist") || m.includes("not found");
-}
-
 async function subirEnBucket(file: File, bucket: string, path: string) {
   const { error } = await supabase.storage.from(bucket).upload(path, file, {
     upsert: false,
@@ -31,25 +26,61 @@ async function subirEnBucket(file: File, bucket: string, path: string) {
   return { url: data.publicUrl || null, error: null };
 }
 
+function leerComoDataUrl(file: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Último respaldo sin Storage: reduce el logo en el navegador y devuelve un
+ * data URL pequeño. Los campos logo_url/banco_logo_url son texto, por lo que
+ * el formulario puede funcionar incluso si la base publicada aún no tiene
+ * ningún bucket de imágenes bancarias.
+ */
+async function imagenEmbebida(file: File): Promise<string> {
+  const original = await leerComoDataUrl(file);
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("No se pudo procesar la imagen bancaria."));
+    img.src = original;
+  });
+
+  const limite = 320;
+  const escala = Math.min(1, limite / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+  const width = Math.max(1, Math.round((img.naturalWidth || 1) * escala));
+  const height = Math.max(1, Math.round((img.naturalHeight || 1) * escala));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo preparar la imagen bancaria.");
+  ctx.drawImage(img, 0, 0, width, height);
+
+  // WebP mantiene los logos pequeños. Si el navegador no lo soporta, usa JPEG.
+  const webp = canvas.toDataURL("image/webp", 0.82);
+  if (webp.startsWith("data:image/webp")) return webp;
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
 async function subir(file: File, path: string) {
   validar(file);
 
+  // 1) Bucket nuevo, cuando ya esté aplicado en Supabase.
   const principal = await subirEnBucket(file, BUCKET, path);
   if (principal.url) return principal.url;
 
-  if (!principal.error || !bucketNoExiste(principal.error.message)) {
-    throw new Error(`No se pudo subir la imagen bancaria: ${principal.error?.message || "error desconocido"}`);
-  }
-
-  // Compatibilidad de despliegue: si la migración de bank-images aún no llegó a
-  // la base publicada, usa el bucket de portadas que ya existe. Solo se guardan
-  // logos bancarios (imágenes públicas), nunca documentos ni datos de la cuenta.
+  // 2) Bucket histórico de portadas, si existe en esta instalación.
   const fallback = await subirEnBucket(file, FALLBACK_BUCKET, `logos-bancarios/${path}`);
-  if (fallback.error) {
-    throw new Error(`No se pudo subir la imagen bancaria: ${fallback.error.message}`);
-  }
-  if (!fallback.url) throw new Error("No se pudo obtener la URL de la imagen bancaria.");
-  return fallback.url;
+  if (fallback.url) return fallback.url;
+
+  // 3) No bloquear Pagos por configuración de Storage. Para logos pequeños
+  // guardamos una versión reducida en el mismo campo de texto de la cuenta.
+  return imagenEmbebida(file);
 }
 
 export async function subirImagenBancoProfesor(file: File, userId: string) {
