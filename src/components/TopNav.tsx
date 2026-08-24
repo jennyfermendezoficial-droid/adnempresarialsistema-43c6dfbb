@@ -1,7 +1,7 @@
 import { formatNombre } from "@/lib/nombres";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronDown, Landmark, LogOut, User } from "lucide-react";
-import { Logo, BrandName } from "./Logo";
+import { Logo, CommunityLogo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
 import { ChatsPopover } from "./ChatsPopover";
@@ -18,6 +18,7 @@ export function TopNav() {
   const { profile, role, roles, signOut, session } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
+  const enComunidad = pathname === "/comunidad" || pathname.startsWith("/comunidad/");
 
   const isStaff = role === "admin" || role === "soporte";
   const isProfesor = roles.includes("soporte") || role === "soporte";
@@ -45,7 +46,7 @@ export function TopNav() {
         <div className="relative z-10 mx-auto w-full max-w-[1400px] px-6">
           <div className="h-14 flex items-center gap-4">
             <Link to="/comunidad" className="flex items-center gap-3 min-w-0">
-              <Logo size={30} />
+              {enComunidad ? <CommunityLogo size={30} /> : <Logo size={30} />}
               <BrandName className="text-[15px] truncate" />
             </Link>
 
