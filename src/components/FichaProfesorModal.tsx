@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { subirImagen } from "@/lib/cloudinary";
 import { subirImagenBancoProfesor } from "@/lib/bank-images";
 import { toast } from "sonner";
-import { ImagePlus, Landmark, Loader2 } from "lucide-react";
+import { ImagePlus, Landmark, Loader2, X } from "lucide-react";
 
 interface Ficha {
   nombre_completo: string;
@@ -50,17 +50,18 @@ function fichaCompleta(f: Ficha) {
 }
 
 /**
- * Ficha obligatoria del Profesor.
- * Se comprueba al iniciar sesión, recargar, volver a la app y recuperar foco.
- * No depende del rol visual principal: valida también has_role(..., soporte).
+ * Ficha global del Profesor.
+ * Todo usuario que tenga el rol soporte la ve al entrar/recargar/reabrir la app.
+ * Si está incompleta no se puede cerrar; si ya está al 100% puede revisarla y cerrar.
  */
 export function FichaProfesorModal() {
   const { session, role, roles, profile, refresh } = useAuth();
   const uid = session?.user.id;
   const contextoProfesor = role === "soporte" || roles.includes("soporte");
 
-  const [esProfesor, setEsProfesor] = useState(contextoProfesor);
+  const [esProfesor, setEsProfesor] = useState(false);
   const [abierto, setAbierto] = useState(false);
+  const [completo, setCompleto] = useState(false);
   const [f, setF] = useState<Ficha>(VACIA);
   const [foto, setFoto] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -68,43 +69,67 @@ export function FichaProfesorModal() {
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(false);
 
+  // La fuente principal es has_role. El contexto y user_roles quedan como respaldo
+  // para que una demora del AuthProvider nunca oculte esta ficha.
   useEffect(() => {
     if (!uid) {
       setEsProfesor(false);
       setAbierto(false);
       return;
     }
+
     let vivo = true;
     void (async () => {
       let real = contextoProfesor;
       try {
-        const { data } = await supabase.rpc("has_role", { _user_id: uid, _role: "soporte" });
-        real = real || data === true;
-      } catch { /* usa el contexto si el RPC no responde */ }
+        const [{ data: tieneRol }, { data: filas }] = await Promise.all([
+          supabase.rpc("has_role", { _user_id: uid, _role: "soporte" }),
+          supabase.from("user_roles").select("role").eq("user_id", uid).eq("role", "soporte").limit(1),
+        ]);
+        real = real || tieneRol === true || (filas?.length ?? 0) > 0;
+      } catch {
+        // Si una consulta falla, conserva la detección que ya entregó AuthProvider.
+      }
       if (vivo) setEsProfesor(real);
     })();
+
     return () => { vivo = false; };
   }, [uid, contextoProfesor]);
 
-  const cargar = useCallback(async () => {
-    if (!uid || !esProfesor) {
-      setAbierto(false);
-      return;
-    }
+  const cargar = useCallback(async (mostrar = true) => {
+    if (!uid || !esProfesor) return;
+
     setCargando(true);
     const { data, error } = await supabase.from("profiles")
       .select("nombre_completo,cedula,fecha_nacimiento,whatsapp,direccion,banco,tipo_cuenta,numero_cuenta,titular_cuenta,banco_logo_url,observacion_ficha,avatar_url,ficha_completa")
-      .eq("id", uid).maybeSingle();
+      .eq("id", uid)
+      .maybeSingle();
     setCargando(false);
 
     if (error) {
-      toast.error(`No se pudieron revisar tus datos de Profesor: ${error.message}`);
+      // Un error de lectura jamás debe ocultar el formulario obligatorio.
+      setF((prev) => ({
+        ...prev,
+        nombre_completo: prev.nombre_completo || profile?.nombre_completo || "",
+        titular_cuenta: prev.titular_cuenta || profile?.nombre_completo || "",
+      }));
+      setFoto((prev) => prev || profile?.avatar_url || null);
+      setCompleto(false);
+      if (mostrar) setAbierto(true);
+      toast.error(`No se pudieron cargar todos tus datos de Profesor: ${error.message}`);
       return;
     }
+
     if (!data) {
-      setF({ ...VACIA, nombre_completo: profile?.nombre_completo ?? "", titular_cuenta: profile?.nombre_completo ?? "" });
+      const siguiente = {
+        ...VACIA,
+        nombre_completo: profile?.nombre_completo ?? "",
+        titular_cuenta: profile?.nombre_completo ?? "",
+      };
+      setF(siguiente);
       setFoto(profile?.avatar_url ?? null);
-      setAbierto(true);
+      setCompleto(false);
+      if (mostrar) setAbierto(true);
       return;
     }
 
@@ -123,33 +148,44 @@ export function FichaProfesorModal() {
       observacion_ficha: (d.observacion_ficha as string) ?? "",
     };
 
+    const estaCompleta = fichaCompleta(siguiente);
     setF(siguiente);
     setFoto((d.avatar_url as string) ?? null);
-    // Aunque ficha_completa estuviera marcada antes, si falta un dato real vuelve a ser obligatorio.
-    setAbierto(!fichaCompleta(siguiente));
+    setCompleto(estaCompleta);
+    if (mostrar) setAbierto(true);
   }, [uid, esProfesor, profile?.nombre_completo, profile?.avatar_url]);
 
   useEffect(() => {
     if (!uid || !esProfesor) return;
-    void cargar();
 
-    const revisar = () => void cargar();
-    const visible = () => { if (document.visibilityState === "visible") void cargar(); };
-    window.addEventListener("focus", revisar);
-    window.addEventListener("pageshow", revisar);
-    window.addEventListener("adn:datos-pago-actualizados", revisar);
+    // Primera entrada / recarga: se muestra siempre a un Profesor.
+    void cargar(true);
+
+    const mostrarFicha = () => void cargar(true);
+    const visible = () => {
+      if (document.visibilityState === "visible") void cargar(true);
+    };
+    const refrescarSinAbrir = () => void cargar(false);
+
+    window.addEventListener("pageshow", mostrarFicha);
+    window.addEventListener("adn:abrir-datos-pago", mostrarFicha);
+    window.addEventListener("adn:datos-pago-actualizados", refrescarSinAbrir);
     document.addEventListener("visibilitychange", visible);
+
     return () => {
-      window.removeEventListener("focus", revisar);
-      window.removeEventListener("pageshow", revisar);
-      window.removeEventListener("adn:datos-pago-actualizados", revisar);
+      window.removeEventListener("pageshow", mostrarFicha);
+      window.removeEventListener("adn:abrir-datos-pago", mostrarFicha);
+      window.removeEventListener("adn:datos-pago-actualizados", refrescarSinAbrir);
       document.removeEventListener("visibilitychange", visible);
     };
   }, [uid, esProfesor, cargar]);
 
   if (!abierto || !esProfesor) return null;
 
-  const set = (k: keyof Ficha) => (e: { target: { value: string } }) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const set = (k: keyof Ficha) => (e: { target: { value: string } }) => {
+    setF((p) => ({ ...p, [k]: e.target.value }));
+    setCompleto(false);
+  };
 
   const subirFoto = async (file: File) => {
     setSubiendo(true);
@@ -169,6 +205,7 @@ export function FichaProfesorModal() {
     try {
       const url = await subirImagenBancoProfesor(file, uid);
       setF((p) => ({ ...p, banco_logo_url: url }));
+      setCompleto(false);
       toast.success("Imagen bancaria cargada. Guarda tu ficha para finalizar.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo cargar la imagen bancaria");
@@ -179,6 +216,7 @@ export function FichaProfesorModal() {
 
   const guardar = async () => {
     if (!uid) return;
+
     const faltan: string[] = [];
     if (f.nombre_completo.trim().length < 3) faltan.push("nombre completo");
     if (f.cedula.trim().length < 5) faltan.push("cédula");
@@ -211,6 +249,8 @@ export function FichaProfesorModal() {
     setGuardando(false);
 
     if (error) return toast.error(error.message);
+
+    setCompleto(true);
     await refresh();
     window.dispatchEvent(new Event("adn:datos-pago-actualizados"));
     toast.success("Datos del Profesor registrados al 100%.");
@@ -221,18 +261,34 @@ export function FichaProfesorModal() {
   const lbl = "text-xs font-semibold text-muted-foreground";
 
   return (
-    <div className="fixed inset-0 z-[140] bg-black/75 backdrop-blur-sm grid place-items-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[160] bg-black/75 backdrop-blur-sm grid place-items-center p-4 overflow-y-auto">
       <div className="w-full max-w-2xl max-h-[94vh] overflow-y-auto rounded-2xl border bg-card shadow-2xl my-4">
-        <div className="p-6 text-white" style={{ background: "linear-gradient(135deg,var(--deep-2),var(--violet))" }}>
-          <div className="text-[11px] uppercase tracking-[0.16em] opacity-80">Registro obligatorio · Profesor</div>
-          <h2 className="text-2xl font-semibold mt-1">Completa tus datos al 100%</h2>
-          <p className="text-sm opacity-90 mt-1">
-            Esta ventana aparecerá al entrar, recargar o abrir la app mientras falte algún dato necesario para tus pagos e informes.
+        <div className="p-6 text-white relative" style={{ background: "linear-gradient(135deg,var(--deep-2),var(--violet))" }}>
+          {completo && (
+            <button
+              type="button"
+              onClick={() => setAbierto(false)}
+              className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20"
+              aria-label="Cerrar ficha"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+          <div className="text-[11px] uppercase tracking-[0.16em] opacity-80">Registro del Profesor</div>
+          <h2 className="text-2xl font-semibold mt-1">{completo ? "Revisa tus datos" : "Completa tus datos al 100%"}</h2>
+          <p className="text-sm opacity-90 mt-1 pr-10">
+            {completo
+              ? "Tus datos ya están completos. Puedes revisarlos o actualizarlos antes de continuar."
+              : "Esta ventana seguirá apareciendo al entrar, recargar o abrir la app mientras falte algún dato necesario para tus pagos e informes."}
           </p>
         </div>
 
         <div className="p-6">
-          {cargando && <div className="mb-4 text-xs text-muted-foreground inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Verificando información…</div>}
+          {cargando && (
+            <div className="mb-4 text-xs text-muted-foreground inline-flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Verificando información…
+            </div>
+          )}
 
           <div className="flex items-center gap-4 mb-5">
             {foto
@@ -274,12 +330,16 @@ export function FichaProfesorModal() {
             </div>
 
             <div className="sm:col-span-2 mt-2 rounded-xl border p-4 bg-muted/20">
-              <div className="flex items-center gap-2 font-semibold mb-3"><Landmark className="w-4 h-4 text-violet" /> Datos para recibir pagos</div>
+              <div className="flex items-center gap-2 font-semibold mb-3">
+                <Landmark className="w-4 h-4 text-violet" /> Datos para recibir pagos
+              </div>
               <div className="flex items-center gap-4 mb-4">
                 {f.banco_logo_url ? (
                   <img src={f.banco_logo_url} alt="Banco" className="w-16 h-16 rounded-xl object-cover border bg-background" />
                 ) : (
-                  <div className="w-16 h-16 rounded-xl border-2 border-dashed grid place-items-center bg-background text-muted-foreground"><Landmark className="w-7 h-7" /></div>
+                  <div className="w-16 h-16 rounded-xl border-2 border-dashed grid place-items-center bg-background text-muted-foreground">
+                    <Landmark className="w-7 h-7" />
+                  </div>
                 )}
                 <label className="px-3 py-2 rounded-lg border bg-background cursor-pointer text-sm font-semibold inline-flex items-center gap-2">
                   {subiendoBanco ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
@@ -319,12 +379,19 @@ export function FichaProfesorModal() {
             </div>
           </div>
 
-          <button onClick={() => void guardar()} disabled={guardando || subiendoBanco}
-            className="mt-5 w-full px-4 py-3 rounded-xl bg-violet-gradient text-white font-semibold disabled:opacity-60 inline-flex items-center justify-center gap-2">
+          <button
+            onClick={() => void guardar()}
+            disabled={guardando || subiendoBanco}
+            className="mt-5 w-full px-4 py-3 rounded-xl bg-violet-gradient text-white font-semibold disabled:opacity-60 inline-flex items-center justify-center gap-2"
+          >
             {guardando && <Loader2 className="w-4 h-4 animate-spin" />}
-            {guardando ? "Guardando…" : "Guardar y completar registro"}
+            {guardando ? "Guardando…" : completo ? "Guardar cambios" : "Guardar y completar registro"}
           </button>
-          <p className="text-[11px] text-center text-muted-foreground mt-2">No se puede cerrar esta ventana mientras falte algún dato obligatorio.</p>
+          <p className="text-[11px] text-center text-muted-foreground mt-2">
+            {completo
+              ? "Tus datos están completos. Puedes cerrar con la X o guardar cualquier cambio."
+              : "No se puede cerrar esta ventana mientras falte algún dato obligatorio."}
+          </p>
         </div>
       </div>
     </div>
