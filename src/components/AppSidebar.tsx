@@ -12,9 +12,10 @@ interface Item { to: string; label: string; icon: typeof Home; }
 interface AppSidebarProps { onNavigate?: () => void }
 
 export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
-  const { profile, role, signOut, session } = useAuth();
+  const { profile, role, roles, signOut, session } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
+  const isProfesor = roles.includes("soporte") || role === "soporte";
 
   const abrirDatosPago = () => {
     onNavigate?.();
@@ -50,7 +51,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
           <>
             <SectionLabel className="mt-3">Profesores</SectionLabel>
             <Nav items={staffItems} isActive={isActive} onClick={onNavigate} />
-            {role === "soporte" && (
+            {isProfesor && (
               <button
                 onClick={abrirDatosPago}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-colors border border-transparent text-left"
