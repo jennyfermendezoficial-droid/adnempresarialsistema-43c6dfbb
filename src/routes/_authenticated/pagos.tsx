@@ -85,7 +85,21 @@ function temaDe(p: Profile) {
 }
 const COLORS = ["#7C6BFF","#22A06B","#E78A3C","#3C8FE7","#C2756B"];
 function colorDe(id: string) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; }
-function inicial(p: Profile) { return (p.nombre_completo || p.email).slice(0,1).toUpperCase(); }
+
+function hoyLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function horaLocal() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function registroTerminado(fecha: string, horaFin: string | null, horaInicio: string) {
+  const hoy = hoyLocal();
+  if (fecha < hoy) return true;
+  if (fecha > hoy) return false;
+  return (horaFin || horaInicio || "23:59").slice(0, 5) <= horaLocal();
+}
 
 function Page() {
   const { role, session } = useAuth();
@@ -117,19 +131,56 @@ function Page() {
     if (!puedeEditar) return;
     setLoading(true);
     try {
-      const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("role", ["admin","soporte"]);
+      const { data: roles, error: rolesError } = await supabase.from("user_roles").select("user_id, role").in("role", ["admin","soporte"]);
+      if (rolesError) {
+        toast.error(`No se pudieron leer los profesores: ${rolesError.message}`);
+        setStaff([]);
+        return;
+      }
+
+      const roleRows = ((roles ?? []) as { user_id: string; role: string }[]);
       const map = new Map<string, string>();
-      ((roles ?? []) as { user_id: string; role: string }[]).forEach((r) => {
+      roleRows.forEach((r) => {
         const prev = map.get(r.user_id);
         if (!prev || r.role === "admin") map.set(r.user_id, r.role);
       });
-      const ids = Array.from(map.keys());
+
+      // Para Pagos se consideran las cuentas que realmente tienen rol Profesor.
+      // Si una cuenta tiene admin + soporte, también entra porque conserva soporte.
+      const ids = Array.from(new Set(roleRows.filter((r) => r.role === "soporte").map((r) => r.user_id)));
       const { data: estudiantes } = await supabase.from("user_roles").select("user_id").eq("role", "usuario");
       const studentIds = new Set(((estudiantes ?? []) as { user_id: string }[]).map((r) => r.user_id));
 
-      const { data: profs } = await supabase.rpc("perfiles_pagos", { _ids: ids });
       const profMap: Record<string, Profile> = {};
-      ((profs ?? []) as Profile[]).forEach((p) => { profMap[p.id] = p; });
+
+      // 1) Función histórica de Pagos.
+      if (ids.length) {
+        const { data: profs } = await supabase.rpc("perfiles_pagos", { _ids: ids });
+        ((profs ?? []) as Profile[]).forEach((p) => { profMap[p.id] = p; });
+      }
+
+      // 2) Compatibilidad si perfiles_pagos no está aplicada o no devuelve a todos.
+      let faltantes = ids.filter((id) => !profMap[id]);
+      if (faltantes.length) {
+        const { data: directos } = await supabase.from("profiles")
+          .select("id,nombre_completo,email,avatar_url,cedula,banco,tipo_cuenta,numero_cuenta,titular_cuenta,banco_logo_url")
+          .in("id", faltantes);
+        ((directos ?? []) as Profile[]).forEach((p) => { profMap[p.id] = p; });
+      }
+
+      // 3) Último respaldo: esta función ya existía antes del rediseño de Pagos.
+      faltantes = ids.filter((id) => !profMap[id]);
+      if (faltantes.length) {
+        const { data: lista } = await supabase.rpc("listar_profesores");
+        ((lista ?? []) as Profile[])
+          .filter((p) => faltantes.includes(p.id))
+          .forEach((p) => { profMap[p.id] = p; });
+      }
+
+      // Nunca ocultar a un profesor solo porque faltó su perfil extendido.
+      ids.forEach((id) => {
+        if (!profMap[id]) profMap[id] = { id, nombre_completo: "Profesor", email: "" };
+      });
       setProfiles(profMap);
 
       const ini = `${anio}-${String(mes).padStart(2,"0")}-01`;
@@ -138,11 +189,9 @@ function Page() {
       const iniTs = `${ini}T00:00:00`;
       const finTs = `${fin}T23:59:59`;
 
-      // Pagos ya generados para este mes
       const { data: pagosMes } = await supabase.from("pagos_mensuales")
         .select("*").eq("mes", mes).eq("anio", anio);
 
-      // Sesiones canceladas / no registradas del mes
       const { data: canc } = await supabase.from("sesiones_canceladas")
         .select("id,tipo,profesor_id,contraparte_id,titulo,fecha,estado,razon")
         .gte("fecha", ini).lte("fecha", fin).order("fecha", { ascending: false });
@@ -159,13 +208,11 @@ function Page() {
       const pagoMap = new Map<string, PagoHist>();
       ((pagosMes ?? []) as PagoHist[]).forEach((p) => pagoMap.set(p.profesor_id, p));
 
-      // Abonos (pagos realizados) del mes
       const { data: abs } = await supabase.from("pagos_comprobantes")
         .select("*").eq("mes", mes).eq("anio", anio).order("fecha_pago", { ascending: false });
       setAbonos((abs as Abono[]) ?? []);
       await cargarCuentas();
 
-      // Precios por clase/sesión y ajustes manuales del mes
       const [{ data: precios }, { data: ajustes }, { data: reemp }, { data: tarifas }, { data: descs }] = await Promise.all([
         supabase.from("pagos_items_precio").select("tipo,referencia_id,monto").eq("mes", mes).eq("anio", anio),
         supabase.from("pagos_ajustes").select("profesor_id,minutos").eq("mes", mes).eq("anio", anio),
@@ -191,25 +238,19 @@ function Page() {
       });
 
       const alumnaIds = new Set<string>();
-      const rpcPendientes = supabase.rpc as unknown as (fn: string, args?: Record<string, unknown>) => Promise<{ data: Array<{ profesor_id: string; pendientes: number; dias_max: number }> | null }>;
-      const { data: pendientesRows } = await rpcPendientes("revisar_horas_pendientes", {});
-      const pendientesMap = new Map<string, number>();
-      (pendientesRows ?? []).forEach((r) => pendientesMap.set(r.profesor_id, Number(r.pendientes)));
 
       const rows: StaffRow[] = await Promise.all(ids.map(async (pid) => {
         const p = profMap[pid];
-        if (!p) return null as unknown as StaffRow;
 
         const [clasesRes, sesionesRes, califRes, chatsRes, bonosRes] = await Promise.all([
           supabase.from("clases_en_vivo").select("id,fecha,titulo,hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
-          supabase.from("sesiones_1a1").select("id,fecha,alumna_id,hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
+          supabase.from("sesiones_1a1").select("id,fecha,alumna_id,hora_inicio,hora_fin,duracion_min,estado").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
           supabase.from("calificaciones_mensuales").select("claridad,didactica,practico,desenvolvimiento").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
           supabase.from("chats_1a1").select("id,usuario_a_id,usuario_b_id").or(`usuario_a_id.eq.${pid},usuario_b_id.eq.${pid}`),
           supabase.from("bonos").select("id,monto,motivo,tipo").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
         ]);
         const tarifa = tarifaMap.get(pid) ?? { clase: 0, sesion: 0 };
 
-        // Items con su precio: solo generan pago si hay duración real registrada.
         const items: ItemPago[] = [];
         const clasesData = ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]);
         const clasesRealizadas = clasesData.filter((c) => Number(c.duracion_min ?? 0) > 0).length;
@@ -225,7 +266,7 @@ function Page() {
           });
         });
 
-        const sesionesData = (sesionesRes.data ?? []) as { id: string; fecha: string; alumna_id: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[];
+        const sesionesData = (sesionesRes.data ?? []) as { id: string; fecha: string; alumna_id: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null; estado?: string | null }[];
         let minutos1a1 = 0;
         sesionesData.forEach((s) => {
           const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : 0;
@@ -240,7 +281,6 @@ function Page() {
         });
         items.sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio));
 
-        // Calificación promedio
         const vals: number[] = [];
         ((califRes.data ?? []) as { claridad: number|null; didactica: number|null; practico: number|null; desenvolvimiento: number|null }[]).forEach((c) => {
           [c.claridad, c.didactica, c.practico, c.desenvolvimiento].forEach((v) => { if (typeof v === "number") vals.push(v); });
@@ -248,7 +288,6 @@ function Page() {
         const califPromedio = vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : 0;
         const califCount = (califRes.data ?? []).length;
 
-        // Mensajes conservados para compatibilidad del detalle existente; no se muestran en el resumen.
         const chatsConEstudiantes = ((chatsRes.data ?? []) as { id: string; usuario_a_id: string; usuario_b_id: string }[])
           .filter((c) => {
             const otro = c.usuario_a_id === pid ? c.usuario_b_id : c.usuario_a_id;
@@ -271,12 +310,19 @@ function Page() {
         const descuentosList = descMap.get(pid) ?? [];
         const descuentos = descuentosList.reduce((a, d) => a + d.monto, 0);
         const total = Math.max(0, Math.round((items.reduce((a, i) => a + i.monto, 0) + bonos - descuentos) * 100) / 100);
-
         const pago = pagoMap.get(pid);
+
+        const pendientesClase = clasesData.filter((c) => Number(c.duracion_min ?? 0) <= 0 && registroTerminado(c.fecha, c.hora_fin, c.hora_inicio)).length;
+        const pendientesSesion = sesionesData.filter((s) => {
+          const estado = (s.estado || "confirmada").toLowerCase();
+          return Number(s.duracion_min ?? 0) <= 0
+            && !["cancelada", "cancelado", "anulada"].includes(estado)
+            && registroTerminado(s.fecha, s.hora_fin, s.hora_inicio);
+        }).length;
 
         return {
           id: pid,
-          nombre: formatNombre(p.nombre_completo) || p.email,
+          nombre: formatNombre(p.nombre_completo) || p.email || "Profesor",
           email: p.email,
           rol: map.get(pid) ?? "soporte",
           tema: temaDe(p),
@@ -289,7 +335,7 @@ function Page() {
           califPromedio, califCount,
           bonos, bonosList, descuentos, descuentosList,
           tarifaClase: tarifa.clase, tarifaSesion: tarifa.sesion,
-          pendientes: pendientesMap.get(pid) ?? 0,
+          pendientes: pendientesClase + pendientesSesion,
           total,
           estado: (pago?.estado === "pagado" ? "pagado" : "por_pagar") as "pagado" | "por_pagar",
           pagoId: pago?.id,
@@ -304,7 +350,6 @@ function Page() {
         setNombresAlumnas(nm);
       } else setNombresAlumnas({});
 
-      // Historial de meses cerrados
       const { data: hist } = await supabase.from("pagos_mensuales")
         .select("*").order("anio",{ascending:false}).order("mes",{ascending:false}).limit(24);
       setHistorial((hist as PagoHist[]) ?? []);
@@ -458,7 +503,6 @@ function Page() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      {/* Header */}
       <div className="flex flex-wrap items-center gap-2 mb-5">
         <select value={`${anio}-${mes}`} onChange={(e) => { const [a,m] = e.target.value.split("-").map(Number); setAnio(a); setMes(m); }} className="px-3 py-2 rounded-lg border bg-card text-sm font-medium">
           {listaMeses().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -488,7 +532,6 @@ function Page() {
         )}
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
           <div aria-hidden className="absolute -top-10 -right-10 w-40 h-40 rounded-full" style={{ background: "radial-gradient(circle, rgba(124,107,255,.5), transparent 70%)" }} />
@@ -496,12 +539,11 @@ function Page() {
           <div className="text-3xl font-bold mt-1 tabular-nums">${tot.pagar.toFixed(2)}</div>
           <div className="text-xs opacity-80 mt-1">{tot.pendCount} {tot.pendCount === 1 ? "profesor" : "profesores"} · pendiente</div>
         </div>
-        <KPI label="Tiempo dictado" value={formatHM(tot.minutos)} sub={`${staff.length} miembros activos`} />
+        <KPI label="Tiempo dictado" value={formatHM(tot.minutos)} sub={`${staff.length} profesores`} />
         <KPI label="Sesiones 1:1" value={String(tot.sesiones)} sub="realizadas" />
         <KPI label="Calif. equipo" value={tot.califEq ? tot.califEq.toFixed(2) : "—"} sub={tot.califEq ? "promedio del equipo" : "Sin calificaciones"} />
       </div>
 
-      {/* Tabla */}
       <div className="flex items-baseline justify-between mb-3 px-1">
         <h2 className="text-lg font-semibold">Resumen del equipo · {MESES[mes-1]} {anio}</h2>
         <span className="text-xs text-muted-foreground">Click en el nombre para ver el detalle</span>
@@ -561,9 +603,7 @@ function Page() {
                   {s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span>
                   <TarifaInput profesorId={s.id} campo="valor_hora_sesion" valor={s.tarifaSesion} mes={mes} anio={anio} puedeEditar={puedeEditar} onSaved={cargar} />
                 </td>
-                <td className="px-3 py-3">
-                  <Estrellas valor={s.califPromedio} count={s.califCount} />
-                </td>
+                <td className="px-3 py-3"><Estrellas valor={s.califPromedio} count={s.califCount} /></td>
                 <td className="px-3 py-3 text-right tabular-nums text-emerald-600">{s.bonos ? `+$${s.bonos.toFixed(2)}` : "—"}</td>
                 <td className="px-3 py-3 text-right tabular-nums text-red-600">{s.descuentos ? `−$${s.descuentos.toFixed(2)}` : "—"}</td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums">${s.total.toFixed(2)}</td>
@@ -595,7 +635,7 @@ function Page() {
                 </td>
               </tr>
             ))}
-            {!loading && staff.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">Sin actividad este mes.</td></tr>}
+            {!loading && staff.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">No se encontraron profesores o actividad para este mes.</td></tr>}
             {!loading && staff.length > 0 && (
               <tr className="bg-muted/40 border-t">
                 <td className="px-4 py-3" colSpan={6} />
@@ -608,17 +648,14 @@ function Page() {
         </table>
       </div>
 
-      {/* Clases y sesiones */}
       <div className="mt-8">
         <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={puedeEditar} onRefresh={cargar} />
       </div>
 
-      {/* Pagos realizados */}
       <div className="mt-8">
         <PagosAbonos abonos={abonos} nombres={nombresStaff} totales={totalesPor} mes={mes} anio={anio} />
       </div>
 
-      {/* Historial */}
       {historial.length > 0 && (
         <div className="mt-8">
           <h2 className="text-lg font-semibold mb-3">Historial de pagos</h2>
@@ -814,8 +851,6 @@ function KPI({ label, value, sub }: { label: string; value: string; sub?: string
   );
 }
 
-// ===================== DETALLE PROFESOR =====================
-
 function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, canceladas = [], nombresAlumnas = {}, puedeEditar = false, onRefresh, onInforme, reemplazos = [] }: {
   row: StaffRow; profile?: Profile; mes: number; anio: number;
   onBack: () => void; onSelect: (id: string) => void; staff: StaffRow[];
@@ -932,7 +967,6 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       )}
 
-      {/* Resumen + actividad */}
       <div className="grid lg:grid-cols-2 gap-4 mb-4">
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Resumen económico</div>
@@ -959,7 +993,6 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       </div>
 
-      {/* Calificaciones + bitácora */}
       <div className="grid lg:grid-cols-2 gap-4 mb-6">
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Calificaciones ({row.califCount} respuestas)</div>
@@ -994,7 +1027,6 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       </div>
 
-      {/* Precios por clase / sesión */}
       <div className="rounded-2xl border bg-card p-5 mb-6">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
@@ -1059,12 +1091,9 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       )}
 
-      {/* Reemplazos reportados */}
       {reemplazos.length > 0 && (
         <div className="rounded-2xl border bg-card p-5 mb-6">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">
-            Reemplazos reportados · informativo
-          </div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Reemplazos reportados · informativo</div>
           <div className="space-y-2">
             {reemplazos.map((r, i) => (
               <div key={i} className="flex items-start gap-3 text-sm border-b last:border-0 pb-2 last:pb-0">
@@ -1081,11 +1110,8 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       )}
 
-      {/* Canceladas / no registradas */}
       <div className="rounded-2xl border bg-card p-5 mb-6">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">
-          Sesiones canceladas o no registradas · no cuentan horas
-        </div>
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Sesiones canceladas o no registradas · no cuentan horas</div>
         {canceladas.length === 0 ? (
           <div className="text-xs text-muted-foreground">Ninguna este mes.</div>
         ) : (
@@ -1097,10 +1123,9 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
                 </div>
                 <div className="flex-1">
                   <div className="font-medium">{c.tipo} · <span className="text-muted-foreground font-normal">{c.con}</span></div>
-                  <div className="text-xs text-muted-foreground">{c.razon || "Sin razón registrada (pasaron 7 días sin registrar la duración)"}</div>
+                  <div className="text-xs text-muted-foreground">{c.razon || "Sin razón registrada"}</div>
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(239,68,68,.12)", color: "#dc2626" }}>{c.estado}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,.12)", color: "#dc2626" }}>{c.estado}</span>
                 <div className="font-semibold tabular-nums text-muted-foreground">$0.00</div>
               </div>
             ))}
@@ -1108,7 +1133,6 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         )}
       </div>
 
-      {/* Selector otros profes */}
       <div className="mb-2 text-sm font-semibold">Ver informe de otro profesor</div>
       <div className="flex gap-2 flex-wrap">
         {staff.map((s) => (
