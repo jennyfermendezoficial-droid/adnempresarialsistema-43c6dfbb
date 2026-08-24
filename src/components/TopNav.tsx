@@ -15,11 +15,12 @@ import { labelRol, puedeVerPagos } from "@/lib/roles";
 const BAR = "var(--deep-2)";
 
 export function TopNav() {
-  const { profile, role, signOut, session } = useAuth();
+  const { profile, role, roles, signOut, session } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
   const isStaff = role === "admin" || role === "soporte";
+  const isProfesor = roles.includes("soporte") || role === "soporte";
   const flat: NavItem[] = [
     ...mainItems,
     ...(isStaff ? staffItems : []),
@@ -74,7 +75,7 @@ export function TopNav() {
                       <User className="w-4 h-4" /> Mi perfil
                     </Link>
                   </DropdownMenuItem>
-                  {role === "soporte" && (
+                  {isProfesor && (
                     <DropdownMenuItem
                       onSelect={() => window.dispatchEvent(new Event("adn:abrir-datos-pago"))}
                       className="flex items-center gap-2 cursor-pointer"
