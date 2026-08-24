@@ -1,6 +1,6 @@
 import {
   Home, BookOpen, CalendarDays, Users,
-  ShieldCheck, Wallet, Calendar,
+  ShieldCheck, Wallet, Calendar, Landmark,
   Bell, Radio, Sparkles, Layers3,
 } from "lucide-react";
 
@@ -17,17 +17,22 @@ export const mainItems: NavItem[] = [
   { to: "/inicio", label: "Inicio", icon: Home },
 ];
 
-/** Solo profesores (soporte) y admin. */
+/** Profesores (soporte) y admin mantienen estos accesos. */
 export const staffItems: NavItem[] = [
   { to: "/cursos-y-clases-equipo", label: "Cursos y clases", icon: Layers3 },
   { to: "/mis-clases-asignadas", label: "Mis clases asignadas", icon: Bell },
+];
+
+/** Solo Profesor: cuenta donde recibe sus pagos. */
+export const professorItems: NavItem[] = [
+  { to: "/datos-pago", label: "Datos de pago", icon: Landmark },
 ];
 
 export const adminItems: NavItem[] = [
   { to: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
-/** Acceso privado (líderes y Erick Silva). */
+/** Acceso privado de gestión de pagos. */
 export const pagosItems: NavItem[] = [
   { to: "/pagos", label: "Pagos e informes", icon: Wallet },
 ];
