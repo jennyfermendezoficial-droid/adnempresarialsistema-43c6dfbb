@@ -1,6 +1,6 @@
 import { formatNombre } from "@/lib/nombres";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ChevronDown, LogOut, User } from "lucide-react";
+import { ChevronDown, Landmark, LogOut, User } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
@@ -9,7 +9,7 @@ import { NotificationsPopover } from "./NotificationsPopover";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { mainItems, staffItems, professorItems, adminItems, pagosItems, type NavItem } from "@/lib/nav-items";
+import { mainItems, staffItems, adminItems, pagosItems, type NavItem } from "@/lib/nav-items";
 import { labelRol, puedeVerPagos } from "@/lib/roles";
 
 const BAR = "var(--deep-2)";
@@ -23,7 +23,6 @@ export function TopNav() {
   const flat: NavItem[] = [
     ...mainItems,
     ...(isStaff ? staffItems : []),
-    ...(role === "soporte" ? professorItems : []),
     ...(role === "admin" ? adminItems : []),
     ...(puedeVerPagos(role, session?.user.id) ? pagosItems : []),
   ];
@@ -75,6 +74,13 @@ export function TopNav() {
                       <User className="w-4 h-4" /> Mi perfil
                     </Link>
                   </DropdownMenuItem>
+                  {role === "soporte" && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/datos-pago" className="flex items-center gap-2 cursor-pointer">
+                        <Landmark className="w-4 h-4" /> Datos de pago
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => signOut()} className="flex items-center gap-2 cursor-pointer">
                     <LogOut className="w-4 h-4" /> Cerrar sesión
                   </DropdownMenuItem>
