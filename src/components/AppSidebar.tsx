@@ -1,10 +1,10 @@
 import { formatNombre } from "@/lib/nombres";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, LogOut } from "lucide-react";
+import { Home, Landmark, LogOut } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
-import { mainItems, staffItems, professorItems, adminItems, pagosItems } from "@/lib/nav-items";
+import { mainItems, staffItems, adminItems, pagosItems } from "@/lib/nav-items";
 import { puedeVerPagos } from "@/lib/roles";
 
 interface Item { to: string; label: string; icon: typeof Home; }
@@ -15,6 +15,11 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
   const { profile, role, signOut, session } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
+
+  const abrirDatosPago = () => {
+    onNavigate?.();
+    window.dispatchEvent(new Event("adn:abrir-datos-pago"));
+  };
 
   return (
     <aside
@@ -45,7 +50,16 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
           <>
             <SectionLabel className="mt-3">Profesores</SectionLabel>
             <Nav items={staffItems} isActive={isActive} onClick={onNavigate} />
-            {role === "soporte" && <Nav items={professorItems} isActive={isActive} onClick={onNavigate} />}
+            {role === "soporte" && (
+              <button
+                onClick={abrirDatosPago}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-colors border border-transparent text-left"
+                style={{ color: "var(--violet-light)" }}
+              >
+                <Landmark className="w-[18px] h-[18px] flex-shrink-0" />
+                <span>Datos de pago</span>
+              </button>
+            )}
             {role === "admin" && (
               <>
                 <SectionLabel className="mt-3">Admin</SectionLabel>
