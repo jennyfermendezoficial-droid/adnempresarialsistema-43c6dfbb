@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Lock, Star, ChevronLeft, FileText, CheckCircle2, Landmark, Gift, X } from "lucide-react";
 import { toast } from "sonner";
-import { formatHM, minutosEntre, horasDecimal } from "@/lib/tiempo";
+import { formatHM, horasDecimal } from "@/lib/tiempo";
 import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo, type AbonoExportRow } from "@/lib/pagos-export";
 import { formatNombre } from "@/lib/nombres";
+import { puedeVerPagos } from "@/lib/roles";
 import { RegistrarAbonoModal, type Abono, type CuentaEmpresa } from "@/components/pagos/RegistrarAbonoModal";
 import { PagosPrecios, type FilaPrecio } from "@/components/pagos/PagosPrecios";
 import { PagosAbonos } from "@/components/pagos/PagosAbonos";
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/pagos")({ component: Page 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
 interface Profile {
-  id: string; nombre_completo: string; email: string; avatar_url?: string | null;
+  id: string; nombre_completo: string; email: string; avatar_url?: string | null; cedula?: string | null;
   banco?: string | null; tipo_cuenta?: string | null; numero_cuenta?: string | null;
   titular_cuenta?: string | null; banco_logo_url?: string | null;
 }
@@ -51,6 +52,7 @@ interface StaffRow {
   rol: string;
   tema: string;
   minutosClase: number;
+  clasesRealizadas: number;
   sesiones1a1: number;
   minutos1a1: number;
   ajusteMin: number;
@@ -64,6 +66,7 @@ interface StaffRow {
   descuentosList: DescuentoRow[];
   tarifaClase: number;
   tarifaSesion: number;
+  pendientes: number;
   total: number;
   estado: "pagado" | "por_pagar";
   pagoId?: string;
@@ -85,7 +88,8 @@ function colorDe(id: string) { let h = 0; for (const c of id) h = (h * 31 + c.ch
 function inicial(p: Profile) { return (p.nombre_completo || p.email).slice(0,1).toUpperCase(); }
 
 function Page() {
-  const { role } = useAuth();
+  const { role, session } = useAuth();
+  const puedeEditar = puedeVerPagos(role, session?.user.id);
   const today = new Date();
   const [mes, setMes] = useState(today.getMonth() + 1);
   const [anio, setAnio] = useState(today.getFullYear());
@@ -110,6 +114,7 @@ function Page() {
   };
 
   const cargar = async () => {
+    if (!puedeEditar) return;
     setLoading(true);
     try {
       const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("role", ["admin","soporte"]);
@@ -186,6 +191,10 @@ function Page() {
       });
 
       const alumnaIds = new Set<string>();
+      const rpcPendientes = supabase.rpc as unknown as (fn: string, args?: Record<string, unknown>) => Promise<{ data: Array<{ profesor_id: string; pendientes: number; dias_max: number }> | null }>;
+      const { data: pendientesRows } = await rpcPendientes("revisar_horas_pendientes", {});
+      const pendientesMap = new Map<string, number>();
+      (pendientesRows ?? []).forEach((r) => pendientesMap.set(r.profesor_id, Number(r.pendientes)));
 
       const rows: StaffRow[] = await Promise.all(ids.map(async (pid) => {
         const p = profMap[pid];
@@ -194,37 +203,39 @@ function Page() {
         const [clasesRes, sesionesRes, califRes, chatsRes, bonosRes] = await Promise.all([
           supabase.from("clases_en_vivo").select("id,fecha,titulo,hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
           supabase.from("sesiones_1a1").select("id,fecha,alumna_id,hora_inicio,hora_fin,duracion_min").eq("profesor_id", pid).gte("fecha", ini).lte("fecha", fin),
-          supabase.from("calificaciones_mensuales").select("claridad,didactica,practico,desenvolvimiento").eq("profesor_id", pid),
+          supabase.from("calificaciones_mensuales").select("claridad,didactica,practico,desenvolvimiento").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
           supabase.from("chats_1a1").select("id,usuario_a_id,usuario_b_id").or(`usuario_a_id.eq.${pid},usuario_b_id.eq.${pid}`),
           supabase.from("bonos").select("id,monto,motivo,tipo").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
         ]);
         const tarifa = tarifaMap.get(pid) ?? { clase: 0, sesion: 0 };
 
-        // Items con su precio (lo pone el administrador por fecha y hora)
+        // Items con su precio: solo generan pago si hay duración real registrada.
         const items: ItemPago[] = [];
+        const clasesData = ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]);
+        const clasesRealizadas = clasesData.filter((c) => Number(c.duracion_min ?? 0) > 0).length;
         let minutosClase = 0;
-        ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]).forEach((c) => {
-          const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : minutosEntre(c.hora_inicio, c.hora_fin);
+        clasesData.forEach((c) => {
+          const min = c.duracion_min && c.duracion_min > 0 ? c.duracion_min : 0;
           minutosClase += min;
           const manual = precioMap.get(`clase:${c.id}`);
           items.push({
             tipo: "clase", refId: c.id, fecha: c.fecha, horaInicio: c.hora_inicio, horaFin: c.hora_fin ?? "",
             minutos: min, titulo: c.titulo, alumnaId: null,
-            monto: manual != null && manual > 0 ? manual : Math.round((tarifa.clase * min / 60) * 100) / 100,
+            monto: min > 0 ? (manual != null && manual > 0 ? manual : Math.round((tarifa.clase * min / 60) * 100) / 100) : 0,
           });
         });
 
         const sesionesData = (sesionesRes.data ?? []) as { id: string; fecha: string; alumna_id: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[];
         let minutos1a1 = 0;
         sesionesData.forEach((s) => {
-          const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : minutosEntre(s.hora_inicio, s.hora_fin);
+          const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : 0;
           minutos1a1 += min;
           alumnaIds.add(s.alumna_id);
           const manual1 = precioMap.get(`1a1:${s.id}`);
           items.push({
             tipo: "1a1", refId: s.id, fecha: s.fecha, horaInicio: s.hora_inicio, horaFin: s.hora_fin ?? "",
             minutos: min, titulo: null, alumnaId: s.alumna_id,
-            monto: manual1 != null && manual1 > 0 ? manual1 : Math.round((tarifa.sesion * min / 60) * 100) / 100,
+            monto: min > 0 ? (manual1 != null && manual1 > 0 ? manual1 : Math.round((tarifa.sesion * min / 60) * 100) / 100) : 0,
           });
         });
         items.sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio));
@@ -237,7 +248,7 @@ function Page() {
         const califPromedio = vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : 0;
         const califCount = (califRes.data ?? []).length;
 
-        // Mensajes solo a estudiantes (chats donde la contraparte es usuario)
+        // Mensajes conservados para compatibilidad del detalle existente; no se muestran en el resumen.
         const chatsConEstudiantes = ((chatsRes.data ?? []) as { id: string; usuario_a_id: string; usuario_b_id: string }[])
           .filter((c) => {
             const otro = c.usuario_a_id === pid ? c.usuario_b_id : c.usuario_a_id;
@@ -253,13 +264,13 @@ function Page() {
           mensajesEstudiantes = count ?? 0;
         }
 
-        const sesiones1a1 = sesionesData.length;
+        const sesiones1a1 = sesionesData.filter((s) => Number(s.duracion_min ?? 0) > 0).length;
         const bonosList = ((bonosRes.data ?? []) as { id: string; monto: number; motivo: string | null; tipo: string }[])
           .map((b) => ({ id: b.id, monto: Number(b.monto), motivo: b.motivo, tipo: b.tipo }));
         const bonos = bonosList.reduce((a, b) => a + b.monto, 0);
         const descuentosList = descMap.get(pid) ?? [];
         const descuentos = descuentosList.reduce((a, d) => a + d.monto, 0);
-        const total = Math.round((items.reduce((a, i) => a + i.monto, 0) + bonos - descuentos) * 100) / 100;
+        const total = Math.max(0, Math.round((items.reduce((a, i) => a + i.monto, 0) + bonos - descuentos) * 100) / 100);
 
         const pago = pagoMap.get(pid);
 
@@ -270,6 +281,7 @@ function Page() {
           rol: map.get(pid) ?? "soporte",
           tema: temaDe(p),
           minutosClase,
+          clasesRealizadas,
           sesiones1a1, minutos1a1,
           ajusteMin: ajusteMap.get(pid) ?? 0,
           items,
@@ -277,6 +289,7 @@ function Page() {
           califPromedio, califCount,
           bonos, bonosList, descuentos, descuentosList,
           tarifaClase: tarifa.clase, tarifaSesion: tarifa.sesion,
+          pendientes: pendientesMap.get(pid) ?? 0,
           total,
           estado: (pago?.estado === "pagado" ? "pagado" : "por_pagar") as "pagado" | "por_pagar",
           pagoId: pago?.id,
@@ -300,7 +313,7 @@ function Page() {
     }
   };
 
-  useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [mes, anio]);
+  useEffect(() => { void cargar(); /* eslint-disable-next-line */ }, [mes, anio, puedeEditar]);
 
   const tot = useMemo(() => {
     const minutos = staff.reduce((a,b) => a + b.minutosClase + b.minutos1a1, 0);
@@ -361,7 +374,7 @@ function Page() {
       });
     }
     toast.success("Mes cerrado · pagos generados");
-    cargar();
+    void cargar();
   };
 
   const filasCanceladas = useMemo(() => canceladas.map((c) => ({
@@ -393,7 +406,7 @@ function Page() {
     const items: InformeItem[] = row.items.map((i) => ({
       fecha: i.fecha,
       tipo: i.tipo === "clase" ? "Clase en vivo" : "Sesión 1:1",
-      detalle: nombreItem(i),
+      detalle: `${nombreItem(i)}${i.minutos <= 0 ? " · PENDIENTE DE DURACIÓN" : ""}`,
       horaInicio: i.horaInicio,
       horaFin: i.horaFin,
       minutos: i.minutos,
@@ -417,8 +430,8 @@ function Page() {
     });
   };
 
-  if (role !== "admin" && role !== "soporte") {
-    return <div className="p-8 text-center text-muted-foreground">Solo el equipo puede ver esta sección.</div>;
+  if (!puedeEditar) {
+    return <div className="p-8 text-center text-muted-foreground">No tienes permiso para ver Pagos e informes.</div>;
   }
 
   if (detalleId) {
@@ -426,7 +439,7 @@ function Page() {
     if (!row) return null;
     return <DetalleProfesor row={row} profile={profiles[detalleId]} mes={mes} anio={anio} onBack={() => setDetalleId(null)} onSelect={(id) => setDetalleId(id)} staff={staff}
       nombresAlumnas={nombresAlumnas}
-      puedeEditar={role === "admin"}
+      puedeEditar={puedeEditar}
       onRefresh={cargar}
       onInforme={() => descargarInforme(row)}
       reemplazos={reemplazos.filter((r) => r.profesor_reporta === row.id).map((r) => ({
@@ -463,12 +476,12 @@ function Page() {
           <FileText className="w-4 h-4" /> Generar PDF
         </button>
         <div className="flex-1" />
-        {role === "admin" && (
+        {puedeEditar && (
           <button onClick={() => setVerCuentas(true)} className="px-4 py-2 rounded-xl bg-violet-gradient text-white text-sm font-semibold flex items-center gap-2 shadow-md">
             <Landmark className="w-4 h-4" /> Cuentas bancarias
           </button>
         )}
-        {role === "admin" && (
+        {puedeEditar && (
           <button onClick={cerrarMes} className="px-4 py-2 rounded-xl bg-violet-gradient text-white text-sm font-semibold flex items-center gap-2 shadow-md">
             <Lock className="w-4 h-4" /> Cerrar mes y generar pagos
           </button>
@@ -484,7 +497,7 @@ function Page() {
           <div className="text-xs opacity-80 mt-1">{tot.pendCount} {tot.pendCount === 1 ? "profesor" : "profesores"} · pendiente</div>
         </div>
         <KPI label="Tiempo dictado" value={formatHM(tot.minutos)} sub={`${staff.length} miembros activos`} />
-        <KPI label="Sesiones 1:1" value={String(tot.sesiones)} sub="reservadas" />
+        <KPI label="Sesiones 1:1" value={String(tot.sesiones)} sub="realizadas" />
         <KPI label="Calif. equipo" value={tot.califEq ? tot.califEq.toFixed(2) : "—"} sub={tot.califEq ? "promedio del equipo" : "Sin calificaciones"} />
       </div>
 
@@ -514,9 +527,13 @@ function Page() {
               <tr key={s.id} className="border-t hover:bg-muted/30 transition">
                 <td className="px-4 py-3">
                   <button onClick={() => setDetalleId(s.id)} className="flex items-center gap-3 text-left">
-                    <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white" style={{ background: colorDe(s.id) }}>
-                      {(s.nombre).slice(0,2).toUpperCase()}
-                    </div>
+                    {profiles[s.id]?.avatar_url ? (
+                      <img src={profiles[s.id]?.avatar_url ?? ""} alt={s.nombre} className="w-9 h-9 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white" style={{ background: colorDe(s.id) }}>
+                        {(s.nombre).slice(0,2).toUpperCase()}
+                      </div>
+                    )}
                     <div>
                       <div className="font-semibold">{s.nombre}</div>
                       <div className="text-[11px] text-muted-foreground flex items-center gap-1">
@@ -527,19 +544,22 @@ function Page() {
                           ? `${profiles[s.id]?.banco} · ${profiles[s.id]?.tipo_cuenta ?? ""} ${profiles[s.id]?.numero_cuenta ?? ""}`
                           : "Sin cuenta bancaria registrada"}
                       </div>
+                      {s.pendientes > 0 && (
+                        <div className="text-[11px] text-amber-600 font-medium">{s.pendientes} registro{s.pendientes === 1 ? "" : "s"} de horas pendiente{s.pendientes === 1 ? "" : "s"}</div>
+                      )}
                     </div>
                   </button>
                 </td>
                 <td className="px-3 py-3">
-                  {formatHM(s.minutosClase)}
+                  <span className="font-medium">{s.clasesRealizadas} {s.clasesRealizadas === 1 ? "clase" : "clases"}</span> <span className="text-muted-foreground text-xs">· {formatHM(s.minutosClase)}</span>
                   {s.ajusteMin !== 0 && (
                     <span className="text-muted-foreground text-xs"> · ajuste {s.ajusteMin > 0 ? "+" : "−"}{formatHM(Math.abs(s.ajusteMin))}</span>
                   )}
-                  <TarifaInput profesorId={s.id} campo="valor_hora_clase" valor={s.tarifaClase} mes={mes} anio={anio} puedeEditar={role === "admin"} onSaved={cargar} />
+                  <TarifaInput profesorId={s.id} campo="valor_hora_clase" valor={s.tarifaClase} mes={mes} anio={anio} puedeEditar={puedeEditar} onSaved={cargar} />
                 </td>
                 <td className="px-3 py-3">
                   {s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span>
-                  <TarifaInput profesorId={s.id} campo="valor_hora_sesion" valor={s.tarifaSesion} mes={mes} anio={anio} puedeEditar={role === "admin"} onSaved={cargar} />
+                  <TarifaInput profesorId={s.id} campo="valor_hora_sesion" valor={s.tarifaSesion} mes={mes} anio={anio} puedeEditar={puedeEditar} onSaved={cargar} />
                 </td>
                 <td className="px-3 py-3">
                   <Estrellas valor={s.califPromedio} count={s.califCount} />
@@ -562,12 +582,12 @@ function Page() {
                   <button onClick={() => descargarInforme(s)} className="px-3 py-1.5 rounded-lg border text-xs font-semibold mr-2 inline-flex items-center gap-1">
                     <FileText className="w-3.5 h-3.5" /> Informe
                   </button>
-                  {role === "admin" && (
+                  {puedeEditar && (
                     <button onClick={() => setBonoDe(s.id)} className="px-3 py-1.5 rounded-lg border text-xs font-semibold mr-2 inline-flex items-center gap-1">
                       <Gift className="w-3.5 h-3.5" /> Bono
                     </button>
                   )}
-                  {role === "admin" && (
+                  {puedeEditar && (
                     <button onClick={() => setAbonoDe(s.id)} className="px-3 py-1.5 rounded-lg bg-violet-gradient text-white text-xs font-semibold">
                       {estadoDe(s) === "pagado" ? "Ver pagos" : "Marcar pagado"}
                     </button>
@@ -590,7 +610,7 @@ function Page() {
 
       {/* Clases y sesiones */}
       <div className="mt-8">
-        <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={role === "admin"} onRefresh={cargar} />
+        <PagosPrecios key={`${mes}-${anio}-${filasPrecio.length}`} filas={filasPrecio} mes={mes} anio={anio} puedeEditar={puedeEditar} onRefresh={cargar} />
       </div>
 
       {/* Pagos realizados */}
@@ -667,7 +687,7 @@ function Page() {
             <div className="flex justify-end p-2">
               <button onClick={() => setVerCuentas(false)} className="p-2 rounded-lg border"><X className="w-4 h-4" /></button>
             </div>
-            <PagosCuentas puedeEditar={role === "admin"} onChanged={cargarCuentas} />
+            <PagosCuentas puedeEditar={puedeEditar} onChanged={cargarCuentas} />
           </div>
         </div>
       )}
@@ -818,6 +838,7 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
     i.tipo === "clase" ? (i.titulo || "Clase en vivo") : (i.alumnaId ? nombresAlumnas[i.alumnaId] || "Estudiante" : "Estudiante");
 
   const guardarPrecio = async (i: ItemPago) => {
+    if (i.minutos <= 0) return toast.error("Primero debe registrarse la duración real");
     const key = `${i.tipo}:${i.refId}`;
     const monto = Number(precios[key] || 0);
     if (Number.isNaN(monto) || monto < 0) return toast.error("Valor inválido");
@@ -845,18 +866,19 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
     onRefresh?.();
   };
 
-  const bitacora = row.items.slice(0, 10).map((i) => ({
+  const bitacora = row.items.filter((i) => i.minutos > 0).slice(0, 10).map((i) => ({
     fecha: i.fecha,
     tipo: i.tipo === "clase" ? "Clase en vivo" : "Sesión 1:1",
     detalle: `${nombreItem(i)} · ${formatHM(i.minutos)}`,
     monto: i.monto,
   }));
+  const pendientesItems = row.items.filter((i) => i.minutos <= 0);
 
   useEffect(() => {
     (async () => {
       const { data: cals } = await supabase.from("calificaciones_mensuales")
         .select("claridad,didactica,practico,desenvolvimiento,comentario,created_at,alumna_id")
-        .eq("profesor_id", row.id).order("created_at", { ascending: false });
+        .eq("profesor_id", row.id).eq("mes", mes).eq("anio", anio).order("created_at", { ascending: false });
       setCalifs((cals ?? []) as never);
       const aids = Array.from(new Set(((cals ?? []) as { alumna_id: string }[]).map((c) => c.alumna_id)));
       if (aids.length) {
@@ -902,14 +924,23 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         </div>
       </div>
 
+      {profile && (
+        <div className="rounded-xl border bg-card p-3 mb-4 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+          <span>CI: {profile.cedula || "—"}</span>
+          <span>{profile.banco || "Sin banco"} · {profile.tipo_cuenta || ""} · {profile.numero_cuenta || ""}</span>
+          <span>Titular: {profile.titular_cuenta || "—"}</span>
+        </div>
+      )}
+
       {/* Resumen + actividad */}
       <div className="grid lg:grid-cols-2 gap-4 mb-4">
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Resumen económico</div>
           <div className="space-y-3">
-            <Linea titulo="Clases grupales" sub={formatHM(row.minutosClase)} monto={row.items.filter((i) => i.tipo === "clase").reduce((a, i) => a + i.monto, 0)} />
+            <Linea titulo="Clases grupales" sub={`${row.clasesRealizadas} clases · ${formatHM(row.minutosClase)}`} monto={row.items.filter((i) => i.tipo === "clase").reduce((a, i) => a + i.monto, 0)} />
             <Linea titulo="Sesiones 1:1" sub={`${row.sesiones1a1} sesiones · ${formatHM(row.minutos1a1)}`} monto={row.items.filter((i) => i.tipo === "1a1").reduce((a, i) => a + i.monto, 0)} />
-            {row.bonos > 0 && <Linea titulo="Bonos del mes" sub="otorgados por admin" monto={row.bonos} />}
+            {row.bonos > 0 && <Linea titulo="Bonos del mes" sub={row.bonosList.map((b) => b.motivo || "Bono").join(" · ")} monto={row.bonos} />}
+            {row.descuentos > 0 && <Linea titulo="Descuentos" sub={row.descuentosList.map((d) => d.motivo).join(" · ")} monto={-row.descuentos} />}
             <div className="border-t pt-3 flex items-baseline justify-between">
               <div className="text-sm font-semibold">Total a pagar</div>
               <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--violet)" }}>${row.total.toFixed(2)}</div>
@@ -920,9 +951,9 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
         <div className="rounded-2xl border bg-card p-5">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">Actividad del mes</div>
           <div className="space-y-3">
-            <Item icon="🎓" titulo={`${bitacora.filter(b=>b.tipo==="Clase en vivo").length} clases impartidas`} sub={`${formatHM(row.minutosClase)} en total`} />
+            <Item icon="🎓" titulo={`${row.clasesRealizadas} clases impartidas`} sub={`${formatHM(row.minutosClase)} en total`} />
             <Item icon="📅" titulo={`${row.sesiones1a1} sesiones 1:1 realizadas`} sub={`${formatHM(row.minutos1a1)} en total`} />
-            <Item icon="💬" titulo={`${row.mensajesEstudiantes} mensajes a estudiantes`} sub="canal privado" />
+            {row.pendientes > 0 && <Item icon="⏱️" titulo={`${row.pendientes} registros de horas pendientes`} sub="No generan pago hasta registrar duración" />}
             <Item icon="⭐" titulo={`${row.califCount} calificaciones recibidas`} sub={row.califCount ? `Promedio ${row.califPromedio.toFixed(2)}` : "Sin respuestas"} />
           </div>
         </div>
@@ -1000,13 +1031,13 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
                       <td className="px-2 py-2 whitespace-nowrap">{i.horaInicio.slice(0,5)}{i.horaFin ? ` – ${i.horaFin.slice(0,5)}` : ""}</td>
                       <td className="px-2 py-2">{i.tipo === "clase" ? "Clase en vivo" : "1 a 1"}</td>
                       <td className="px-2 py-2">{nombreItem(i)}</td>
-                      <td className="px-2 py-2">{formatHM(i.minutos)}</td>
+                      <td className="px-2 py-2">{i.minutos > 0 ? formatHM(i.minutos) : <span className="text-amber-600 font-medium">Pendiente</span>}</td>
                       <td className="px-2 py-2 text-right">
-                        <input type="number" step="0.01" min="0" disabled={!puedeEditar || guardando}
+                        <input type="number" step="0.01" min="0" disabled={!puedeEditar || guardando || i.minutos <= 0}
                           value={precios[key] ?? ""}
                           onChange={(e) => setPrecios((p) => ({ ...p, [key]: e.target.value }))}
                           onBlur={() => guardarPrecio(i)}
-                          placeholder="0.00"
+                          placeholder={i.minutos <= 0 ? "—" : "0.00"}
                           className="w-24 px-2 py-1 rounded-lg border bg-background text-right tabular-nums" />
                       </td>
                     </tr>
@@ -1016,8 +1047,17 @@ function DetalleProfesor({ row, profile, mes, anio, onBack, onSelect, staff, can
             </table>
           </div>
         )}
-        {!puedeEditar && <div className="text-xs text-muted-foreground mt-2">Solo un administrador puede cambiar los valores.</div>}
+        {!puedeEditar && <div className="text-xs text-muted-foreground mt-2">Solo un gestor autorizado puede cambiar los valores.</div>}
       </div>
+
+      {pendientesItems.length > 0 && (
+        <div className="rounded-2xl border bg-amber-50/40 dark:bg-amber-950/10 p-5 mb-6">
+          <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold mb-3">Horas pendientes · monto $0 hasta registrar</div>
+          {pendientesItems.map((i) => (
+            <div key={`${i.tipo}:${i.refId}`} className="text-sm py-1 border-b last:border-0">{i.fecha} · {i.tipo === "clase" ? "Clase" : "Sesión 1:1"} · {nombreItem(i)}</div>
+          ))}
+        </div>
+      )}
 
       {/* Reemplazos reportados */}
       {reemplazos.length > 0 && (
@@ -1089,7 +1129,7 @@ function Linea({ titulo, sub, monto }: { titulo: string; sub: string; monto: num
         <div className="font-semibold">{titulo}</div>
         <div className="text-xs text-muted-foreground">{sub}</div>
       </div>
-      <div className="text-lg font-bold tabular-nums">${monto.toFixed(2)}</div>
+      <div className={`text-lg font-bold tabular-nums ${monto < 0 ? "text-red-600" : ""}`}>{monto < 0 ? "−" : ""}${Math.abs(monto).toFixed(2)}</div>
     </div>
   );
 }
