@@ -49,17 +49,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string) => {
-    const [{ data: prof }, { data: roleRows }] = await Promise.all([
+    const [perfilRes, rolesRes, adminRes, soporteRes, usuarioRes] = await Promise.all([
       supabase.from("profiles").select("id, email, nombre_completo, avatar_url, estado").eq("id", uid).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid),
+      supabase.rpc("has_role", { _user_id: uid, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: uid, _role: "soporte" }),
+      supabase.rpc("has_role", { _user_id: uid, _role: "usuario" }),
     ]);
-    setProfile((prof as Profile | null) ?? null);
-    const validos = Array.from(new Set(
-      ((roleRows ?? []) as { role: string }[])
-        .map((x) => x.role)
-        .filter((r): r is AppRole => r === "admin" || r === "soporte" || r === "usuario"),
-    ));
+
+    setProfile((perfilRes.data as Profile | null) ?? null);
+
+    const detectados = new Set<AppRole>();
+    ((rolesRes.data ?? []) as { role: string }[]).forEach(({ role: r }) => {
+      if (r === "admin" || r === "soporte" || r === "usuario") detectados.add(r);
+    });
+
+    // has_role es SECURITY DEFINER y confirma el rol aunque la lectura directa
+    // de user_roles esté retrasada o falle por una política/permisos del cliente.
+    if (adminRes.data === true) detectados.add("admin");
+    if (soporteRes.data === true) detectados.add("soporte");
+    if (usuarioRes.data === true) detectados.add("usuario");
+
+    const validos = Array.from(detectados);
     setRoles(validos);
+
     const priority: AppRole[] = ["admin", "soporte", "usuario"];
     const found = priority.find((r) => validos.includes(r)) ?? null;
     setRole(found);
@@ -87,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoles([]);
       }
     });
+
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       if (data.session?.user) {
@@ -95,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false);
     });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -112,7 +127,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           toast.error("Tu sesión se cerró porque se superó el límite de 5 dispositivos activos.");
           try { localStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
           await supabase.auth.signOut();
-          setSession(null); setProfile(null); setRole(null); setRoles([]);
+          setSession(null);
+          setProfile(null);
+          setRole(null);
+          setRoles([]);
         }
       } catch { /* noop */ }
     };
@@ -133,7 +151,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch { /* noop */ }
     await supabase.auth.signOut();
-    setSession(null); setProfile(null); setRole(null); setRoles([]);
+    setSession(null);
+    setProfile(null);
+    setRole(null);
+    setRoles([]);
   };
 
   return <Ctx.Provider value={{ session, profile, role, roles, loading, refresh, signOut }}>{children}</Ctx.Provider>;
