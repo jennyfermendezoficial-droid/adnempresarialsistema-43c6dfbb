@@ -1,29 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { ShieldCheck, BookOpen, Radio } from "lucide-react";
+import { ShieldCheck, BookOpen, Radio, Images } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { PermisosPanel } from "@/components/PermisosPanel";
 import { AccesoCursosPanel } from "@/components/AccesoCursosPanel";
+import { BrandingPanel } from "@/components/admin/BrandingPanel";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: Page,
   head: () => ({
     meta: [
       { title: "Administración · ADN Empresarial" },
-      { name: "description", content: "Permisos del equipo, acceso a cursos y acceso a clases en vivo en una sola ventana." },
+      { name: "description", content: "Permisos del equipo, acceso a cursos, clases en vivo e imágenes del sistema." },
       { property: "og:title", content: "Administración · ADN Empresarial" },
-      { property: "og:description", content: "Permisos del equipo, acceso a cursos y acceso a clases en vivo." },
+      { property: "og:description", content: "Permisos, accesos e imágenes de ADN Empresarial." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
 });
 
-type Tab = "permisos" | "cursos" | "clases";
+type Tab = "permisos" | "cursos" | "clases" | "imagenes";
 const TABS: { id: Tab; label: string; icon: typeof ShieldCheck }[] = [
   { id: "permisos", label: "Permisos", icon: ShieldCheck },
   { id: "cursos", label: "Acceso a cursos", icon: BookOpen },
   { id: "clases", label: "Acceso a clases en vivo", icon: Radio },
+  { id: "imagenes", label: "Imágenes del sistema", icon: Images },
 ];
 
 function Page() {
@@ -49,6 +51,7 @@ function Page() {
       {tab === "permisos" && <PermisosPanel />}
       {tab === "cursos" && <AccesoCursosPanel tipo="curso" titulo="Acceso a cursos" plural="los cursos" />}
       {tab === "clases" && <AccesoCursosPanel tipo="clase_en_vivo" titulo="Acceso a clases en vivo" plural="las clases en vivo" />}
+      {tab === "imagenes" && <BrandingPanel />}
     </div>
   );
 }
