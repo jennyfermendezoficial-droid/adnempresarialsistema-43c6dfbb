@@ -6,6 +6,8 @@ import { TopNav } from "@/components/TopNav";
 import { Logo, BrandName } from "@/components/Logo";
 import { PostClassRatingModal } from "@/components/PostClassRatingModal";
 import { FichaProfesorModal } from "@/components/FichaProfesorModal";
+import { AlertaRegistroProfesor } from "@/components/AlertaRegistroProfesor";
+import { PagosControlPanel } from "@/components/pagos/PagosControlPanel";
 import { ChatsPopover } from "@/components/ChatsPopover";
 import { NotificationsPopover } from "@/components/NotificationsPopover";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
@@ -116,11 +118,13 @@ function AuthedLayout() {
           </div>
         </header>
         <div className="flex-1">
+          {pathname.startsWith("/pagos") && <PagosControlPanel />}
           <Outlet />
         </div>
       </main>
       <PostClassRatingModal />
       <FichaProfesorModal />
+      <AlertaRegistroProfesor />
     </div>
   );
 }
