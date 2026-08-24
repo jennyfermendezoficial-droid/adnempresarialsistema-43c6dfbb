@@ -29,6 +29,7 @@ export function TopNav() {
   ];
 
   const initial = (formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase();
+  const abrirDatosPago = () => window.dispatchEvent(new Event("adn:abrir-datos-pago"));
 
   return (
     <header
@@ -49,6 +50,17 @@ export function TopNav() {
             </Link>
 
             <div className="ml-auto flex items-center gap-2 shrink-0">
+              {isProfesor && (
+                <button
+                  type="button"
+                  onClick={abrirDatosPago}
+                  className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold border border-white/10 hover:bg-white/10 transition-colors"
+                  title="Datos para recibir tus pagos"
+                >
+                  <Landmark className="w-4 h-4" />
+                  <span className="hidden xl:inline">Datos de pago</span>
+                </button>
+              )}
               <ChatsPopover />
               <NotificationsPopover />
               <InstallAppButton variant="icon" />
@@ -77,7 +89,7 @@ export function TopNav() {
                   </DropdownMenuItem>
                   {isProfesor && (
                     <DropdownMenuItem
-                      onSelect={() => window.dispatchEvent(new Event("adn:abrir-datos-pago"))}
+                      onSelect={abrirDatosPago}
                       className="flex items-center gap-2 cursor-pointer"
                     >
                       <Landmark className="w-4 h-4" /> Datos de pago
