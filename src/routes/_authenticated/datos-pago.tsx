@@ -25,15 +25,16 @@ const VACIO: DatosPago = {
 };
 
 function Page() {
-  const { session, role, profile } = useAuth();
+  const { session, role, roles, profile } = useAuth();
   const uid = session?.user.id;
+  const isProfesor = roles.includes("soporte") || role === "soporte";
   const [datos, setDatos] = useState<DatosPago>(VACIO);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (!uid || role !== "soporte") {
+    if (!uid || !isProfesor) {
       setLoading(false);
       return;
     }
@@ -57,9 +58,9 @@ function Page() {
       setLoading(false);
     })();
     return () => { alive = false; };
-  }, [uid, role, profile?.nombre_completo]);
+  }, [uid, isProfesor, profile?.nombre_completo]);
 
-  if (role !== "soporte") {
+  if (!isProfesor) {
     return <div className="p-8 text-center text-muted-foreground">Esta sección es exclusiva para Profesores.</div>;
   }
 
@@ -97,6 +98,7 @@ function Page() {
     }).eq("id", uid);
     setSaving(false);
     if (error) return toast.error(error.message);
+    window.dispatchEvent(new Event("adn:datos-pago-actualizados"));
     toast.success("Datos de pago guardados correctamente.");
   };
 
