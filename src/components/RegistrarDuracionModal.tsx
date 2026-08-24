@@ -70,6 +70,7 @@ export function RegistrarDuracionModal({ sesionId, tipo = "1a1", horaInicio, dur
     if (error) return toast.error(error.message);
     toast.success("Duración registrada.");
     onSaved(duracion, fin, inicio);
+    window.dispatchEvent(new Event("adn:horas-actualizadas"));
     onClose();
   };
 
