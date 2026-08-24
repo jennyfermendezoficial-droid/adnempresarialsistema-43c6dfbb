@@ -9,7 +9,7 @@ import { NotificationsPopover } from "./NotificationsPopover";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { mainItems, staffItems, adminItems, pagosItems, type NavItem } from "@/lib/nav-items";
+import { mainItems, staffItems, professorItems, adminItems, pagosItems, type NavItem } from "@/lib/nav-items";
 import { labelRol, puedeVerPagos } from "@/lib/roles";
 
 const BAR = "var(--deep-2)";
@@ -23,6 +23,7 @@ export function TopNav() {
   const flat: NavItem[] = [
     ...mainItems,
     ...(isStaff ? staffItems : []),
+    ...(role === "soporte" ? professorItems : []),
     ...(role === "admin" ? adminItems : []),
     ...(puedeVerPagos(role, session?.user.id) ? pagosItems : []),
   ];
