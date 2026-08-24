@@ -75,10 +75,11 @@ export function TopNav() {
                     </Link>
                   </DropdownMenuItem>
                   {role === "soporte" && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/datos-pago" className="flex items-center gap-2 cursor-pointer">
-                        <Landmark className="w-4 h-4" /> Datos de pago
-                      </Link>
+                    <DropdownMenuItem
+                      onSelect={() => window.dispatchEvent(new Event("adn:abrir-datos-pago"))}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <Landmark className="w-4 h-4" /> Datos de pago
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem onClick={() => signOut()} className="flex items-center gap-2 cursor-pointer">
