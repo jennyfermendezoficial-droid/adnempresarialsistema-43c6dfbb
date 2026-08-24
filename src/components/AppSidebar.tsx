@@ -4,7 +4,7 @@ import { Home, LogOut } from "lucide-react";
 import { Logo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
-import { mainItems, staffItems, adminItems, pagosItems } from "@/lib/nav-items";
+import { mainItems, staffItems, professorItems, adminItems, pagosItems } from "@/lib/nav-items";
 import { puedeVerPagos } from "@/lib/roles";
 
 interface Item { to: string; label: string; icon: typeof Home; }
@@ -45,6 +45,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
           <>
             <SectionLabel className="mt-3">Profesores</SectionLabel>
             <Nav items={staffItems} isActive={isActive} onClick={onNavigate} />
+            {role === "soporte" && <Nav items={professorItems} isActive={isActive} onClick={onNavigate} />}
             {role === "admin" && (
               <>
                 <SectionLabel className="mt-3">Admin</SectionLabel>
