@@ -16,26 +16,41 @@ import { Menu, X } from "lucide-react";
 export const Route = createFileRoute("/_authenticated")({ component: AuthedLayout });
 
 function AuthedLayout() {
-  const { session, profile, loading, signOut } = useAuth();
+  const { session, profile, role, roles, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const isProfesor = roles.includes("soporte") || role === "soporte";
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/login", replace: true });
   }, [session, loading, navigate]);
 
-  // Cerrar drawer al cambiar de ruta
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
-  // Bloquear scroll del body cuando el drawer está abierto en móvil
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.body.style.overflow = drawerOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [drawerOpen]);
 
-  // Hook global de notificaciones (sonido, push, recordatorios)
+  // En navegador y PWA, cada vez que el Profesor vuelve a la aplicación se
+  // vuelve a mostrar su panel de Datos de pago. Si está incompleto, no podrá
+  // cerrarlo; si está completo, puede revisarlo y continuar.
+  useEffect(() => {
+    if (!isProfesor || !session?.user.id || typeof window === "undefined") return;
+    const abrir = () => window.dispatchEvent(new Event("adn:abrir-datos-pago"));
+    const visible = () => { if (document.visibilityState === "visible") abrir(); };
+    window.addEventListener("focus", abrir);
+    window.addEventListener("pageshow", abrir);
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      window.removeEventListener("focus", abrir);
+      window.removeEventListener("pageshow", abrir);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, [isProfesor, session?.user.id]);
+
   useGlobalNotifications();
 
   if (loading || !session) {
@@ -65,7 +80,6 @@ function AuthedLayout() {
 
   return (
     <div className="h-screen w-full flex overflow-hidden">
-      {/* Drawer móvil / tablet */}
       {drawerOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
@@ -86,12 +100,10 @@ function AuthedLayout() {
       )}
 
       <main className="flex-1 overflow-y-auto flex flex-col min-w-0" style={{ background: "var(--bg-2)" }}>
-        {/* Menú superior (computador) */}
         <div className="hidden lg:block">
           <TopNav />
         </div>
 
-        {/* Top bar móvil/tablet con hamburguesa */}
         <header
           className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-3 h-14 border-b"
           style={{
