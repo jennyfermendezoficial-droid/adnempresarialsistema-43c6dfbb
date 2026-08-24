@@ -20,17 +20,18 @@ export interface FilaPrecio {
 export function PagosPrecios({ filas, mes, anio, puedeEditar, onRefresh }: {
   filas: FilaPrecio[]; mes: number; anio: number; puedeEditar: boolean; onRefresh: () => void;
 }) {
+  const completas = useMemo(() => filas.filter((f) => f.minutos > 0), [filas]);
   const [valores, setValores] = useState<Record<string, string>>(
-    () => Object.fromEntries(filas.map((f) => [f.key, f.monto ? String(f.monto) : ""])),
+    () => Object.fromEntries(completas.map((f) => [f.key, f.monto ? String(f.monto) : ""])),
   );
   const [filtro, setFiltro] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   const visibles = useMemo(() => {
     const q = filtro.trim().toLowerCase();
-    if (!q) return filas;
-    return filas.filter((f) => (f.profesor + " " + f.detalle + " " + f.fecha).toLowerCase().includes(q));
-  }, [filas, filtro]);
+    if (!q) return completas;
+    return completas.filter((f) => (f.profesor + " " + f.detalle + " " + f.fecha).toLowerCase().includes(q));
+  }, [completas, filtro]);
 
   const totalMostrado = visibles.reduce((a, f) => a + (Number(valores[f.key] || 0) || 0), 0);
 
@@ -52,8 +53,8 @@ export function PagosPrecios({ filas, mes, anio, puedeEditar, onRefresh }: {
     <div className="rounded-2xl border bg-card p-5">
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <div>
-          <h2 className="text-lg font-semibold">Clases y sesiones del mes</h2>
-          <p className="text-xs text-muted-foreground">Escribe el valor de cada clase en vivo y de cada sesión 1 a 1. Se guarda al salir del casillero.</p>
+          <h2 className="text-lg font-semibold">Valores de registros completados</h2>
+          <p className="text-xs text-muted-foreground">Aquí solo aparecen clases y sesiones con duración real registrada. Las pendientes se controlan en las alertas de arriba.</p>
         </div>
         <input value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Buscar profesor, estudiante o tema…"
           className="px-3 py-2 rounded-lg border bg-background text-sm w-full sm:w-72" />
@@ -95,7 +96,7 @@ export function PagosPrecios({ filas, mes, anio, puedeEditar, onRefresh }: {
                 </td>
               </tr>
             ))}
-            {visibles.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">Sin clases ni sesiones este mes.</td></tr>}
+            {visibles.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">Sin registros completados este mes.</td></tr>}
             {visibles.length > 0 && (
               <tr className="bg-muted/40 border-t">
                 <td colSpan={6} className="px-2 py-2 text-right text-xs uppercase tracking-wider font-semibold">Total</td>
