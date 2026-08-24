@@ -34,10 +34,73 @@ interface CuentaProfesor {
   completa: boolean;
 }
 
-type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{
-  data: unknown;
-  error: { message: string } | null;
-}>;
+interface PerfilPago {
+  id: string;
+  nombre_completo: string;
+  email: string;
+  banco?: string | null;
+  tipo_cuenta?: string | null;
+  numero_cuenta?: string | null;
+  titular_cuenta?: string | null;
+  banco_logo_url?: string | null;
+}
+
+interface ClaseRow {
+  id: string;
+  profesor_id: string | null;
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string | null;
+  titulo: string | null;
+  duracion_min: number | null;
+}
+
+interface SesionRow {
+  id: string;
+  profesor_id: string;
+  alumna_id: string;
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string | null;
+  estado: string | null;
+  duracion_min: number | null;
+}
+
+type RpcResult<T = unknown> = Promise<{ data: T | null; error: { message: string } | null }>;
+type Rpc = <T = unknown>(fn: string, args?: Record<string, unknown>) => RpcResult<T>;
+
+function hoyLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function horaLocal() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function termino(fecha: string, fin: string | null, inicio: string) {
+  const hoy = hoyLocal();
+  if (fecha < hoy) return true;
+  if (fecha > hoy) return false;
+  return (fin || inicio || "23:59").slice(0, 5) <= horaLocal();
+}
+
+function diasDesde(fecha: string) {
+  const f = new Date(`${fecha}T00:00:00`);
+  const h = new Date(`${hoyLocal()}T00:00:00`);
+  return Math.max(0, Math.floor((h.getTime() - f.getTime()) / 86_400_000));
+}
+
+function cuentaCompleta(p: PerfilPago) {
+  return Boolean(
+    p.banco?.trim()
+    && p.tipo_cuenta?.trim()
+    && p.numero_cuenta?.trim()
+    && p.titular_cuenta?.trim()
+    && p.banco_logo_url,
+  );
+}
 
 export function PagosControlPanel() {
   const { role, session } = useAuth();
@@ -55,40 +118,175 @@ export function PagosControlPanel() {
       setLoading(false);
       return;
     }
+
     setLoading(true);
-    const rpc = supabase.rpc as unknown as Rpc;
-    const [p, c] = await Promise.all([
-      rpc("detalle_horas_pendientes", {}),
-      rpc("estado_cuentas_profesores", {}),
-    ]);
-    if (p.error) toast.error(`Alertas: ${p.error.message}`);
-    if (c.error) toast.error(`Cuentas: ${c.error.message}`);
-    setPendientes((p.data as Pendiente[] | null) ?? []);
-    setCuentas((c.data as CuentaProfesor[] | null) ?? []);
-    setLoading(false);
+    try {
+      // Compatibilidad con la base ya publicada: no depende de las funciones
+      // nuevas detalle_horas_pendientes / estado_cuentas_profesores.
+      const { data: roleRows, error: roleError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "soporte");
+
+      if (roleError) {
+        toast.error(`Profesores: ${roleError.message}`);
+        setPendientes([]);
+        setCuentas([]);
+        return;
+      }
+
+      const ids = Array.from(new Set(((roleRows ?? []) as { user_id: string }[]).map((r) => r.user_id)));
+      if (!ids.length) {
+        setPendientes([]);
+        setCuentas([]);
+        return;
+      }
+
+      const perfiles = new Map<string, PerfilPago>();
+      const rpc = supabase.rpc as unknown as Rpc;
+
+      // Primero usa la función histórica de Pagos, que ya existe en versiones anteriores.
+      const perfilesRpc = await rpc<PerfilPago[]>("perfiles_pagos", { _ids: ids });
+      ((perfilesRpc.data ?? []) as PerfilPago[]).forEach((p) => perfiles.set(p.id, p));
+
+      // Si algún profesor no regresó por RPC, intenta leer su perfil directamente.
+      const faltantes = ids.filter((id) => !perfiles.has(id));
+      if (faltantes.length) {
+        const { data: directos } = await supabase
+          .from("profiles")
+          .select("id,nombre_completo,email,banco,tipo_cuenta,numero_cuenta,titular_cuenta,banco_logo_url")
+          .in("id", faltantes);
+        ((directos ?? []) as PerfilPago[]).forEach((p) => perfiles.set(p.id, p));
+      }
+
+      // Último respaldo para nombre/email: listar_profesores es una función antigua.
+      const aunFaltan = ids.filter((id) => !perfiles.has(id));
+      if (aunFaltan.length) {
+        const lista = await rpc<PerfilPago[]>("listar_profesores", {});
+        ((lista.data ?? []) as PerfilPago[])
+          .filter((p) => aunFaltan.includes(p.id))
+          .forEach((p) => perfiles.set(p.id, p));
+      }
+
+      setCuentas(ids.map((id) => {
+        const p = perfiles.get(id) ?? { id, nombre_completo: "Profesor", email: "" };
+        return {
+          profesor_id: id,
+          nombre: p.nombre_completo?.trim() || p.email || "Profesor",
+          email: p.email || "",
+          banco: p.banco ?? null,
+          tipo_cuenta: p.tipo_cuenta ?? null,
+          numero_cuenta: p.numero_cuenta ?? null,
+          titular_cuenta: p.titular_cuenta ?? null,
+          banco_logo_url: p.banco_logo_url ?? null,
+          completa: cuentaCompleta(p),
+        };
+      }).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")));
+
+      const hoy = hoyLocal();
+      const [clasesRes, sesionesRes] = await Promise.all([
+        supabase
+          .from("clases_en_vivo")
+          .select("id,profesor_id,fecha,hora_inicio,hora_fin,titulo,duracion_min")
+          .in("profesor_id", ids)
+          .lte("fecha", hoy)
+          .order("fecha", { ascending: true }),
+        supabase
+          .from("sesiones_1a1")
+          .select("id,profesor_id,alumna_id,fecha,hora_inicio,hora_fin,estado,duracion_min")
+          .in("profesor_id", ids)
+          .lte("fecha", hoy)
+          .order("fecha", { ascending: true }),
+      ]);
+
+      if (clasesRes.error) toast.error(`Clases: ${clasesRes.error.message}`);
+      if (sesionesRes.error) toast.error(`Sesiones 1 a 1: ${sesionesRes.error.message}`);
+
+      const sesiones = ((sesionesRes.data ?? []) as SesionRow[]).filter((s) => {
+        const estado = (s.estado || "confirmada").toLowerCase();
+        return Number(s.duracion_min ?? 0) <= 0
+          && !["cancelada", "cancelado", "anulada"].includes(estado)
+          && termino(s.fecha, s.hora_fin, s.hora_inicio);
+      });
+
+      const alumnaIds = Array.from(new Set(sesiones.map((s) => s.alumna_id).filter(Boolean)));
+      const alumnas = new Map<string, string>();
+      if (alumnaIds.length) {
+        const r = await rpc<Array<{ id: string; nombre_completo: string; email: string }>>("perfiles_basicos", { _ids: alumnaIds });
+        ((r.data ?? []) as Array<{ id: string; nombre_completo: string; email: string }>).forEach((p) => {
+          alumnas.set(p.id, p.nombre_completo?.trim() || p.email || "Estudiante");
+        });
+      }
+
+      const faltas: Pendiente[] = [
+        ...((clasesRes.data ?? []) as ClaseRow[])
+          .filter((c) => Boolean(c.profesor_id) && Number(c.duracion_min ?? 0) <= 0 && termino(c.fecha, c.hora_fin, c.hora_inicio))
+          .map((c) => ({
+            tipo: "clase" as const,
+            referencia_id: c.id,
+            profesor_id: c.profesor_id as string,
+            profesor_nombre: perfiles.get(c.profesor_id as string)?.nombre_completo || perfiles.get(c.profesor_id as string)?.email || "Profesor",
+            fecha: c.fecha,
+            hora_inicio: c.hora_inicio,
+            hora_fin: c.hora_fin || "",
+            contexto: c.titulo?.trim() || "Clase en vivo",
+            dias_pendiente: diasDesde(c.fecha),
+            notificada: false,
+            descuento_aplicado: false,
+          })),
+        ...sesiones.map((s) => ({
+          tipo: "1a1" as const,
+          referencia_id: s.id,
+          profesor_id: s.profesor_id,
+          profesor_nombre: perfiles.get(s.profesor_id)?.nombre_completo || perfiles.get(s.profesor_id)?.email || "Profesor",
+          fecha: s.fecha,
+          hora_inicio: s.hora_inicio,
+          hora_fin: s.hora_fin || "",
+          contexto: alumnas.get(s.alumna_id) || "Estudiante",
+          dias_pendiente: diasDesde(s.fecha),
+          notificada: false,
+          descuento_aplicado: false,
+        })),
+      ].sort((a, b) => (a.fecha + a.hora_inicio).localeCompare(b.fecha + b.hora_inicio));
+
+      setPendientes(faltas);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     void cargar();
-    // Revisa nuevamente al volver a la pestaña, sin alterar otras pantallas.
     const onFocus = () => void cargar();
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    window.addEventListener("adn:horas-actualizadas", onFocus);
+    window.addEventListener("adn:datos-pago-actualizados", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("adn:horas-actualizadas", onFocus);
+      window.removeEventListener("adn:datos-pago-actualizados", onFocus);
+    };
   }, [puedeGestionar]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!puedeGestionar) return null;
 
   const notificar = async (p: Pendiente) => {
+    if (!session?.user.id) return;
     setWorking(`n:${p.referencia_id}`);
-    const rpc = supabase.rpc as unknown as Rpc;
-    const { error } = await rpc("notificar_registro_pendiente", {
-      _tipo: p.tipo,
-      _referencia_id: p.referencia_id,
+    const cuerpo = `Falta registrar la duración de tu ${p.tipo === "clase" ? "clase en vivo" : "sesión 1 a 1"} del ${fechaEC(p.fecha)} · ${p.contexto}.`;
+    const { error } = await supabase.rpc("notificar", {
+      _actor: session.user.id,
+      _cuerpo: cuerpo,
+      _referencia: p.referencia_id,
+      _tipo: "registro_horas_pendiente",
+      _titulo: "Registro de horas pendiente",
+      _url: "/mis-clases-asignadas",
+      _usuarios: [p.profesor_id],
     });
     setWorking(null);
     if (error) return toast.error(error.message);
+    setPendientes((arr) => arr.map((x) => x.referencia_id === p.referencia_id ? { ...x, notificada: true } : x));
     toast.success(`Notificación enviada a ${p.profesor_nombre}.`);
-    await cargar();
   };
 
   const abrirDescuento = (p: Pendiente) => {
@@ -98,26 +296,44 @@ export function PagosControlPanel() {
   };
 
   const aplicarDescuento = async () => {
-    if (!descuento) return;
+    if (!descuento || !session?.user.id) return;
     const valor = Number(monto);
     if (!Number.isFinite(valor) || valor <= 0) return toast.error("Escribe un valor de descuento válido.");
     if (motivo.trim().length < 3) return toast.error("Escribe el motivo del descuento.");
 
+    const [anio, mes] = descuento.fecha.slice(0, 7).split("-").map(Number);
     setWorking(`d:${descuento.referencia_id}`);
-    const rpc = supabase.rpc as unknown as Rpc;
-    const { error } = await rpc("aplicar_descuento_registro_pendiente", {
-      _tipo: descuento.tipo,
-      _referencia_id: descuento.referencia_id,
-      _monto: valor,
-      _motivo: motivo.trim(),
+
+    const { error } = await supabase.from("pagos_descuentos").insert({
+      profesor_id: descuento.profesor_id,
+      mes,
+      anio,
+      monto: valor,
+      motivo: motivo.trim(),
+      creado_por: session.user.id,
     });
+
+    if (error) {
+      setWorking(null);
+      return toast.error(error.message);
+    }
+
+    await supabase.rpc("notificar", {
+      _actor: session.user.id,
+      _cuerpo: `Se registró un descuento de $${valor.toFixed(2)}. Motivo: ${motivo.trim()}.`,
+      _referencia: descuento.referencia_id,
+      _tipo: "descuento_horas",
+      _titulo: "Descuento registrado",
+      _url: "/mis-clases-asignadas",
+      _usuarios: [descuento.profesor_id],
+    });
+
     setWorking(null);
-    if (error) return toast.error(error.message);
     toast.success(`Descuento de $${valor.toFixed(2)} registrado y profesor notificado.`);
+    setPendientes((arr) => arr.map((x) => x.referencia_id === descuento.referencia_id ? { ...x, descuento_aplicado: true } : x));
     setDescuento(null);
     setMonto("");
     setMotivo("");
-    await cargar();
   };
 
   const completas = cuentas.filter((c) => c.completa).length;
@@ -132,7 +348,7 @@ export function PagosControlPanel() {
               <h2 className="text-lg font-semibold">Alertas de registro de clases y sesiones</h2>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Clases y sesiones 1 a 1 que ya terminaron y todavía no tienen su duración real registrada.
+              Se leen directamente las clases y sesiones existentes; no depende de una migración nueva.
             </p>
           </div>
           <div className="px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300">
@@ -146,7 +362,7 @@ export function PagosControlPanel() {
           </div>
         ) : pendientes.length === 0 ? (
           <div className="p-6 flex items-center gap-3 text-sm text-muted-foreground">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500" /> No hay clases ni sesiones pendientes de registrar.
+            <CheckCircle2 className="w-5 h-5 text-emerald-500" /> No hay clases ni sesiones terminadas sin duración registrada.
           </div>
         ) : (
           <div className="divide-y">
@@ -179,7 +395,7 @@ export function PagosControlPanel() {
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-background text-sm font-semibold disabled:opacity-50"
                     >
                       {busyNotify ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
-                      {p.notificada ? "Recordar al profesor" : "Notificar profesor"}
+                      {p.notificada ? "Notificado" : "Notificar profesor"}
                     </button>
                     <button
                       onClick={() => abrirDescuento(p)}
@@ -214,7 +430,7 @@ export function PagosControlPanel() {
         {loading ? (
           <div className="py-8 text-center text-muted-foreground">Cargando cuentas…</div>
         ) : cuentas.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground">No se encontraron profesores activos.</div>
+          <div className="p-6 text-sm text-muted-foreground">No se encontraron cuentas con rol Profesor.</div>
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
             {cuentas.map((c) => (
@@ -253,7 +469,7 @@ export function PagosControlPanel() {
             </div>
             <div className="p-5 space-y-4">
               <div className="rounded-xl border bg-amber-500/5 p-3 text-xs text-muted-foreground">
-                El valor se registrará en <strong>Descuentos</strong> del mes correspondiente y se restará del total del profesor. No se aplica nada hasta que confirmes aquí.
+                El valor se guarda en <strong>Descuentos</strong> del mes correspondiente y se resta del pago. No se aplica nada hasta confirmar aquí.
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Valor del descuento *</label>
