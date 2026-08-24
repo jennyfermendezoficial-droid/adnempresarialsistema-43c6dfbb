@@ -7,7 +7,8 @@ export type CarpetaCloudinary =
   | "adn/cursos"
   | "adn/chats"
   | "adn/tareas"
-  | "adn/comprobantes";
+  | "adn/comprobantes"
+  | "adn/sistema";
 
 export function esImagen(file: File): boolean {
   return file.type.startsWith("image/");
