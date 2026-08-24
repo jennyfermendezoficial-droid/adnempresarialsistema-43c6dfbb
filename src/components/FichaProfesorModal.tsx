@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { subirImagen } from "@/lib/cloudinary";
+import { subirImagenBancoProfesor } from "@/lib/bank-images";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { ImagePlus, Landmark, Loader2 } from "lucide-react";
 
 interface Ficha {
   nombre_completo: string;
@@ -15,53 +16,138 @@ interface Ficha {
   tipo_cuenta: string;
   numero_cuenta: string;
   titular_cuenta: string;
+  banco_logo_url: string | null;
   observacion_ficha: string;
 }
 
 const VACIA: Ficha = {
-  nombre_completo: "", cedula: "", fecha_nacimiento: "", whatsapp: "", direccion: "",
-  banco: "", tipo_cuenta: "ahorros", numero_cuenta: "", titular_cuenta: "", observacion_ficha: "",
+  nombre_completo: "",
+  cedula: "",
+  fecha_nacimiento: "",
+  whatsapp: "",
+  direccion: "",
+  banco: "",
+  tipo_cuenta: "ahorros",
+  numero_cuenta: "",
+  titular_cuenta: "",
+  banco_logo_url: null,
+  observacion_ficha: "",
 };
 
-/** Ficha obligatoria para profesores: se muestra una sola vez hasta completarla. */
+function fichaCompleta(f: Ficha) {
+  return Boolean(
+    f.nombre_completo.trim().length >= 3
+    && f.cedula.trim().length >= 5
+    && f.fecha_nacimiento
+    && f.whatsapp.trim().length >= 7
+    && f.direccion.trim().length >= 4
+    && f.banco.trim().length >= 2
+    && f.tipo_cuenta
+    && f.numero_cuenta.trim().length >= 5
+    && f.titular_cuenta.trim().length >= 3
+    && f.banco_logo_url,
+  );
+}
+
+/**
+ * Ficha obligatoria del Profesor.
+ * Se comprueba al iniciar sesión, recargar, volver a la app y recuperar foco.
+ * No depende del rol visual principal: valida también has_role(..., soporte).
+ */
 export function FichaProfesorModal() {
-  const { session, role, profile, refresh } = useAuth();
+  const { session, role, roles, profile, refresh } = useAuth();
   const uid = session?.user.id;
+  const contextoProfesor = role === "soporte" || roles.includes("soporte");
+
+  const [esProfesor, setEsProfesor] = useState(contextoProfesor);
   const [abierto, setAbierto] = useState(false);
   const [f, setF] = useState<Ficha>(VACIA);
   const [foto, setFoto] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState(false);
+  const [subiendoBanco, setSubiendoBanco] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
-    if (!uid || role !== "soporte") return;
-    let cancel = false;
-    (async () => {
-      const { data } = await supabase.from("profiles")
-        .select("nombre_completo,cedula,fecha_nacimiento,whatsapp,direccion,banco,tipo_cuenta,numero_cuenta,titular_cuenta,observacion_ficha,avatar_url,ficha_completa")
-        .eq("id", uid).maybeSingle();
-      if (cancel || !data) return;
-      const d = data as Record<string, string | boolean | null>;
-      if (d.ficha_completa === true) return;
-      setF({
-        nombre_completo: (d.nombre_completo as string) ?? "",
-        cedula: (d.cedula as string) ?? "",
-        fecha_nacimiento: (d.fecha_nacimiento as string) ?? "",
-        whatsapp: (d.whatsapp as string) ?? "",
-        direccion: (d.direccion as string) ?? "",
-        banco: (d.banco as string) ?? "",
-        tipo_cuenta: (d.tipo_cuenta as string) ?? "ahorros",
-        numero_cuenta: (d.numero_cuenta as string) ?? "",
-        titular_cuenta: (d.titular_cuenta as string) ?? "",
-        observacion_ficha: (d.observacion_ficha as string) ?? "",
-      });
-      setFoto((d.avatar_url as string) ?? null);
-      setAbierto(true);
+    if (!uid) {
+      setEsProfesor(false);
+      setAbierto(false);
+      return;
+    }
+    let vivo = true;
+    void (async () => {
+      let real = contextoProfesor;
+      try {
+        const { data } = await supabase.rpc("has_role", { _user_id: uid, _role: "soporte" });
+        real = real || data === true;
+      } catch { /* usa el contexto si el RPC no responde */ }
+      if (vivo) setEsProfesor(real);
     })();
-    return () => { cancel = true; };
-  }, [uid, role]);
+    return () => { vivo = false; };
+  }, [uid, contextoProfesor]);
 
-  if (!abierto || role !== "soporte") return null;
+  const cargar = useCallback(async () => {
+    if (!uid || !esProfesor) {
+      setAbierto(false);
+      return;
+    }
+    setCargando(true);
+    const { data, error } = await supabase.from("profiles")
+      .select("nombre_completo,cedula,fecha_nacimiento,whatsapp,direccion,banco,tipo_cuenta,numero_cuenta,titular_cuenta,banco_logo_url,observacion_ficha,avatar_url,ficha_completa")
+      .eq("id", uid).maybeSingle();
+    setCargando(false);
+
+    if (error) {
+      toast.error(`No se pudieron revisar tus datos de Profesor: ${error.message}`);
+      return;
+    }
+    if (!data) {
+      setF({ ...VACIA, nombre_completo: profile?.nombre_completo ?? "", titular_cuenta: profile?.nombre_completo ?? "" });
+      setFoto(profile?.avatar_url ?? null);
+      setAbierto(true);
+      return;
+    }
+
+    const d = data as Record<string, string | boolean | null>;
+    const siguiente: Ficha = {
+      nombre_completo: (d.nombre_completo as string) ?? "",
+      cedula: (d.cedula as string) ?? "",
+      fecha_nacimiento: (d.fecha_nacimiento as string) ?? "",
+      whatsapp: (d.whatsapp as string) ?? "",
+      direccion: (d.direccion as string) ?? "",
+      banco: (d.banco as string) ?? "",
+      tipo_cuenta: (d.tipo_cuenta as string) ?? "ahorros",
+      numero_cuenta: (d.numero_cuenta as string) ?? "",
+      titular_cuenta: (d.titular_cuenta as string) ?? (d.nombre_completo as string) ?? "",
+      banco_logo_url: (d.banco_logo_url as string) ?? null,
+      observacion_ficha: (d.observacion_ficha as string) ?? "",
+    };
+
+    setF(siguiente);
+    setFoto((d.avatar_url as string) ?? null);
+    // Aunque ficha_completa estuviera marcada antes, si falta un dato real vuelve a ser obligatorio.
+    setAbierto(!fichaCompleta(siguiente));
+  }, [uid, esProfesor, profile?.nombre_completo, profile?.avatar_url]);
+
+  useEffect(() => {
+    if (!uid || !esProfesor) return;
+    void cargar();
+
+    const revisar = () => void cargar();
+    const visible = () => { if (document.visibilityState === "visible") void cargar(); };
+    window.addEventListener("focus", revisar);
+    window.addEventListener("pageshow", revisar);
+    window.addEventListener("adn:datos-pago-actualizados", revisar);
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      window.removeEventListener("focus", revisar);
+      window.removeEventListener("pageshow", revisar);
+      window.removeEventListener("adn:datos-pago-actualizados", revisar);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, [uid, esProfesor, cargar]);
+
+  if (!abierto || !esProfesor) return null;
 
   const set = (k: keyof Ficha) => (e: { target: { value: string } }) => setF((p) => ({ ...p, [k]: e.target.value }));
 
@@ -70,8 +156,25 @@ export function FichaProfesorModal() {
     try {
       const url = await subirImagen(file, "adn/avatares");
       setFoto(url);
-    } catch (err) { toast.error((err as Error).message); }
-    setSubiendo(false);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
+  const subirBanco = async (file: File) => {
+    if (!uid) return;
+    setSubiendoBanco(true);
+    try {
+      const url = await subirImagenBancoProfesor(file, uid);
+      setF((p) => ({ ...p, banco_logo_url: url }));
+      toast.success("Imagen bancaria cargada. Guarda tu ficha para finalizar.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo cargar la imagen bancaria");
+    } finally {
+      setSubiendoBanco(false);
+    }
   };
 
   const guardar = async () => {
@@ -82,9 +185,11 @@ export function FichaProfesorModal() {
     if (!f.fecha_nacimiento) faltan.push("fecha de nacimiento");
     if (f.whatsapp.trim().length < 7) faltan.push("WhatsApp");
     if (f.direccion.trim().length < 4) faltan.push("dirección");
-    if (f.banco.trim().length < 2) faltan.push("banco");
+    if (f.banco.trim().length < 2) faltan.push("banco o cooperativa");
+    if (!f.tipo_cuenta) faltan.push("tipo de cuenta");
     if (f.numero_cuenta.trim().length < 5) faltan.push("número de cuenta");
     if (f.titular_cuenta.trim().length < 3) faltan.push("titular de la cuenta");
+    if (!f.banco_logo_url) faltan.push("imagen o logo bancario");
     if (faltan.length) return toast.error(`Completa: ${faltan.join(", ")}`);
 
     setGuardando(true);
@@ -98,14 +203,17 @@ export function FichaProfesorModal() {
       tipo_cuenta: f.tipo_cuenta,
       numero_cuenta: f.numero_cuenta.trim(),
       titular_cuenta: f.titular_cuenta.trim(),
+      banco_logo_url: f.banco_logo_url,
       observacion_ficha: f.observacion_ficha.trim() || null,
       avatar_url: foto,
       ficha_completa: true,
     }).eq("id", uid);
     setGuardando(false);
+
     if (error) return toast.error(error.message);
     await refresh();
-    toast.success("Ficha guardada");
+    window.dispatchEvent(new Event("adn:datos-pago-actualizados"));
+    toast.success("Datos del Profesor registrados al 100%.");
     setAbierto(false);
   };
 
@@ -113,79 +221,111 @@ export function FichaProfesorModal() {
   const lbl = "text-xs font-semibold text-muted-foreground";
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm grid place-items-center p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border bg-card p-6">
-        <h2 className="text-xl font-semibold">Completa tu ficha de profesor</h2>
-        <p className="text-xs text-muted-foreground mt-1 mb-5">
-          Se llena una sola vez. Estos datos se usan para tus pagos e informes; luego puedes editarlos en tu perfil.
-        </p>
-
-        <div className="flex items-center gap-4 mb-5">
-          {foto
-            ? <img src={foto} alt="" className="w-20 h-20 rounded-full object-cover" />
-            : <div className="w-20 h-20 rounded-full grid place-items-center text-white text-2xl font-semibold" style={{ background: "linear-gradient(135deg,var(--violet),var(--violet-2))" }}>
-                {(f.nombre_completo || profile?.email || "?").slice(0, 1).toUpperCase()}
-              </div>}
-          <label className="px-3 py-2 rounded-lg border cursor-pointer text-sm hover:bg-muted">
-            {subiendo ? "Subiendo…" : "Subir foto"}
-            <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && subirFoto(e.target.files[0])} />
-          </label>
+    <div className="fixed inset-0 z-[140] bg-black/75 backdrop-blur-sm grid place-items-center p-4 overflow-y-auto">
+      <div className="w-full max-w-2xl max-h-[94vh] overflow-y-auto rounded-2xl border bg-card shadow-2xl my-4">
+        <div className="p-6 text-white" style={{ background: "linear-gradient(135deg,var(--deep-2),var(--violet))" }}>
+          <div className="text-[11px] uppercase tracking-[0.16em] opacity-80">Registro obligatorio · Profesor</div>
+          <h2 className="text-2xl font-semibold mt-1">Completa tus datos al 100%</h2>
+          <p className="text-sm opacity-90 mt-1">
+            Esta ventana aparecerá al entrar, recargar o abrir la app mientras falte algún dato necesario para tus pagos e informes.
+          </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div className="sm:col-span-2">
-            <label className={lbl}>Nombres y apellidos</label>
-            <input value={f.nombre_completo} onChange={set("nombre_completo")} className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Cédula</label>
-            <input value={f.cedula} onChange={set("cedula")} className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Fecha de nacimiento</label>
-            <input type="date" value={f.fecha_nacimiento} onChange={set("fecha_nacimiento")} className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Correo</label>
-            <input value={profile?.email ?? ""} disabled className={`${inp} bg-muted`} />
-          </div>
-          <div>
-            <label className={lbl}>WhatsApp</label>
-            <input value={f.whatsapp} onChange={set("whatsapp")} placeholder="09xxxxxxxx" className={inp} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={lbl}>Dirección</label>
-            <input value={f.direccion} onChange={set("direccion")} className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Banco a depositar</label>
-            <input value={f.banco} onChange={set("banco")} placeholder="Ej. Banco Pichincha" className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Tipo de cuenta</label>
-            <select value={f.tipo_cuenta} onChange={set("tipo_cuenta")} className={inp}>
-              <option value="ahorros">Ahorros</option>
-              <option value="corriente">Corriente</option>
-            </select>
-          </div>
-          <div>
-            <label className={lbl}>Número de cuenta</label>
-            <input value={f.numero_cuenta} onChange={set("numero_cuenta")} className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Titular de la cuenta</label>
-            <input value={f.titular_cuenta} onChange={set("titular_cuenta")} className={inp} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={lbl}>Observación (opcional)</label>
-            <textarea value={f.observacion_ficha} onChange={set("observacion_ficha")} rows={2} className={`${inp} resize-y`} />
-          </div>
-        </div>
+        <div className="p-6">
+          {cargando && <div className="mb-4 text-xs text-muted-foreground inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Verificando información…</div>}
 
-        <button onClick={guardar} disabled={guardando}
-          className="mt-5 w-full px-4 py-2.5 rounded-xl bg-violet-gradient text-white font-semibold disabled:opacity-60 inline-flex items-center justify-center gap-2">
-          {guardando && <Loader2 className="w-4 h-4 animate-spin" />} Guardar ficha
-        </button>
+          <div className="flex items-center gap-4 mb-5">
+            {foto
+              ? <img src={foto} alt="Foto de perfil" className="w-20 h-20 rounded-full object-cover border" />
+              : <div className="w-20 h-20 rounded-full grid place-items-center text-white text-2xl font-semibold" style={{ background: "linear-gradient(135deg,var(--violet),var(--violet-2))" }}>
+                  {(f.nombre_completo || profile?.email || "?").slice(0, 1).toUpperCase()}
+                </div>}
+            <label className="px-3 py-2 rounded-lg border cursor-pointer text-sm hover:bg-muted inline-flex items-center gap-2">
+              {subiendo ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+              {subiendo ? "Subiendo…" : "Foto de perfil (opcional)"}
+              <input type="file" accept="image/*" hidden disabled={subiendo} onChange={(e) => e.target.files?.[0] && void subirFoto(e.target.files[0])} />
+            </label>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
+              <label className={lbl}>Nombres y apellidos *</label>
+              <input value={f.nombre_completo} onChange={set("nombre_completo")} className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Cédula *</label>
+              <input value={f.cedula} onChange={set("cedula")} className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Fecha de nacimiento *</label>
+              <input type="date" value={f.fecha_nacimiento} onChange={set("fecha_nacimiento")} className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Correo</label>
+              <input value={profile?.email ?? ""} disabled className={`${inp} bg-muted`} />
+            </div>
+            <div>
+              <label className={lbl}>WhatsApp *</label>
+              <input value={f.whatsapp} onChange={set("whatsapp")} placeholder="09xxxxxxxx" className={inp} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={lbl}>Dirección *</label>
+              <input value={f.direccion} onChange={set("direccion")} className={inp} />
+            </div>
+
+            <div className="sm:col-span-2 mt-2 rounded-xl border p-4 bg-muted/20">
+              <div className="flex items-center gap-2 font-semibold mb-3"><Landmark className="w-4 h-4 text-violet" /> Datos para recibir pagos</div>
+              <div className="flex items-center gap-4 mb-4">
+                {f.banco_logo_url ? (
+                  <img src={f.banco_logo_url} alt="Banco" className="w-16 h-16 rounded-xl object-cover border bg-background" />
+                ) : (
+                  <div className="w-16 h-16 rounded-xl border-2 border-dashed grid place-items-center bg-background text-muted-foreground"><Landmark className="w-7 h-7" /></div>
+                )}
+                <label className="px-3 py-2 rounded-lg border bg-background cursor-pointer text-sm font-semibold inline-flex items-center gap-2">
+                  {subiendoBanco ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                  {subiendoBanco ? "Subiendo…" : f.banco_logo_url ? "Cambiar imagen bancaria" : "Subir imagen bancaria *"}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={subiendoBanco} onChange={(e) => e.target.files?.[0] && void subirBanco(e.target.files[0])} />
+                </label>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={lbl}>Banco o cooperativa *</label>
+                  <input value={f.banco} onChange={set("banco")} placeholder="Ej. Banco Pichincha" className={inp} />
+                </div>
+                <div>
+                  <label className={lbl}>Tipo de cuenta *</label>
+                  <select value={f.tipo_cuenta} onChange={set("tipo_cuenta")} className={inp}>
+                    <option value="ahorros">Ahorros</option>
+                    <option value="corriente">Corriente</option>
+                    <option value="cooperativa">Cooperativa</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={lbl}>Número de cuenta *</label>
+                  <input value={f.numero_cuenta} onChange={set("numero_cuenta")} className={inp} />
+                </div>
+                <div>
+                  <label className={lbl}>Titular de la cuenta *</label>
+                  <input value={f.titular_cuenta} onChange={set("titular_cuenta")} className={inp} />
+                </div>
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className={lbl}>Observación (opcional)</label>
+              <textarea value={f.observacion_ficha} onChange={set("observacion_ficha")} rows={2} className={`${inp} resize-y`} />
+            </div>
+          </div>
+
+          <button onClick={() => void guardar()} disabled={guardando || subiendoBanco}
+            className="mt-5 w-full px-4 py-3 rounded-xl bg-violet-gradient text-white font-semibold disabled:opacity-60 inline-flex items-center justify-center gap-2">
+            {guardando && <Loader2 className="w-4 h-4 animate-spin" />}
+            {guardando ? "Guardando…" : "Guardar y completar registro"}
+          </button>
+          <p className="text-[11px] text-center text-muted-foreground mt-2">No se puede cerrar esta ventana mientras falte algún dato obligatorio.</p>
+        </div>
       </div>
     </div>
   );
