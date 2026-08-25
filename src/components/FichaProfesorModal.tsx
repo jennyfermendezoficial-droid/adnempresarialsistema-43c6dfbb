@@ -21,6 +21,19 @@ interface Ficha {
   observacion_ficha: string;
 }
 
+interface PerfilPagosSeguro {
+  avatar_url?: string | null;
+  banco?: string | null;
+  banco_logo_url?: string | null;
+  cedula?: string | null;
+  email?: string | null;
+  id?: string;
+  nombre_completo?: string | null;
+  numero_cuenta?: string | null;
+  tipo_cuenta?: string | null;
+  titular_cuenta?: string | null;
+}
+
 const VACIA: Ficha = {
   nombre_completo: "",
   cedula: "",
@@ -50,6 +63,25 @@ function fichaCompleta(f: Ficha) {
     && f.titular_cuenta.trim().length >= 3
     && f.banco_logo_url,
   );
+}
+
+function datosPagoCompletos(f: Ficha) {
+  return Boolean(
+    f.cedula.trim().length >= 5
+    && f.banco.trim().length >= 2
+    && f.tipo_cuenta
+    && f.numero_cuenta.trim().length >= 5
+    && f.titular_cuenta.trim().length >= 3
+    && f.banco_logo_url,
+  );
+}
+
+function funcionNoDisponible(error: unknown) {
+  const e = error as { code?: string; message?: string } | null;
+  const msg = (e?.message || "").toLowerCase();
+  return e?.code === "PGRST202"
+    || msg.includes("could not find the function")
+    || msg.includes("schema cache");
 }
 
 function clavePospuesto(uid: string) {
@@ -122,74 +154,55 @@ export function FichaProfesorModal() {
     if (!uid || !esObjetivo) return;
 
     setCargando(true);
-    let data: any = null;
-    let error: any = null;
+    let row: Record<string, any> | null = null;
+    let usoRpcNueva = false;
 
+    // 1) Preferir la RPC completa cuando la migración ya esté aplicada.
     try {
       const respuesta = await (supabase as any).rpc("obtener_mi_ficha_profesor");
-      data = respuesta.data;
-      error = respuesta.error;
-    } catch (err) {
-      error = err;
-    }
+      if (!respuesta.error) {
+        row = Array.isArray(respuesta.data) ? respuesta.data[0] ?? null : respuesta.data;
+        usoRpcNueva = true;
+      }
+    } catch { /* usar respaldo existente */ }
 
-    // Compatibilidad temporal si la migración aún no ha sido aplicada en una preview.
-    if (error) {
-      const respaldo = await supabase
-        .from("profiles")
-        .select("nombre_completo,cedula,fecha_nacimiento,whatsapp,direccion,banco,tipo_cuenta,numero_cuenta,titular_cuenta,banco_logo_url,observacion_ficha,avatar_url,ficha_completa")
-        .eq("id", uid)
-        .maybeSingle();
-      data = respaldo.data;
-      error = respaldo.error;
+    // 2) Respaldo seguro que YA existe en la base publicada.
+    // No lee profiles directamente, por lo que evita "permission denied for table profiles".
+    if (!row) {
+      try {
+        const { data: pagos, error: pagosError } = await supabase.rpc("perfiles_pagos", { _ids: [uid] });
+        if (!pagosError) {
+          row = ((pagos ?? [])[0] as PerfilPagosSeguro | undefined) ?? null;
+        }
+      } catch { /* continuar con datos básicos del AuthProvider */ }
     }
 
     setCargando(false);
 
-    if (error) {
-      setF((prev) => ({
-        ...prev,
-        nombre_completo: prev.nombre_completo || profile?.nombre_completo || "",
-        titular_cuenta: prev.titular_cuenta || profile?.nombre_completo || "",
-      }));
-      setFoto((prev) => prev || profile?.avatar_url || null);
-      setCompleto(false);
-      if (modo === "manual" || Date.now() >= leerPospuesto(uid)) setAbierto(true);
-      toast.error(`No se pudieron cargar tus datos: ${error.message || "error de permisos"}`);
-      return;
-    }
-
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row) {
-      const siguiente = {
-        ...VACIA,
-        nombre_completo: profile?.nombre_completo ?? "",
-        titular_cuenta: profile?.nombre_completo ?? "",
-      };
-      setF(siguiente);
-      setFoto(profile?.avatar_url ?? null);
-      setCompleto(false);
-      if (modo === "manual" || Date.now() >= leerPospuesto(uid)) setAbierto(true);
-      return;
-    }
-
+    const meta = (session?.user.user_metadata ?? {}) as Record<string, any>;
     const siguiente: Ficha = {
-      nombre_completo: row.nombre_completo ?? "",
-      cedula: row.cedula ?? "",
-      fecha_nacimiento: row.fecha_nacimiento ?? "",
-      whatsapp: row.whatsapp ?? "",
-      direccion: row.direccion ?? "",
-      banco: row.banco ?? "",
-      tipo_cuenta: row.tipo_cuenta ?? "ahorros",
-      numero_cuenta: row.numero_cuenta ?? "",
-      titular_cuenta: row.titular_cuenta ?? row.nombre_completo ?? "",
-      banco_logo_url: row.banco_logo_url ?? null,
-      observacion_ficha: row.observacion_ficha ?? "",
+      nombre_completo: row?.nombre_completo ?? profile?.nombre_completo ?? "",
+      cedula: row?.cedula ?? meta.cedula ?? "",
+      fecha_nacimiento: row?.fecha_nacimiento ?? meta.fecha_nacimiento ?? "",
+      whatsapp: row?.whatsapp ?? meta.whatsapp ?? "",
+      direccion: row?.direccion ?? meta.direccion ?? "",
+      banco: row?.banco ?? "",
+      tipo_cuenta: row?.tipo_cuenta ?? "ahorros",
+      numero_cuenta: row?.numero_cuenta ?? "",
+      titular_cuenta: row?.titular_cuenta ?? row?.nombre_completo ?? profile?.nombre_completo ?? "",
+      banco_logo_url: row?.banco_logo_url ?? null,
+      observacion_ficha: row?.observacion_ficha ?? meta.observacion_ficha ?? "",
     };
 
-    const estaCompleta = fichaCompleta(siguiente);
+    // Con la RPC completa validamos todos los campos. Con el respaldo antiguo,
+    // un guardado exitoso deja marca en Auth metadata y perfiles_pagos confirma
+    // que los datos bancarios sí quedaron persistidos.
+    const estaCompleta = usoRpcNueva
+      ? fichaCompleta(siguiente)
+      : Boolean(meta.ficha_profesor_completa === true && datosPagoCompletos(siguiente));
+
     setF(siguiente);
-    setFoto(row.avatar_url ?? null);
+    setFoto(row?.avatar_url ?? profile?.avatar_url ?? null);
     setCompleto(estaCompleta);
 
     if (estaCompleta) {
@@ -209,7 +222,7 @@ export function FichaProfesorModal() {
     const hasta = leerPospuesto(uid);
     setPospuestoHasta(hasta);
     setAbierto(Date.now() >= hasta);
-  }, [uid, esObjetivo, profile?.nombre_completo, profile?.avatar_url]);
+  }, [uid, esObjetivo, profile?.nombre_completo, profile?.avatar_url, session?.user.user_metadata]);
 
   useEffect(() => {
     if (!uid || !esObjetivo) return;
@@ -318,27 +331,80 @@ export function FichaProfesorModal() {
     if (!f.banco_logo_url) faltan.push("imagen o logo bancario");
     if (faltan.length) return toast.error(`Completa: ${faltan.join(", ")}`);
 
-    setGuardando(true);
-    const { data, error } = await (supabase as any).rpc("guardar_mi_ficha_profesor", {
-      _nombre_completo: f.nombre_completo.trim(),
-      _cedula: f.cedula.trim(),
-      _fecha_nacimiento: f.fecha_nacimiento,
-      _whatsapp: f.whatsapp.trim(),
-      _direccion: f.direccion.trim(),
-      _banco: f.banco.trim(),
-      _tipo_cuenta: f.tipo_cuenta,
-      _numero_cuenta: f.numero_cuenta.trim(),
-      _titular_cuenta: f.titular_cuenta.trim(),
-      _banco_logo_url: f.banco_logo_url,
-      _observacion_ficha: f.observacion_ficha.trim() || null,
-      _avatar_url: foto,
-    });
-    setGuardando(false);
+    const payload = {
+      nombre_completo: f.nombre_completo.trim(),
+      cedula: f.cedula.trim(),
+      fecha_nacimiento: f.fecha_nacimiento,
+      whatsapp: f.whatsapp.trim(),
+      direccion: f.direccion.trim(),
+      banco: f.banco.trim(),
+      tipo_cuenta: f.tipo_cuenta,
+      numero_cuenta: f.numero_cuenta.trim(),
+      titular_cuenta: f.titular_cuenta.trim(),
+      banco_logo_url: f.banco_logo_url,
+      observacion_ficha: f.observacion_ficha.trim() || null,
+      avatar_url: foto,
+      ficha_completa: true,
+    };
 
-    if (error || data !== true) {
-      return toast.error(`No se pudo guardar la ficha: ${error?.message || "respuesta inválida"}`);
+    setGuardando(true);
+    let guardado = false;
+    let ultimoError: any = null;
+
+    // Camino preferido: RPC SECURITY DEFINER cuando esté desplegada.
+    try {
+      const respuesta = await (supabase as any).rpc("guardar_mi_ficha_profesor", {
+        _nombre_completo: payload.nombre_completo,
+        _cedula: payload.cedula,
+        _fecha_nacimiento: payload.fecha_nacimiento,
+        _whatsapp: payload.whatsapp,
+        _direccion: payload.direccion,
+        _banco: payload.banco,
+        _tipo_cuenta: payload.tipo_cuenta,
+        _numero_cuenta: payload.numero_cuenta,
+        _titular_cuenta: payload.titular_cuenta,
+        _banco_logo_url: payload.banco_logo_url,
+        _observacion_ficha: payload.observacion_ficha,
+        _avatar_url: payload.avatar_url,
+      });
+      ultimoError = respuesta.error;
+      guardado = !respuesta.error && respuesta.data === true;
+    } catch (err) {
+      ultimoError = err;
     }
 
+    // La preview actual todavía no tiene la RPC en schema cache.
+    // En ese caso recuperamos exactamente el guardado que ya utilizaba Mi perfil.
+    if (!guardado && funcionNoDisponible(ultimoError)) {
+      const directo = await supabase.from("profiles").update(payload).eq("id", uid);
+      ultimoError = directo.error;
+      guardado = !directo.error;
+    }
+
+    if (!guardado) {
+      setGuardando(false);
+      const mensaje = ultimoError?.message || "No se pudo guardar la información";
+      return toast.error(`No se pudo guardar la ficha: ${mensaje}`);
+    }
+
+    // Respaldo del propio usuario para rehidratar campos personales cuando la
+    // seguridad de profiles impide SELECT directo de esas columnas.
+    try {
+      const metaActual = (session?.user.user_metadata ?? {}) as Record<string, unknown>;
+      await supabase.auth.updateUser({
+        data: {
+          ...metaActual,
+          ficha_profesor_completa: true,
+          cedula: payload.cedula,
+          fecha_nacimiento: payload.fecha_nacimiento,
+          whatsapp: payload.whatsapp,
+          direccion: payload.direccion,
+          observacion_ficha: payload.observacion_ficha,
+        },
+      });
+    } catch { /* el guardado principal ya fue exitoso */ }
+
+    setGuardando(false);
     setCompleto(true);
     limpiarPospuesto(uid);
     setPospuestoHasta(0);
