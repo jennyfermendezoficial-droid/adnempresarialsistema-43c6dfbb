@@ -16,11 +16,10 @@ import { Menu, X } from "lucide-react";
 export const Route = createFileRoute("/_authenticated")({ component: AuthedLayout });
 
 function AuthedLayout() {
-  const { session, profile, role, roles, loading, signOut } = useAuth();
+  const { session, profile, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const isProfesor = roles.includes("soporte") || role === "soporte";
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/login", replace: true });
@@ -33,23 +32,6 @@ function AuthedLayout() {
     document.body.style.overflow = drawerOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [drawerOpen]);
-
-  // En navegador y PWA, cada vez que el Profesor vuelve a la aplicación se
-  // vuelve a mostrar su panel de Datos de pago. Si está incompleto, no podrá
-  // cerrarlo; si está completo, puede revisarlo y continuar.
-  useEffect(() => {
-    if (!isProfesor || !session?.user.id || typeof window === "undefined") return;
-    const abrir = () => window.dispatchEvent(new Event("adn:abrir-datos-pago"));
-    const visible = () => { if (document.visibilityState === "visible") abrir(); };
-    window.addEventListener("focus", abrir);
-    window.addEventListener("pageshow", abrir);
-    document.addEventListener("visibilitychange", visible);
-    return () => {
-      window.removeEventListener("focus", abrir);
-      window.removeEventListener("pageshow", abrir);
-      document.removeEventListener("visibilitychange", visible);
-    };
-  }, [isProfesor, session?.user.id]);
 
   useGlobalNotifications();
 
