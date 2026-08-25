@@ -1,21 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import {
-  AlertTriangle, BadgeDollarSign, Clock3, ImagePlus,
-  Landmark, Loader2, Save, X,
-} from "lucide-react";
-import { toast } from "sonner";
+import { AlertTriangle, BadgeDollarSign, Clock3, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { subirImagenBancoProfesor } from "@/lib/bank-images";
-
-interface DatosPago {
-  banco: string;
-  tipo_cuenta: string;
-  numero_cuenta: string;
-  titular_cuenta: string;
-  banco_logo_url: string | null;
-}
 
 interface ClasePendiente {
   id: string;
@@ -50,14 +37,6 @@ interface NotificacionDescuento {
   cuerpo: string;
 }
 
-const VACIO: DatosPago = {
-  banco: "",
-  tipo_cuenta: "ahorros",
-  numero_cuenta: "",
-  titular_cuenta: "",
-  banco_logo_url: null,
-};
-
 function fechaLocal(d = new Date()) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -77,16 +56,6 @@ function yaTermino(fecha: string, horaFin: string | null, horaInicio: string) {
   return limite <= horaLocal();
 }
 
-function completa(d: DatosPago) {
-  return Boolean(
-    d.banco.trim()
-    && d.tipo_cuenta.trim()
-    && d.numero_cuenta.trim()
-    && d.titular_cuenta.trim()
-    && d.banco_logo_url,
-  );
-}
-
 function fechaEC(fecha: string) {
   const [a, m, d] = fecha.slice(0, 10).split("-");
   return a && m && d ? `${d}/${m}/${a}` : fecha;
@@ -96,26 +65,23 @@ function hora(v: string | null) {
   return v ? v.slice(0, 5) : "—";
 }
 
+/**
+ * Este componente se ocupa únicamente de horas pendientes y descuentos.
+ * Los datos personales/bancarios se gestionan exclusivamente en FichaProfesorModal.
+ */
 export function AlertaRegistroProfesor() {
-  const { session, role, roles, profile } = useAuth();
+  const { session, role, roles } = useAuth();
   const uid = session?.user.id;
   const isProfesor = roles.includes("soporte") || role === "soporte";
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const [datos, setDatos] = useState<DatosPago>(VACIO);
-  const [datosCompletos, setDatosCompletos] = useState(true);
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [descuento, setDescuento] = useState<NotificacionDescuento | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [forzarEdicionDatos, setForzarEdicionDatos] = useState(false);
 
   const cargar = async () => {
     if (!uid || !isProfesor) {
-      setDatos(VACIO);
-      setDatosCompletos(true);
       setPendientes([]);
       setDescuento(null);
       setLoading(false);
@@ -123,12 +89,7 @@ export function AlertaRegistroProfesor() {
     }
 
     const hoy = fechaLocal();
-    const [perfilRes, clasesRes, sesionesRes, descuentoRes] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("banco,tipo_cuenta,numero_cuenta,titular_cuenta,banco_logo_url")
-        .eq("id", uid)
-        .maybeSingle(),
+    const [clasesRes, sesionesRes, descuentoRes] = await Promise.all([
       supabase
         .from("clases_en_vivo")
         .select("id,fecha,hora_inicio,hora_fin,titulo,duracion_min")
@@ -151,23 +112,6 @@ export function AlertaRegistroProfesor() {
         .limit(1)
         .maybeSingle(),
     ]);
-
-    if (perfilRes.error) {
-      setDatos({ ...VACIO, titular_cuenta: profile?.nombre_completo ?? "" });
-      setDatosCompletos(false);
-      toast.error(`Datos de pago: ${perfilRes.error.message}`);
-    } else {
-      const raw = perfilRes.data as Partial<DatosPago> | null;
-      const siguiente: DatosPago = {
-        banco: raw?.banco ?? "",
-        tipo_cuenta: raw?.tipo_cuenta ?? "ahorros",
-        numero_cuenta: raw?.numero_cuenta ?? "",
-        titular_cuenta: raw?.titular_cuenta ?? profile?.nombre_completo ?? "",
-        banco_logo_url: raw?.banco_logo_url ?? null,
-      };
-      setDatos(siguiente);
-      setDatosCompletos(completa(siguiente));
-    }
 
     const clases = ((clasesRes.data ?? []) as ClasePendiente[])
       .filter((c) => Number(c.duracion_min ?? 0) <= 0 && yaTermino(c.fecha, c.hora_fin, c.hora_inicio))
@@ -201,95 +145,26 @@ export function AlertaRegistroProfesor() {
     setLoading(false);
   };
 
-  // Al entrar a la plataforma, toda cuenta que tenga el rol soporte ve sus datos de pago.
-  // Si ya están completos puede cerrar el formulario; si faltan datos queda obligatorio.
-  useEffect(() => {
-    if (uid && isProfesor) setForzarEdicionDatos(true);
-  }, [uid, isProfesor]);
-
   useEffect(() => {
     setLoading(true);
     void cargar();
     if (!uid || !isProfesor) return;
 
     const refrescar = () => void cargar();
-    const abrirDatos = () => setForzarEdicionDatos(true);
     const timer = window.setInterval(refrescar, 30_000);
     window.addEventListener("focus", refrescar);
     window.addEventListener("adn:horas-actualizadas", refrescar);
-    window.addEventListener("adn:datos-pago-actualizados", refrescar);
-    window.addEventListener("adn:abrir-datos-pago", abrirDatos);
 
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", refrescar);
       window.removeEventListener("adn:horas-actualizadas", refrescar);
-      window.removeEventListener("adn:datos-pago-actualizados", refrescar);
-      window.removeEventListener("adn:abrir-datos-pago", abrirDatos);
     };
     // Se vuelve a comprobar también al cambiar de pantalla.
   }, [uid, isProfesor, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const faltantes = useMemo(() => {
-    const f: string[] = [];
-    if (!datos.banco.trim()) f.push("banco o cooperativa");
-    if (!datos.tipo_cuenta.trim()) f.push("tipo de cuenta");
-    if (!datos.numero_cuenta.trim()) f.push("número de cuenta");
-    if (!datos.titular_cuenta.trim()) f.push("titular");
-    if (!datos.banco_logo_url) f.push("imagen o logo del banco");
-    return f;
-  }, [datos]);
-
-  if (!isProfesor || !uid || loading) return null;
-
-  const subirImagen = async (file?: File) => {
-    if (!file) return;
-    setUploading(true);
-    try {
-      const url = await subirImagenBancoProfesor(file, uid);
-      setDatos((d) => ({ ...d, banco_logo_url: url }));
-      toast.success("Imagen bancaria cargada. Ahora guarda los datos.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo subir la imagen bancaria");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const guardarDatos = async () => {
-    const banco = datos.banco.trim();
-    const numero = datos.numero_cuenta.trim();
-    const titular = datos.titular_cuenta.trim();
-
-    if (banco.length < 2) return toast.error("Escribe el banco o cooperativa.");
-    if (!datos.tipo_cuenta.trim()) return toast.error("Selecciona el tipo de cuenta.");
-    if (numero.length < 5) return toast.error("Escribe un número de cuenta válido.");
-    if (titular.length < 3) return toast.error("Escribe el titular de la cuenta.");
-    if (!datos.banco_logo_url) return toast.error("La imagen o logo del banco es obligatorio.");
-
-    setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        banco,
-        tipo_cuenta: datos.tipo_cuenta,
-        numero_cuenta: numero,
-        titular_cuenta: titular,
-        banco_logo_url: datos.banco_logo_url,
-      })
-      .eq("id", uid);
-    setSaving(false);
-
-    if (error) return toast.error(error.message);
-    setDatosCompletos(true);
-    setForzarEdicionDatos(false);
-    window.dispatchEvent(new Event("adn:datos-pago-actualizados"));
-    toast.success("Datos de pago completos y guardados.");
-    await cargar();
-  };
-
   const cerrarDescuento = async () => {
-    if (!descuento) return;
+    if (!descuento || !uid) return;
     await supabase
       .from("notificaciones")
       .update({ leida: true })
@@ -298,87 +173,7 @@ export function AlertaRegistroProfesor() {
     setDescuento(null);
   };
 
-  const mostrarFormulario = !datosCompletos || forzarEdicionDatos;
-
-  if (mostrarFormulario) {
-    return (
-      <div className="fixed inset-0 z-[120] bg-black/65 backdrop-blur-sm grid place-items-center p-4 overflow-y-auto">
-        <div className="w-full max-w-xl rounded-2xl border bg-card shadow-2xl overflow-hidden my-4">
-          <div className="p-5 text-white relative" style={{ background: "linear-gradient(135deg,var(--deep-2),var(--violet))" }}>
-            {forzarEdicionDatos && datosCompletos && (
-              <button onClick={() => setForzarEdicionDatos(false)} className="absolute top-3 right-3 p-2 rounded-lg bg-white/10 hover:bg-white/20" aria-label="Cerrar">
-                <X className="w-4 h-4" />
-              </button>
-            )}
-            <div className="w-11 h-11 rounded-xl bg-white/15 grid place-items-center mb-3"><Landmark className="w-6 h-6" /></div>
-            <div className="text-xs uppercase tracking-wider opacity-80">Registro del Profesor</div>
-            <h2 className="text-xl font-bold mt-1">Datos para recibir tus pagos</h2>
-            <p className="text-sm opacity-90 mt-1">
-              Revisa tu cuenta de pago. Si falta algún dato, debes completarlo al 100% para continuar usando la plataforma.
-            </p>
-          </div>
-
-          <div className="p-5 space-y-4">
-            {!datosCompletos && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-muted-foreground">
-                Falta: <strong className="text-foreground">{faltantes.join(", ") || "completar los datos"}</strong>. Este aviso seguirá apareciendo hasta guardar todo.
-              </div>
-            )}
-
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Imagen o logo del banco *</div>
-              <div className="flex items-center gap-4 rounded-xl border p-4 bg-muted/20">
-                {datos.banco_logo_url ? (
-                  <img src={datos.banco_logo_url} alt="Banco o cooperativa" className="w-16 h-16 rounded-xl object-cover border bg-background shrink-0" />
-                ) : (
-                  <div className="w-16 h-16 rounded-xl border-2 border-dashed grid place-items-center text-muted-foreground bg-background shrink-0">
-                    <Landmark className="w-7 h-7" />
-                  </div>
-                )}
-                <div>
-                  <label className="inline-flex items-center gap-2 px-3 py-2.5 rounded-lg border bg-background cursor-pointer text-sm font-semibold hover:bg-muted">
-                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-                    {uploading ? "Subiendo…" : datos.banco_logo_url ? "Cambiar imagen" : "Subir imagen"}
-                    <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={uploading} onChange={(e) => void subirImagen(e.target.files?.[0])} />
-                  </label>
-                  <div className="text-[11px] text-muted-foreground mt-1">JPG, PNG o WEBP · máximo 5 MB.</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Banco o cooperativa *</label>
-                <input value={datos.banco} onChange={(e) => setDatos((d) => ({ ...d, banco: e.target.value }))} placeholder="Ej. Banco Pichincha" className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo de cuenta *</label>
-                <select value={datos.tipo_cuenta} onChange={(e) => setDatos((d) => ({ ...d, tipo_cuenta: e.target.value }))} className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background">
-                  <option value="ahorros">Ahorros</option>
-                  <option value="corriente">Corriente</option>
-                  <option value="cooperativa">Cooperativa</option>
-                  <option value="otro">Otro</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Número de cuenta *</label>
-                <input value={datos.numero_cuenta} onChange={(e) => setDatos((d) => ({ ...d, numero_cuenta: e.target.value }))} placeholder="Número de cuenta" className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Titular de la cuenta *</label>
-                <input value={datos.titular_cuenta} onChange={(e) => setDatos((d) => ({ ...d, titular_cuenta: e.target.value }))} placeholder="Nombres y apellidos del titular" className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background" />
-              </div>
-            </div>
-
-            <button onClick={() => void guardarDatos()} disabled={saving || uploading} className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-gradient text-white font-semibold disabled:opacity-60">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? "Guardando…" : "Guardar datos de pago"}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!isProfesor || !uid || loading) return null;
 
   if (pendientes.length > 0) {
     const enPantallaRegistro = pathname.startsWith("/mis-clases-asignadas");
@@ -391,7 +186,7 @@ export function AlertaRegistroProfesor() {
             <div className="min-w-0 flex-1">
               <div className="font-semibold">Registro de horas obligatorio</div>
               <div className="text-xs text-muted-foreground mt-1">
-                Te {pendientes.length === 1 ? "queda" : "quedan"} {pendientes.length} {pendientes.length === 1 ? "registro" : "registros"} sin duración. El aviso desaparecerá cuando estén completos.
+                Te {pendientes.length === 1 ? "queda" : "quedan"} {pendientes.length} {pendientes.length === 1 ? "registro" : "registros"} sin duración.
               </div>
               <div className="mt-2 text-xs font-medium">
                 {pendientes[0].tipo === "clase" ? "Clase en vivo" : "Sesión 1 a 1"} · {fechaEC(pendientes[0].fecha)} · {hora(pendientes[0].horaInicio)}
