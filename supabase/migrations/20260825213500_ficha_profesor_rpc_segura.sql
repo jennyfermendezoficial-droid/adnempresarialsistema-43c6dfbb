@@ -143,3 +143,6 @@ $$;
 
 REVOKE ALL ON FUNCTION public.guardar_mi_ficha_profesor(text,text,date,text,text,text,text,text,text,text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.guardar_mi_ficha_profesor(text,text,date,text,text,text,text,text,text,text,text,text) TO authenticated;
+
+-- Si PostgREST estaba cacheando el schema, forzar que detecte las RPC recién creadas.
+NOTIFY pgrst, 'reload schema';
