@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { subirImagen } from "@/lib/cloudinary";
 import { subirImagenBancoProfesor } from "@/lib/bank-images";
+import { debeMostrarAccesoFicha } from "@/lib/ficha-profesor";
 import { toast } from "sonner";
 import { ImagePlus, Landmark, Loader2, X } from "lucide-react";
 
@@ -34,6 +35,8 @@ const VACIA: Ficha = {
   observacion_ficha: "",
 };
 
+const POSPONER_MS = 10 * 60 * 1000;
+
 function fichaCompleta(f: Ficha) {
   return Boolean(
     f.nombre_completo.trim().length >= 3
@@ -49,17 +52,35 @@ function fichaCompleta(f: Ficha) {
   );
 }
 
+function clavePospuesto(uid: string) {
+  return `adn:ficha-profesor-pospuesta:${uid}`;
+}
+
+function leerPospuesto(uid: string): number {
+  try {
+    return Number(localStorage.getItem(clavePospuesto(uid)) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function limpiarPospuesto(uid: string) {
+  try { localStorage.removeItem(clavePospuesto(uid)); } catch { /* noop */ }
+}
+
+type ModoCarga = "auto" | "manual" | "silencioso";
+
 /**
- * Ficha global del Profesor.
- * Todo usuario que tenga el rol soporte la ve al entrar/recargar/reabrir la app.
- * Si está incompleta no se puede cerrar; si ya está al 100% puede revisarla y cerrar.
+ * Ficha de datos personales + pago.
+ * Aplica a cualquier cuenta soporte y también a Erick Troya / Jaime Zambrano.
+ * Si está incompleta aparece al entrar; puede posponerse 10 minutos.
+ * Una vez completa deja de aparecer automáticamente.
  */
 export function FichaProfesorModal() {
   const { session, role, roles, profile, refresh } = useAuth();
   const uid = session?.user.id;
-  const contextoProfesor = role === "soporte" || roles.includes("soporte");
 
-  const [esProfesor, setEsProfesor] = useState(false);
+  const [esObjetivo, setEsObjetivo] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [completo, setCompleto] = useState(false);
   const [f, setF] = useState<Ficha>(VACIA);
@@ -68,46 +89,64 @@ export function FichaProfesorModal() {
   const [subiendoBanco, setSubiendoBanco] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(false);
+  const [pospuestoHasta, setPospuestoHasta] = useState(0);
 
-  // La fuente principal es has_role. El contexto y user_roles quedan como respaldo
-  // para que una demora del AuthProvider nunca oculte esta ficha.
   useEffect(() => {
     if (!uid) {
-      setEsProfesor(false);
+      setEsObjetivo(false);
       setAbierto(false);
       return;
     }
 
     let vivo = true;
     void (async () => {
-      let real = contextoProfesor;
+      const respaldo = debeMostrarAccesoFicha({
+        nombre: profile?.nombre_completo,
+        role,
+        roles,
+      });
+
       try {
-        const [{ data: tieneRol }, { data: filas }] = await Promise.all([
-          supabase.rpc("has_role", { _user_id: uid, _role: "soporte" }),
-          supabase.from("user_roles").select("role").eq("user_id", uid).eq("role", "soporte").limit(1),
-        ]);
-        real = real || tieneRol === true || (filas?.length ?? 0) > 0;
+        const { data, error } = await (supabase as any).rpc("debe_completar_ficha_profesor");
+        if (!vivo) return;
+        setEsObjetivo(!error ? Boolean(data) || respaldo : respaldo);
       } catch {
-        // Si una consulta falla, conserva la detección que ya entregó AuthProvider.
+        if (vivo) setEsObjetivo(respaldo);
       }
-      if (vivo) setEsProfesor(real);
     })();
 
     return () => { vivo = false; };
-  }, [uid, contextoProfesor]);
+  }, [uid, role, roles, profile?.nombre_completo]);
 
-  const cargar = useCallback(async (mostrar = true) => {
-    if (!uid || !esProfesor) return;
+  const cargar = useCallback(async (modo: ModoCarga = "auto") => {
+    if (!uid || !esObjetivo) return;
 
     setCargando(true);
-    const { data, error } = await supabase.from("profiles")
-      .select("nombre_completo,cedula,fecha_nacimiento,whatsapp,direccion,banco,tipo_cuenta,numero_cuenta,titular_cuenta,banco_logo_url,observacion_ficha,avatar_url,ficha_completa")
-      .eq("id", uid)
-      .maybeSingle();
+    let data: any = null;
+    let error: any = null;
+
+    try {
+      const respuesta = await (supabase as any).rpc("obtener_mi_ficha_profesor");
+      data = respuesta.data;
+      error = respuesta.error;
+    } catch (err) {
+      error = err;
+    }
+
+    // Compatibilidad temporal si la migración aún no ha sido aplicada en una preview.
+    if (error) {
+      const respaldo = await supabase
+        .from("profiles")
+        .select("nombre_completo,cedula,fecha_nacimiento,whatsapp,direccion,banco,tipo_cuenta,numero_cuenta,titular_cuenta,banco_logo_url,observacion_ficha,avatar_url,ficha_completa")
+        .eq("id", uid)
+        .maybeSingle();
+      data = respaldo.data;
+      error = respaldo.error;
+    }
+
     setCargando(false);
 
     if (error) {
-      // Un error de lectura jamás debe ocultar el formulario obligatorio.
       setF((prev) => ({
         ...prev,
         nombre_completo: prev.nombre_completo || profile?.nombre_completo || "",
@@ -115,12 +154,13 @@ export function FichaProfesorModal() {
       }));
       setFoto((prev) => prev || profile?.avatar_url || null);
       setCompleto(false);
-      if (mostrar) setAbierto(true);
-      toast.error(`No se pudieron cargar todos tus datos de Profesor: ${error.message}`);
+      if (modo === "manual" || Date.now() >= leerPospuesto(uid)) setAbierto(true);
+      toast.error(`No se pudieron cargar tus datos: ${error.message || "error de permisos"}`);
       return;
     }
 
-    if (!data) {
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) {
       const siguiente = {
         ...VACIA,
         nombre_completo: profile?.nombre_completo ?? "",
@@ -129,62 +169,110 @@ export function FichaProfesorModal() {
       setF(siguiente);
       setFoto(profile?.avatar_url ?? null);
       setCompleto(false);
-      if (mostrar) setAbierto(true);
+      if (modo === "manual" || Date.now() >= leerPospuesto(uid)) setAbierto(true);
       return;
     }
 
-    const d = data as Record<string, string | boolean | null>;
     const siguiente: Ficha = {
-      nombre_completo: (d.nombre_completo as string) ?? "",
-      cedula: (d.cedula as string) ?? "",
-      fecha_nacimiento: (d.fecha_nacimiento as string) ?? "",
-      whatsapp: (d.whatsapp as string) ?? "",
-      direccion: (d.direccion as string) ?? "",
-      banco: (d.banco as string) ?? "",
-      tipo_cuenta: (d.tipo_cuenta as string) ?? "ahorros",
-      numero_cuenta: (d.numero_cuenta as string) ?? "",
-      titular_cuenta: (d.titular_cuenta as string) ?? (d.nombre_completo as string) ?? "",
-      banco_logo_url: (d.banco_logo_url as string) ?? null,
-      observacion_ficha: (d.observacion_ficha as string) ?? "",
+      nombre_completo: row.nombre_completo ?? "",
+      cedula: row.cedula ?? "",
+      fecha_nacimiento: row.fecha_nacimiento ?? "",
+      whatsapp: row.whatsapp ?? "",
+      direccion: row.direccion ?? "",
+      banco: row.banco ?? "",
+      tipo_cuenta: row.tipo_cuenta ?? "ahorros",
+      numero_cuenta: row.numero_cuenta ?? "",
+      titular_cuenta: row.titular_cuenta ?? row.nombre_completo ?? "",
+      banco_logo_url: row.banco_logo_url ?? null,
+      observacion_ficha: row.observacion_ficha ?? "",
     };
 
     const estaCompleta = fichaCompleta(siguiente);
     setF(siguiente);
-    setFoto((d.avatar_url as string) ?? null);
+    setFoto(row.avatar_url ?? null);
     setCompleto(estaCompleta);
-    if (mostrar) setAbierto(true);
-  }, [uid, esProfesor, profile?.nombre_completo, profile?.avatar_url]);
+
+    if (estaCompleta) {
+      limpiarPospuesto(uid);
+      setPospuestoHasta(0);
+      setAbierto(modo === "manual");
+      return;
+    }
+
+    if (modo === "manual") {
+      setAbierto(true);
+      return;
+    }
+
+    if (modo === "silencioso") return;
+
+    const hasta = leerPospuesto(uid);
+    setPospuestoHasta(hasta);
+    setAbierto(Date.now() >= hasta);
+  }, [uid, esObjetivo, profile?.nombre_completo, profile?.avatar_url]);
 
   useEffect(() => {
-    if (!uid || !esProfesor) return;
+    if (!uid || !esObjetivo) return;
 
-    // Primera entrada / recarga: se muestra siempre a un Profesor.
-    void cargar(true);
+    void cargar("auto");
 
-    const mostrarFicha = () => void cargar(true);
+    const auto = () => void cargar("auto");
+    const manual = () => void cargar("manual");
+    const silencioso = () => void cargar("silencioso");
     const visible = () => {
-      if (document.visibilityState === "visible") void cargar(true);
+      if (document.visibilityState === "visible") void cargar("auto");
     };
-    const refrescarSinAbrir = () => void cargar(false);
 
-    window.addEventListener("pageshow", mostrarFicha);
-    window.addEventListener("adn:abrir-datos-pago", mostrarFicha);
-    window.addEventListener("adn:datos-pago-actualizados", refrescarSinAbrir);
+    window.addEventListener("pageshow", auto);
+    window.addEventListener("adn:abrir-datos-pago", manual);
+    window.addEventListener("adn:datos-pago-actualizados", silencioso);
     document.addEventListener("visibilitychange", visible);
 
     return () => {
-      window.removeEventListener("pageshow", mostrarFicha);
-      window.removeEventListener("adn:abrir-datos-pago", mostrarFicha);
-      window.removeEventListener("adn:datos-pago-actualizados", refrescarSinAbrir);
+      window.removeEventListener("pageshow", auto);
+      window.removeEventListener("adn:abrir-datos-pago", manual);
+      window.removeEventListener("adn:datos-pago-actualizados", silencioso);
       document.removeEventListener("visibilitychange", visible);
     };
-  }, [uid, esProfesor, cargar]);
+  }, [uid, esObjetivo, cargar]);
 
-  if (!abierto || !esProfesor) return null;
+  useEffect(() => {
+    if (!uid || !esObjetivo || completo || !pospuestoHasta) return;
+    const restante = pospuestoHasta - Date.now();
+    if (restante <= 0) {
+      limpiarPospuesto(uid);
+      setPospuestoHasta(0);
+      void cargar("auto");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      limpiarPospuesto(uid);
+      setPospuestoHasta(0);
+      void cargar("auto");
+    }, restante);
+
+    return () => window.clearTimeout(timer);
+  }, [uid, esObjetivo, completo, pospuestoHasta, cargar]);
+
+  if (!abierto || !esObjetivo) return null;
 
   const set = (k: keyof Ficha) => (e: { target: { value: string } }) => {
     setF((p) => ({ ...p, [k]: e.target.value }));
     setCompleto(false);
+  };
+
+  const posponer = () => {
+    if (!uid) return;
+    if (completo) {
+      setAbierto(false);
+      return;
+    }
+    const hasta = Date.now() + POSPONER_MS;
+    try { localStorage.setItem(clavePospuesto(uid), String(hasta)); } catch { /* noop */ }
+    setPospuestoHasta(hasta);
+    setAbierto(false);
+    toast.info("Te lo recordaremos nuevamente en 10 minutos.");
   };
 
   const subirFoto = async (file: File) => {
@@ -206,7 +294,7 @@ export function FichaProfesorModal() {
       const url = await subirImagenBancoProfesor(file, uid);
       setF((p) => ({ ...p, banco_logo_url: url }));
       setCompleto(false);
-      toast.success("Imagen bancaria cargada. Guarda tu ficha para finalizar.");
+      toast.success("Imagen bancaria cargada. Guarda la ficha para finalizar.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo cargar la imagen bancaria");
     } finally {
@@ -231,29 +319,32 @@ export function FichaProfesorModal() {
     if (faltan.length) return toast.error(`Completa: ${faltan.join(", ")}`);
 
     setGuardando(true);
-    const { error } = await supabase.from("profiles").update({
-      nombre_completo: f.nombre_completo.trim(),
-      cedula: f.cedula.trim(),
-      fecha_nacimiento: f.fecha_nacimiento,
-      whatsapp: f.whatsapp.trim(),
-      direccion: f.direccion.trim(),
-      banco: f.banco.trim(),
-      tipo_cuenta: f.tipo_cuenta,
-      numero_cuenta: f.numero_cuenta.trim(),
-      titular_cuenta: f.titular_cuenta.trim(),
-      banco_logo_url: f.banco_logo_url,
-      observacion_ficha: f.observacion_ficha.trim() || null,
-      avatar_url: foto,
-      ficha_completa: true,
-    }).eq("id", uid);
+    const { data, error } = await (supabase as any).rpc("guardar_mi_ficha_profesor", {
+      _nombre_completo: f.nombre_completo.trim(),
+      _cedula: f.cedula.trim(),
+      _fecha_nacimiento: f.fecha_nacimiento,
+      _whatsapp: f.whatsapp.trim(),
+      _direccion: f.direccion.trim(),
+      _banco: f.banco.trim(),
+      _tipo_cuenta: f.tipo_cuenta,
+      _numero_cuenta: f.numero_cuenta.trim(),
+      _titular_cuenta: f.titular_cuenta.trim(),
+      _banco_logo_url: f.banco_logo_url,
+      _observacion_ficha: f.observacion_ficha.trim() || null,
+      _avatar_url: foto,
+    });
     setGuardando(false);
 
-    if (error) return toast.error(error.message);
+    if (error || data !== true) {
+      return toast.error(`No se pudo guardar la ficha: ${error?.message || "respuesta inválida"}`);
+    }
 
     setCompleto(true);
+    limpiarPospuesto(uid);
+    setPospuestoHasta(0);
     await refresh();
     window.dispatchEvent(new Event("adn:datos-pago-actualizados"));
-    toast.success("Datos del Profesor registrados al 100%.");
+    toast.success("Datos guardados correctamente para tu cuenta.");
     setAbierto(false);
   };
 
@@ -264,22 +355,21 @@ export function FichaProfesorModal() {
     <div className="fixed inset-0 z-[160] bg-black/75 backdrop-blur-sm grid place-items-center p-4 overflow-y-auto">
       <div className="w-full max-w-2xl max-h-[94vh] overflow-y-auto rounded-2xl border bg-card shadow-2xl my-4">
         <div className="p-6 text-white relative" style={{ background: "linear-gradient(135deg,var(--deep-2),var(--violet))" }}>
-          {completo && (
-            <button
-              type="button"
-              onClick={() => setAbierto(false)}
-              className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20"
-              aria-label="Cerrar ficha"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
-          <div className="text-[11px] uppercase tracking-[0.16em] opacity-80">Registro del Profesor</div>
-          <h2 className="text-2xl font-semibold mt-1">{completo ? "Revisa tus datos" : "Completa tus datos al 100%"}</h2>
+          <button
+            type="button"
+            onClick={posponer}
+            className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20"
+            aria-label={completo ? "Cerrar ficha" : "Recordarme en 10 minutos"}
+            title={completo ? "Cerrar" : "Recordarme en 10 minutos"}
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="text-[11px] uppercase tracking-[0.16em] opacity-80">Datos del Profesor</div>
+          <h2 className="text-2xl font-semibold mt-1">{completo ? "Editar tus datos" : "Completa tus datos al 100%"}</h2>
           <p className="text-sm opacity-90 mt-1 pr-10">
             {completo
-              ? "Tus datos ya están completos. Puedes revisarlos o actualizarlos antes de continuar."
-              : "Esta ventana seguirá apareciendo al entrar, recargar o abrir la app mientras falte algún dato necesario para tus pagos e informes."}
+              ? "Tus datos ya están registrados. Puedes actualizar cualquier cambio cuando lo necesites."
+              : "Si necesitas entrar de urgencia, cierra con la X y volverá a aparecer en 10 minutos mientras siga incompleto."}
           </p>
         </div>
 
@@ -389,8 +479,8 @@ export function FichaProfesorModal() {
           </button>
           <p className="text-[11px] text-center text-muted-foreground mt-2">
             {completo
-              ? "Tus datos están completos. Puedes cerrar con la X o guardar cualquier cambio."
-              : "No se puede cerrar esta ventana mientras falte algún dato obligatorio."}
+              ? "Al estar completo, este formulario ya no vuelve a abrirse automáticamente."
+              : "Puedes posponerlo 10 minutos con la X; después volverá a aparecer si sigue incompleto."}
           </p>
         </div>
       </div>
