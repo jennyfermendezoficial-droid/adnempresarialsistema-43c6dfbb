@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { mainItems, staffItems, adminItems, pagosItems, type NavItem } from "@/lib/nav-items";
 import { labelRol, puedeVerPagos } from "@/lib/roles";
+import { debeMostrarAccesoFicha } from "@/lib/ficha-profesor";
 
 const BAR = "var(--deep-2)";
 
@@ -21,7 +22,11 @@ export function TopNav() {
   const enComunidad = pathname === "/comunidad" || pathname.startsWith("/comunidad/");
 
   const isStaff = role === "admin" || role === "soporte";
-  const isProfesor = roles.includes("soporte") || role === "soporte";
+  const puedeFicha = debeMostrarAccesoFicha({
+    nombre: profile?.nombre_completo,
+    role,
+    roles,
+  });
   const flat: NavItem[] = [
     ...mainItems,
     ...(isStaff ? staffItems : []),
@@ -77,7 +82,7 @@ export function TopNav() {
                       <User className="w-4 h-4" /> Mi perfil
                     </Link>
                   </DropdownMenuItem>
-                  {isProfesor && (
+                  {puedeFicha && (
                     <DropdownMenuItem onSelect={abrirDatosPago} className="flex items-center gap-2 cursor-pointer">
                       <Landmark className="w-4 h-4" /> Datos de pago
                     </DropdownMenuItem>
@@ -106,7 +111,7 @@ export function TopNav() {
                 <span>{label}</span>
               </Link>
             ))}
-            {isProfesor && (
+            {puedeFicha && (
               <button
                 type="button"
                 onClick={abrirDatosPago}
