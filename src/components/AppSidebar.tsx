@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
 import { mainItems, staffItems, adminItems, pagosItems } from "@/lib/nav-items";
 import { puedeVerPagos } from "@/lib/roles";
+import { debeMostrarAccesoFicha } from "@/lib/ficha-profesor";
 
 interface Item { to: string; label: string; icon: typeof Home; }
 
@@ -15,7 +16,11 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
   const { profile, role, roles, signOut, session } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
-  const isProfesor = roles.includes("soporte") || role === "soporte";
+  const puedeFicha = debeMostrarAccesoFicha({
+    nombre: profile?.nombre_completo,
+    role,
+    roles,
+  });
 
   const abrirDatosPago = () => {
     onNavigate?.();
@@ -47,20 +52,21 @@ export function AppSidebar({ onNavigate }: AppSidebarProps = {}) {
         <SectionLabel>Menú</SectionLabel>
         <Nav items={mainItems} isActive={isActive} onClick={onNavigate} />
 
+        {puedeFicha && (
+          <button
+            onClick={abrirDatosPago}
+            className="mt-1 flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-colors border border-transparent text-left"
+            style={{ color: "var(--violet-light)" }}
+          >
+            <Landmark className="w-[18px] h-[18px] flex-shrink-0" />
+            <span>Datos de pago</span>
+          </button>
+        )}
+
         {(role === "admin" || role === "soporte") && (
           <>
             <SectionLabel className="mt-3">Profesores</SectionLabel>
             <Nav items={staffItems} isActive={isActive} onClick={onNavigate} />
-            {isProfesor && (
-              <button
-                onClick={abrirDatosPago}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-colors border border-transparent text-left"
-                style={{ color: "var(--violet-light)" }}
-              >
-                <Landmark className="w-[18px] h-[18px] flex-shrink-0" />
-                <span>Datos de pago</span>
-              </button>
-            )}
             {role === "admin" && (
               <>
                 <SectionLabel className="mt-3">Admin</SectionLabel>
