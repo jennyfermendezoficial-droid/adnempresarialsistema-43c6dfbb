@@ -37,6 +37,8 @@ interface NotificacionDescuento {
   cuerpo: string;
 }
 
+const OCULTAR_MS = 10 * 60 * 1000;
+
 function fechaLocal(d = new Date()) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -44,16 +46,15 @@ function fechaLocal(d = new Date()) {
   return `${y}-${m}-${day}`;
 }
 
-function horaLocal(d = new Date()) {
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+function finEstimado(fecha: string, horaInicio: string, horaFin: string | null) {
+  const inicio = new Date(`${fecha}T${horaInicio.slice(0, 5)}:00`);
+  return horaFin
+    ? new Date(`${fecha}T${horaFin.slice(0, 5)}:00`)
+    : new Date(inicio.getTime() + 60 * 60_000);
 }
 
 function yaTermino(fecha: string, horaFin: string | null, horaInicio: string) {
-  const hoy = fechaLocal();
-  if (fecha < hoy) return true;
-  if (fecha > hoy) return false;
-  const limite = (horaFin || horaInicio || "23:59").slice(0, 5);
-  return limite <= horaLocal();
+  return finEstimado(fecha, horaInicio, horaFin).getTime() <= Date.now();
 }
 
 function fechaEC(fecha: string) {
@@ -65,10 +66,14 @@ function hora(v: string | null) {
   return v ? v.slice(0, 5) : "—";
 }
 
-/**
- * Este componente se ocupa únicamente de horas pendientes y descuentos.
- * Los datos personales/bancarios se gestionan exclusivamente en FichaProfesorModal.
- */
+function claveOculta(uid: string) {
+  return `adn:alerta-horas-oculta:${uid}`;
+}
+
+function leerOculta(uid: string) {
+  try { return Number(localStorage.getItem(claveOculta(uid)) || 0); } catch { return 0; }
+}
+
 export function AlertaRegistroProfesor() {
   const { session, role, roles } = useAuth();
   const uid = session?.user.id;
@@ -79,6 +84,7 @@ export function AlertaRegistroProfesor() {
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [descuento, setDescuento] = useState<NotificacionDescuento | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ocultaHasta, setOcultaHasta] = useState(0);
 
   const cargar = async () => {
     if (!uid || !isProfesor) {
@@ -128,7 +134,7 @@ export function AlertaRegistroProfesor() {
       .filter((s) => {
         const estado = (s.estado || "confirmada").toLowerCase();
         return Number(s.duracion_min ?? 0) <= 0
-          && !["cancelada", "cancelado", "anulada"].includes(estado)
+          && !["cancelada", "cancelado", "anulada", "anulado", "finalizada"].includes(estado)
           && yaTermino(s.fecha, s.hora_fin, s.hora_inicio);
       })
       .map<Pendiente>((s) => ({
@@ -146,6 +152,10 @@ export function AlertaRegistroProfesor() {
   };
 
   useEffect(() => {
+    if (uid) setOcultaHasta(leerOculta(uid));
+  }, [uid]);
+
+  useEffect(() => {
     setLoading(true);
     void cargar();
     if (!uid || !isProfesor) return;
@@ -160,8 +170,28 @@ export function AlertaRegistroProfesor() {
       window.removeEventListener("focus", refrescar);
       window.removeEventListener("adn:horas-actualizadas", refrescar);
     };
-    // Se vuelve a comprobar también al cambiar de pantalla.
   }, [uid, isProfesor, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!ocultaHasta || ocultaHasta <= Date.now()) return;
+    const timer = window.setTimeout(() => setOcultaHasta(0), ocultaHasta - Date.now());
+    return () => window.clearTimeout(timer);
+  }, [ocultaHasta]);
+
+  const cerrarPendientes = () => {
+    if (!uid) return;
+    const hasta = Date.now() + OCULTAR_MS;
+    try { localStorage.setItem(claveOculta(uid), String(hasta)); } catch { /* noop */ }
+    setOcultaHasta(hasta);
+  };
+
+  const irAPendientes = () => {
+    if (uid) {
+      try { localStorage.removeItem(claveOculta(uid)); } catch { /* noop */ }
+      setOcultaHasta(0);
+    }
+    navigate({ to: "/mis-clases-asignadas" });
+  };
 
   const cerrarDescuento = async () => {
     if (!descuento || !uid) return;
@@ -175,36 +205,27 @@ export function AlertaRegistroProfesor() {
 
   if (!isProfesor || !uid || loading) return null;
 
-  if (pendientes.length > 0) {
-    const enPantallaRegistro = pathname.startsWith("/mis-clases-asignadas");
+  // Dentro de Mis clases asignadas el panel superior ya muestra cada pendiente con su botón.
+  if (pathname.startsWith("/mis-clases-asignadas")) return null;
 
-    if (enPantallaRegistro) {
-      return (
-        <div className="fixed right-4 bottom-4 z-[105] w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-amber-500/40 bg-card shadow-2xl p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-            <div className="min-w-0 flex-1">
-              <div className="font-semibold">Registro de horas obligatorio</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Te {pendientes.length === 1 ? "queda" : "quedan"} {pendientes.length} {pendientes.length === 1 ? "registro" : "registros"} sin duración.
-              </div>
-              <div className="mt-2 text-xs font-medium">
-                {pendientes[0].tipo === "clase" ? "Clase en vivo" : "Sesión 1 a 1"} · {fechaEC(pendientes[0].fecha)} · {hora(pendientes[0].horaInicio)}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
+  if (pendientes.length > 0 && Date.now() >= ocultaHasta) {
     return (
       <div className="fixed inset-0 z-[115] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
         <div className="w-full max-w-lg rounded-2xl border bg-card shadow-2xl overflow-hidden">
-          <div className="p-5 text-white" style={{ background: "linear-gradient(135deg,#78350f,#d97706)" }}>
+          <div className="p-5 text-white relative" style={{ background: "linear-gradient(135deg,#78350f,#d97706)" }}>
+            <button
+              type="button"
+              onClick={cerrarPendientes}
+              className="absolute top-3 right-3 p-2 rounded-lg bg-white/10 hover:bg-white/20"
+              aria-label="Cerrar por ahora"
+              title="Cerrar por ahora"
+            >
+              <X className="w-4 h-4" />
+            </button>
             <div className="w-11 h-11 rounded-xl bg-white/15 grid place-items-center mb-3"><Clock3 className="w-6 h-6" /></div>
-            <div className="text-xs uppercase tracking-wider opacity-80">Obligación del Profesor</div>
-            <h2 className="text-xl font-bold mt-1">Tienes horas pendientes de registrar</h2>
-            <p className="text-sm opacity-90 mt-1">Debes completar la duración real de tus clases y sesiones terminadas.</p>
+            <div className="text-xs uppercase tracking-wider opacity-80">Registro pendiente</div>
+            <h2 className="text-xl font-bold mt-1">Tienes clases o sesiones sin registrar</h2>
+            <p className="text-sm opacity-90 mt-1 pr-8">Puedes cerrar este aviso y seguir trabajando. En Mis clases asignadas verás exactamente cuáles están pendientes.</p>
           </div>
 
           <div className="p-5">
@@ -218,10 +239,10 @@ export function AlertaRegistroProfesor() {
               {pendientes.length > 6 && <div className="text-xs text-center text-muted-foreground">+ {pendientes.length - 6} pendientes adicionales</div>}
             </div>
 
-            <button onClick={() => navigate({ to: "/mis-clases-asignadas" })} className="mt-4 w-full px-4 py-3 rounded-xl bg-violet-gradient text-white text-sm font-semibold">
-              Registrar horas ahora
+            <button onClick={irAPendientes} className="mt-4 w-full px-4 py-3 rounded-xl bg-violet-gradient text-white text-sm font-semibold">
+              Ver pendientes en Mis clases asignadas
             </button>
-            <p className="text-[11px] text-center text-muted-foreground mt-2">Este aviso seguirá apareciendo mientras exista al menos una clase o sesión terminada sin duración.</p>
+            <p className="text-[11px] text-center text-muted-foreground mt-2">La X oculta este aviso durante 10 minutos; las pendientes siguen visibles en Mis clases asignadas.</p>
           </div>
         </div>
       </div>
