@@ -8,6 +8,7 @@ import { PostClassRatingModal } from "@/components/PostClassRatingModal";
 import { FichaProfesorModal } from "@/components/FichaProfesorModal";
 import { AlertaRegistroProfesor } from "@/components/AlertaRegistroProfesor";
 import { PendientesRegistroProfesorPanel } from "@/components/PendientesRegistroProfesorPanel";
+import { AgendaSesionPendienteGuard } from "@/components/AgendaSesionPendienteGuard";
 import { PagosControlPanel } from "@/components/pagos/PagosControlPanel";
 import { ChatsPopover } from "@/components/ChatsPopover";
 import { NotificationsPopover } from "@/components/NotificationsPopover";
@@ -118,6 +119,7 @@ function AuthedLayout() {
           <Outlet />
         </div>
       </main>
+      {pathname.startsWith("/agenda-1a1") && <AgendaSesionPendienteGuard />}
       <PostClassRatingModal />
       <FichaProfesorModal />
       <AlertaRegistroProfesor />
