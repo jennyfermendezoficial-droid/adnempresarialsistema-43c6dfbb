@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, CalendarClock, Clock3, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { createZoomMeeting } from "@/lib/zoom.functions";
 import { fetchPerfiles } from "@/lib/perfiles";
 import { formatNombre } from "@/lib/nombres";
 import { toast } from "sonner";
@@ -21,7 +19,7 @@ export interface SesionPendienteAlumnoRow {
 }
 
 const HORAS = ["15:00", "16:00", "17:00", "18:00"];
-const ZOOM_DURACION_MIN = 60;
+const SESION_ESTIMADA_MIN = 60;
 
 function fechaLocal(d = new Date()) {
   const y = d.getFullYear();
@@ -41,7 +39,7 @@ function sesionYaTermino(s: SesionPendienteAlumnoRow) {
   const inicio = new Date(`${s.fecha}T${s.hora_inicio.slice(0, 5)}:00`);
   const fin = s.hora_fin
     ? new Date(`${s.fecha}T${s.hora_fin.slice(0, 5)}:00`)
-    : new Date(inicio.getTime() + ZOOM_DURACION_MIN * 60_000);
+    : new Date(inicio.getTime() + SESION_ESTIMADA_MIN * 60_000);
   return fin.getTime() <= ahora.getTime();
 }
 
@@ -78,7 +76,6 @@ export function useSesionesPendientesAlumno(uid?: string, habilitado = true) {
     const rows = ((data ?? []) as SesionPendienteAlumnoRow[]).filter(esPendiente);
     setPendientes(rows);
 
-    // Notificación única por sesión para la alumna. Si la consulta falla, no bloqueamos el flujo.
     for (const s of rows) {
       const { data: existente } = await supabase
         .from("notificaciones")
@@ -127,7 +124,6 @@ export function SesionPendienteAlumnoPanel({
   pendientes: SesionPendienteAlumnoRow[];
   onReprogramada: () => void | Promise<void>;
 }) {
-  const createZoom = useServerFn(createZoomMeeting);
   const [nombres, setNombres] = useState<Record<string, string>>({});
   const [seleccion, setSeleccion] = useState<SesionPendienteAlumnoRow | null>(null);
   const [horasDisponibles, setHorasDisponibles] = useState<string[]>([]);
@@ -165,7 +161,7 @@ export function SesionPendienteAlumnoPanel({
     setCargandoHoras(true);
 
     const dia = new Date(`${destino}T12:00:00`);
-    const indiceSemana = (dia.getDay() + 6) % 7; // lunes=0
+    const indiceSemana = (dia.getDay() + 6) % 7;
     if (indiceSemana > 4) {
       setHorasDisponibles([]);
       setCargandoHoras(false);
@@ -208,11 +204,9 @@ export function SesionPendienteAlumnoPanel({
   const guardarReprogramacion = async () => {
     if (!seleccion || !horaNueva || guardando) return;
     const destino = sumarDias(seleccion.fecha, 1);
-    const nombreProfesor = nombres[seleccion.profesor_id] || "Profesor";
     setGuardando(true);
 
     try {
-      // Confirmar otra vez que el horario siga libre antes de mover la misma sesión.
       const { data: choque } = await supabase
         .from("sesiones_1a1")
         .select("id")
@@ -223,32 +217,18 @@ export function SesionPendienteAlumnoPanel({
         .limit(1);
       if ((choque?.length ?? 0) > 0) throw new Error("Ese horario acaba de ser reservado. Elige otro.");
 
-      const zoom = await createZoom({
-        data: {
-          topic: `Sesión 1 a 1 reprogramada · ${nombreProfesor}`,
-          start_time: `${destino}T${horaNueva}:00`,
-          duration: ZOOM_DURACION_MIN,
-          agenda: `Sesión 1 a 1 reprogramada para ${destino} a las ${horaNueva}`,
-        },
+      const { data, error } = await (supabase as any).rpc("reprogramar_mi_sesion_1a1", {
+        _sesion_id: seleccion.id,
+        _fecha: destino,
+        _hora_inicio: `${horaNueva}:00`,
       });
-
-      const { error } = await supabase
-        .from("sesiones_1a1")
-        .update({
-          fecha: destino,
-          hora_inicio: `${horaNueva}:00`,
-          hora_fin: null,
-          estado: "confirmada",
-          zoom_meeting_id: zoom.meeting_id,
-          zoom_link: zoom.join_url,
-        })
-        .eq("id", seleccion.id)
-        .eq("alumna_id", seleccion.alumna_id);
-      if (error) throw error;
+      if (error || data !== true) {
+        throw new Error(error?.message || "No se pudo reprogramar la sesión");
+      }
 
       await supabase.rpc("notificar", {
         _actor: seleccion.alumna_id,
-        _cuerpo: `La sesión fue reprogramada del ${seleccion.fecha} al ${destino} a las ${horaNueva}. Se mantiene la misma reserva y se generó un nuevo enlace de Zoom.`,
+        _cuerpo: `La sesión fue reprogramada del ${seleccion.fecha} al ${destino} a las ${horaNueva}. Se mantiene la misma reserva y el mismo enlace de Zoom.`,
         _referencia: seleccion.id,
         _tipo: "sesion_reprogramada",
         _titulo: "Sesión 1 a 1 reprogramada",
