@@ -31,6 +31,7 @@ const ICONS: Record<string, typeof Bell> = {
   sesion_pendiente_reprogramar: AlarmClock,
   sesion_reprogramada: CalendarClock,
   sesion_pendiente_registro: AlarmClock,
+  sesion_no_realizada: CalendarClock,
 };
 
 function timeAgo(iso: string) {
