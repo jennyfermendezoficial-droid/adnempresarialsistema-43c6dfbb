@@ -37,7 +37,7 @@ BEGIN
   END IF;
 
   -- Consideramos una hora cuando todavía no existe hora_fin real.
-  v_fin := (v_sesion.fecha::timestamp + v_sesion.hora_inicio)
+  v_fin := (v_sesion.fecha + v_sesion.hora_inicio)
            + CASE
                WHEN v_sesion.hora_fin IS NOT NULL
                  THEN (v_sesion.hora_fin - v_sesion.hora_inicio)
