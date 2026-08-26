@@ -146,9 +146,32 @@ export function AlertaRegistroProfesor() {
         contexto: "Sesión 1 a 1",
       }));
 
-    setPendientes([...clases, ...sesiones].sort((a, b) => (a.fecha + a.horaInicio).localeCompare(b.fecha + b.horaInicio)));
+    const todos = [...clases, ...sesiones].sort((a, b) => (a.fecha + a.horaInicio).localeCompare(b.fecha + b.horaInicio));
+    setPendientes(todos);
     setDescuento((descuentoRes.data as NotificacionDescuento | null) ?? null);
     setLoading(false);
+
+    // Guardar también el aviso en la campana, una sola vez por registro pendiente.
+    for (const p of todos) {
+      const { data: existente } = await supabase
+        .from("notificaciones")
+        .select("id")
+        .eq("usuario_id", uid)
+        .eq("tipo", "sesion_pendiente_registro")
+        .eq("referencia_id", p.id)
+        .limit(1);
+      if ((existente?.length ?? 0) === 0) {
+        await supabase.rpc("notificar", {
+          _actor: uid,
+          _cuerpo: `${p.tipo === "clase" ? "La clase" : "La sesión 1 a 1"} del ${p.fecha} a las ${hora(p.horaInicio)} terminó y todavía no tiene duración real registrada.`,
+          _referencia: p.id,
+          _tipo: "sesion_pendiente_registro",
+          _titulo: "Tienes un registro pendiente",
+          _url: "/mis-clases-asignadas",
+          _usuarios: [uid],
+        });
+      }
+    }
   };
 
   useEffect(() => {
@@ -205,7 +228,6 @@ export function AlertaRegistroProfesor() {
 
   if (!isProfesor || !uid || loading) return null;
 
-  // Dentro de Mis clases asignadas el panel superior ya muestra cada pendiente con su botón.
   if (pathname.startsWith("/mis-clases-asignadas")) return null;
 
   if (pendientes.length > 0 && Date.now() >= ocultaHasta) {
