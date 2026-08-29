@@ -218,3 +218,37 @@
 .ae-exp-value { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 600; }
 .ae-modal { background: var(--ae-cream); border-radius: 20px; padding: 24px 20px 28px; max-width: 480px; width: 100%; }
 .ae-bg { background: var(--ae-cream); }
+
+/* Cursos del equipo — acciones de video claras para Profesores/Líderes.
+   CursoDetalle ya guarda URLs de YouTube en la lección y las reproduce
+   embebidas en el mismo reproductor; estas reglas hacen visibles las dos
+   formas de añadir una clase sin cambiar el flujo Bunny existente. */
+button[title="Subir video (Bunny)"],
+button[title="Agregar clase por URL (YouTube/MP4)"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding-left: 0.55rem;
+  padding-right: 0.55rem;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+button[title="Subir video (Bunny)"]::after {
+  content: "Subir video";
+}
+
+button[title="Agregar clase por URL (YouTube/MP4)"]::after {
+  content: "YouTube";
+}
+
+@media (max-width: 640px) {
+  button[title="Subir video (Bunny)"],
+  button[title="Agregar clase por URL (YouTube/MP4)"] {
+    padding-left: 0.45rem;
+    padding-right: 0.45rem;
+    font-size: 0.68rem;
+  }
+}
