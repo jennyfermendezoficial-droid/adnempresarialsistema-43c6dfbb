@@ -8,6 +8,7 @@ import { PostClassRatingModal } from "@/components/PostClassRatingModal";
 import { FichaProfesorModal } from "@/components/FichaProfesorModal";
 import { AlertaRegistroProfesor } from "@/components/AlertaRegistroProfesor";
 import { PendientesRegistroProfesorPanel } from "@/components/PendientesRegistroProfesorPanel";
+import { RegistroHistoricoClaseProfesor } from "@/components/RegistroHistoricoClaseProfesor";
 import { AgendaSesionPendienteGuard } from "@/components/AgendaSesionPendienteGuard";
 import { PagosControlPanel } from "@/components/pagos/PagosControlPanel";
 import { ChatsPopover } from "@/components/ChatsPopover";
@@ -115,6 +116,7 @@ function AuthedLayout() {
         </header>
         <div className="flex-1">
           {pathname.startsWith("/pagos") && <PagosControlPanel />}
+          {pathname.startsWith("/mis-clases-asignadas") && <RegistroHistoricoClaseProfesor />}
           {pathname.startsWith("/mis-clases-asignadas") && <PendientesRegistroProfesorPanel />}
           <Outlet />
         </div>
