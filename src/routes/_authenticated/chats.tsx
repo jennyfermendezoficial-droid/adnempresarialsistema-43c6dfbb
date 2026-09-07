@@ -15,6 +15,7 @@ export const Route = createFileRoute("/_authenticated/chats")({
 
 interface Profile { id: string; nombre_completo: string; email?: string | null }
 interface Chat { id: string; usuario_a_id: string; usuario_b_id: string; last_message_at: string }
+type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
 
 function Page() {
   const { con } = Route.useSearch();
@@ -38,13 +39,10 @@ function Page() {
       setProfiles(m);
 
       if (isStaff) {
-        // Profesores (admin/soporte) SOLO pueden abrir chats con estudiantes (rol "usuario").
-        // Entre staff usamos WhatsApp / chat-profesores.
         const { data: staffRows } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: { id: string }[] | null }>)("listar_profesores");
         const staffIds = new Set((staffRows ?? []).map((r) => r.id));
         setAllUsers(list.filter((p) => p.id !== uid && !staffIds.has(p.id)));
       } else {
-        // Estudiantes solo pueden chatear con admin o soporte (profesores).
         const { data: staffRows } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: { id: string }[] | null }>)("listar_profesores");
         const staffIds = new Set((staffRows ?? []).map((r) => r.id));
         setAllUsers(list.filter((p) => p.id !== uid && staffIds.has(p.id)));
@@ -63,10 +61,37 @@ function Page() {
 
   const other = (c: Chat) => (c.usuario_a_id === uid ? c.usuario_b_id : c.usuario_a_id);
 
+  const marcarLeido = async (chatId: string) => {
+    if (!uid) return;
+    const rpc = supabase.rpc as unknown as Rpc;
+    const { error } = await rpc("marcar_mi_chat_leido", { _chat_id: chatId });
+    if (!error) window.dispatchEvent(new Event("adn:chat-leido"));
+  };
+
+  useEffect(() => {
+    if (!selected || !uid) return;
+    void marcarLeido(selected);
+    const timer = window.setInterval(() => void marcarLeido(selected), 4000);
+    const refrescar = () => {
+      if (document.visibilityState === "visible") void marcarLeido(selected);
+    };
+    window.addEventListener("focus", refrescar);
+    document.addEventListener("visibilitychange", refrescar);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refrescar);
+      document.removeEventListener("visibilitychange", refrescar);
+    };
+  }, [selected, uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const openChatWith = async (otherId: string) => {
     if (!uid) return;
     const existing = chats.find((c) => (c.usuario_a_id === uid && c.usuario_b_id === otherId) || (c.usuario_b_id === uid && c.usuario_a_id === otherId));
-    if (existing) { setSelected(existing.id); setShowNew(false); return; }
+    if (existing) {
+      setSelected(existing.id);
+      setShowNew(false);
+      return;
+    }
     const { data, error } = await supabase.from("chats_1a1").insert({ usuario_a_id: uid, usuario_b_id: otherId }).select().single();
     if (error) return toast.error(error.message);
     setChats((c) => [data as Chat, ...c]);
@@ -83,7 +108,6 @@ function Page() {
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] md:h-screen">
-      {/* En móvil: si hay chat seleccionado se oculta la lista */}
       <aside className={`${selected ? "hidden md:flex" : "flex"} w-full md:w-80 border-r flex-col bg-card`}>
         <div className="p-3 border-b flex items-center gap-2">
           <h2 className="font-semibold flex-1">Chats</h2>
@@ -110,7 +134,7 @@ function Page() {
             return (
               <button key={c.id} onClick={() => setSelected(c.id)} className={`w-full text-left p-3 hover:bg-muted border-b ${selected === c.id ? "bg-muted" : ""}`}>
                 <div className="text-sm font-semibold">{o?.nombre_completo || o?.email || "Usuario"}</div>
-                <div className="text-[11px] opacity-60">{new Date(c.last_message_at).toLocaleString("es-PE")}</div>
+                <div className="text-[11px] opacity-60">{new Date(c.last_message_at).toLocaleString("es-EC")}</div>
               </button>
             );
           })}
