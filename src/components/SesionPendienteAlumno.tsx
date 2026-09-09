@@ -46,7 +46,7 @@ function sesionYaTermino(s: SesionPendienteAlumnoRow) {
 function esPendiente(s: SesionPendienteAlumnoRow) {
   const estado = (s.estado || "confirmada").toLowerCase();
   return Number(s.duracion_min ?? 0) <= 0
-    && !["cancelada", "cancelado", "anulada", "anulado", "finalizada"].includes(estado)
+    && !["cancelada", "cancelado", "anulada", "anulado", "finalizada", "no_realizada", "no realizado"].includes(estado)
     && sesionYaTermino(s);
 }
 
@@ -87,7 +87,7 @@ export function useSesionesPendientesAlumno(uid?: string, habilitado = true) {
       if ((existente?.length ?? 0) === 0) {
         await supabase.rpc("notificar", {
           _actor: uid,
-          _cuerpo: `Tu sesión del ${s.fecha} sigue pendiente. Si no alcanzaste a tenerla, reprograma esta misma sesión únicamente para el día siguiente. Mientras siga pendiente no podrás reservar una nueva.`,
+          _cuerpo: `Tu sesión del ${s.fecha} sigue pendiente. Si no alcanzaste a tenerla, reprograma esta misma sesión únicamente para el día siguiente. Mientras siga pendiente no podrás reservar otra sesión con este mismo profesor; sí puedes agendar con otros profesores.`,
           _referencia: s.id,
           _tipo: "sesion_pendiente_reprogramar",
           _titulo: "Tienes una sesión pendiente por resolver",
@@ -152,7 +152,7 @@ export function SesionPendienteAlumnoPanel({
   const abrirReprogramacion = async (sesion: SesionPendienteAlumnoRow) => {
     const destino = sumarDias(sesion.fecha, 1);
     if (destino < hoy) {
-      toast.error("Esta sesión ya pasó del único día permitido para reprogramarla. El profesor debe registrarla o el equipo debe resolverla.");
+      toast.error("Esta sesión ya pasó del único día permitido para reprogramarla. El profesor debe registrarla como realizada o no realizada para resolverla.");
       return;
     }
 
@@ -223,7 +223,11 @@ export function SesionPendienteAlumnoPanel({
         _hora_inicio: `${horaNueva}:00`,
       });
       if (error || data !== true) {
-        throw new Error(error?.message || "No se pudo reprogramar la sesión");
+        const mensaje = error?.message || "No se pudo reprogramar la sesión";
+        if (/could not find the function|schema cache|reprogramar_mi_sesion_1a1/i.test(mensaje)) {
+          throw new Error("La función segura de reprogramación todavía no está activa en la base de datos. El equipo debe aplicar la migración de reprogramación para habilitar este botón.");
+        }
+        throw new Error(mensaje);
       }
 
       await supabase.rpc("notificar", {
@@ -261,9 +265,9 @@ export function SesionPendienteAlumnoPanel({
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <div className="font-semibold">Sesión pendiente por resolver</div>
+            <div className="font-semibold">Sesión pendiente con este profesor</div>
             <p className="text-sm text-muted-foreground mt-1">
-              Tienes {pendientes.length === 1 ? "una sesión anterior" : `${pendientes.length} sesiones anteriores`} sin duración registrada. Mientras exista esta pendiente no puedes reservar una nueva sesión 1 a 1.
+              Tienes {pendientes.length === 1 ? "una sesión anterior" : `${pendientes.length} sesiones anteriores`} pendiente{pendientes.length === 1 ? "" : "s"} con este profesor. Hasta resolverla no puedes crear otra reserva con él, pero sí puedes agendar con otros profesores.
             </p>
             <div className="mt-2 text-sm font-medium">{detallePrincipal}</div>
             <p className="text-xs text-muted-foreground mt-2">
@@ -280,7 +284,7 @@ export function SesionPendienteAlumnoPanel({
                 </button>
               ) : (
                 <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                  Ya pasó el único día permitido para reprogramarla. El profesor debe registrar la sesión o el equipo debe resolverla.
+                  Ya pasó el único día permitido para reprogramarla. El profesor debe registrar la sesión como realizada o no realizada.
                 </span>
               )}
             </div>
