@@ -14,6 +14,9 @@ interface Props {
 }
 
 const HHMM = /^(\d{1,2}):(\d{2})$/;
+const MAX_CLASE_MIN = 600;
+const MAX_SESION_1A1_MIN = 60;
+
 function toMin(hhmm: string): number | null {
   const match = HHMM.exec((hhmm ?? "").trim());
   if (!match) return null;
@@ -36,7 +39,9 @@ function fmt(min: number) {
 
 export function RegistrarDuracionModal({ sesionId, tipo = "1a1", horaInicio, duracionInicial, onClose, onSaved }: Props) {
   const inicioBase = (horaInicio ?? "").slice(0, 5);
-  const inicial = duracionInicial && duracionInicial > 0 ? duracionInicial : 60;
+  const inicial = duracionInicial && duracionInicial > 0
+    ? (tipo === "1a1" ? Math.min(duracionInicial, MAX_SESION_1A1_MIN) : duracionInicial)
+    : 60;
   const [inicio, setInicio] = useState(inicioBase);
   const [fin, setFin] = useState(() => {
     const base = toMin(inicioBase);
@@ -52,24 +57,32 @@ export function RegistrarDuracionModal({ sesionId, tipo = "1a1", horaInicio, dur
 
   const minInicio = toMin(inicio);
   const minFin = toMin(fin);
-  const duracion = minInicio !== null && minFin !== null ? minFin - minInicio : 0;
-  const valido = minInicio !== null && minFin !== null && duracion > 0 && duracion <= 600;
+  const duracionReal = minInicio !== null && minFin !== null ? minFin - minInicio : 0;
+  const valido = minInicio !== null && minFin !== null && duracionReal > 0 && duracionReal <= MAX_CLASE_MIN;
+  const duracionGuardar = tipo === "1a1" ? Math.min(duracionReal, MAX_SESION_1A1_MIN) : duracionReal;
+  const excedeLimite1a1 = tipo === "1a1" && duracionReal > MAX_SESION_1A1_MIN;
+  const finGuardar = minInicio === null ? fin : toHHMM(minInicio + Math.max(0, duracionGuardar));
 
   const guardar = async () => {
     if (!valido) {
-      toast.error("La hora de fin debe ser posterior a la de inicio (máx. 10 horas).");
+      toast.error("La hora de fin debe ser posterior a la de inicio (máx. 10 horas para clases).");
       return;
     }
     setSaving(true);
-    const args = { _duracion_min: duracion, _hora_inicio: `${inicio}:00` };
+    const args = { _duracion_min: duracionGuardar, _hora_inicio: `${inicio}:00` };
     const { error } =
       tipo === "clase"
         ? await supabase.rpc("registrar_duracion_clase", { _clase_id: sesionId, ...args })
         : await supabase.rpc("registrar_duracion_sesion", { _sesion_id: sesionId, ...args });
     setSaving(false);
     if (error) return toast.error(error.message);
-    toast.success("Duración registrada.");
-    onSaved(duracion, fin, inicio);
+
+    if (excedeLimite1a1) {
+      toast.success("Sesión registrada con el máximo permitido de 60 minutos.");
+    } else {
+      toast.success("Duración registrada.");
+    }
+    onSaved(duracionGuardar, finGuardar, inicio);
     window.dispatchEvent(new Event("adn:horas-actualizadas"));
     onClose();
   };
@@ -84,6 +97,12 @@ export function RegistrarDuracionModal({ sesionId, tipo = "1a1", horaInicio, dur
         <p className="text-xs text-muted-foreground mb-4">
           Indica a qué hora empezó y a qué hora terminó {tipo === "clase" ? "la clase" : "la reunión"}. Solo el profesor que la dio puede registrarla.
         </p>
+
+        {tipo === "1a1" && (
+          <div className="mb-4 rounded-xl border border-violet/25 bg-violet/5 px-3 py-2 text-xs text-muted-foreground">
+            Las sesiones 1 a 1 tienen un máximo registrable y pagable de <strong className="text-foreground">60 minutos</strong>. Si indicas más tiempo, el sistema guardará únicamente 1 hora.
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -100,9 +119,16 @@ export function RegistrarDuracionModal({ sesionId, tipo = "1a1", horaInicio, dur
 
         <div className="mt-3 text-xs text-muted-foreground">
           {valido ? (
-            <>Resultado: <span className="font-semibold text-foreground">{inicio} – {fin}</span> · {fmt(duracion)}</>
+            excedeLimite1a1 ? (
+              <div className="space-y-1">
+                <div>Tiempo indicado: <span className="font-semibold text-foreground">{inicio} – {fin}</span> · {fmt(duracionReal)}</div>
+                <div className="font-semibold text-amber-700 dark:text-amber-300">Se registrará: {inicio} – {finGuardar} · 1 h máximo.</div>
+              </div>
+            ) : (
+              <>Resultado: <span className="font-semibold text-foreground">{inicio} – {fin}</span> · {fmt(duracionGuardar)}</>
+            )
           ) : (
-            <span className="text-destructive">La hora de fin debe ser posterior a la de inicio (máx. 10 horas).</span>
+            <span className="text-destructive">La hora de fin debe ser posterior a la de inicio (máx. 10 horas para clases).</span>
           )}
         </div>
 
