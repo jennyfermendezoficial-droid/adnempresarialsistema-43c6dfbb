@@ -1,3 +1,4 @@
+// Panel superior de Pagos: solo conserva la calificación del equipo; alertas y cuentas se muestran en sus secciones correspondientes.
 import { useEffect, useMemo, useState } from "react";
 import { Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
