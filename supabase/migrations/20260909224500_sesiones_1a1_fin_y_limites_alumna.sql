@@ -16,6 +16,17 @@ DECLARE
   lock_key bigint;
   sesiones_del_dia integer;
 BEGIN
+  -- Registrar o editar la duración puede ajustar hora_inicio en una sesión ya
+  -- finalizada. Eso no es una nueva reserva ni una reprogramación, por lo que
+  -- no debe volver a consumir cupos ni validar cruces históricos.
+  IF TG_OP = 'UPDATE'
+     AND NEW.duracion_min IS DISTINCT FROM OLD.duracion_min
+     AND lower(coalesce(NEW.estado, '')) = 'finalizada'
+     AND NEW.alumna_id IS NOT DISTINCT FROM OLD.alumna_id
+     AND NEW.fecha IS NOT DISTINCT FROM OLD.fecha THEN
+    RETURN NEW;
+  END IF;
+
   -- Estados que ya no representan una reserva activa no bloquean cupos.
   IF lower(coalesce(NEW.estado, 'confirmada')) IN (
     'cancelada', 'cancelado', 'anulada', 'anulado', 'no_realizada', 'no realizado'
