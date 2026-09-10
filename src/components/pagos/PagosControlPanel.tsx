@@ -1,5 +1,7 @@
-// Panel superior de Pagos: solo conserva la calificación del equipo; alertas y cuentas se muestran en sus secciones correspondientes.
+// Panel superior de Pagos: conserva la calificación del equipo para Profesores
+// y añade el selector entre la gestión de Profesores y Alumnas.
 import { useEffect, useMemo, useState } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -34,12 +36,14 @@ const MESES = [
 export function PagosControlPanel() {
   const { role, session } = useAuth();
   const puedeGestionar = puedeVerPagos(role, session?.user.id);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const enAlumnas = pathname.startsWith("/pagos/alumnas");
   const [calificaciones, setCalificaciones] = useState<CalificacionEquipo[]>([]);
   const [loading, setLoading] = useState(true);
   const periodoCalif = useMemo(mesAnterior, []);
 
   useEffect(() => {
-    if (!puedeGestionar) {
+    if (!puedeGestionar || enAlumnas) {
       setLoading(false);
       return;
     }
@@ -110,50 +114,69 @@ export function PagosControlPanel() {
       activo = false;
       window.removeEventListener("focus", refrescar);
     };
-  }, [puedeGestionar, periodoCalif.mes, periodoCalif.anio]);
+  }, [puedeGestionar, enAlumnas, periodoCalif.mes, periodoCalif.anio]);
 
   if (!puedeGestionar) return null;
 
   return (
     <div className="p-4 md:px-6 md:pt-6 md:pb-0 max-w-7xl mx-auto">
-      <section className="rounded-2xl border bg-card overflow-hidden">
-        <div className="px-5 py-4 border-b">
-          <div className="flex items-center gap-2">
-            <Star className="w-5 h-5 text-amber-500" />
-            <h2 className="text-lg font-semibold">
-              Calificación del equipo · {MESES[periodoCalif.mes - 1]} {periodoCalif.anio}
-            </h2>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Cierre del mes anterior. Se muestran todos los profesores, incluso quienes todavía no recibieron una calificación.
-          </p>
+      <div className="flex justify-end mb-3">
+        <div className="inline-flex items-center gap-1 rounded-xl border bg-card p-1">
+          <Link
+            to="/pagos"
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${!enAlumnas ? "bg-violet-gradient text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}
+          >
+            Profesores
+          </Link>
+          <Link
+            to="/pagos/alumnas"
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${enAlumnas ? "bg-violet-gradient text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}
+          >
+            Alumnas
+          </Link>
         </div>
+      </div>
 
-        {loading ? (
-          <div className="py-8 text-center text-muted-foreground">Cargando calificaciones…</div>
-        ) : calificaciones.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground">No hay profesores disponibles para este resumen.</div>
-        ) : (
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
-            {calificaciones.map((c) => (
-              <div key={c.profesor_id} className="rounded-xl border p-4">
-                <div className="font-semibold text-sm">{c.profesor}</div>
-                {c.cantidad > 0 ? (
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="text-xl font-bold tabular-nums">{c.promedio.toFixed(2)}</div>
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-xs text-muted-foreground">
-                      {c.cantidad} evaluación{c.cantidad === 1 ? "" : "es"}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="mt-2 text-xs text-muted-foreground">Sin calificaciones registradas</div>
-                )}
-              </div>
-            ))}
+      {!enAlumnas && (
+        <section className="rounded-2xl border bg-card overflow-hidden">
+          <div className="px-5 py-4 border-b">
+            <div className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-amber-500" />
+              <h2 className="text-lg font-semibold">
+                Calificación del equipo · {MESES[periodoCalif.mes - 1]} {periodoCalif.anio}
+              </h2>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Cierre del mes anterior. Se muestran todos los profesores, incluso quienes todavía no recibieron una calificación.
+            </p>
           </div>
-        )}
-      </section>
+
+          {loading ? (
+            <div className="py-8 text-center text-muted-foreground">Cargando calificaciones…</div>
+          ) : calificaciones.length === 0 ? (
+            <div className="p-6 text-sm text-muted-foreground">No hay profesores disponibles para este resumen.</div>
+          ) : (
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
+              {calificaciones.map((c) => (
+                <div key={c.profesor_id} className="rounded-xl border p-4">
+                  <div className="font-semibold text-sm">{c.profesor}</div>
+                  {c.cantidad > 0 ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="text-xl font-bold tabular-nums">{c.promedio.toFixed(2)}</div>
+                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-xs text-muted-foreground">
+                        {c.cantidad} evaluación{c.cantidad === 1 ? "" : "es"}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-xs text-muted-foreground">Sin calificaciones registradas</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
