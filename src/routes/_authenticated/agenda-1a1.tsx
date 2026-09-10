@@ -17,6 +17,14 @@ import {
 } from "@/components/CancelarSesion1a1ProfesorModal";
 import { formatNombre } from "@/lib/nombres";
 import { fetchPerfiles } from "@/lib/perfiles";
+import {
+  fechaHoyEcuador,
+  horaFinProgramada1a1,
+  horarios1a1SeSolapan,
+  sesion1a1Terminada,
+  slot1a1Pasado,
+  tieneUnDiaAnticipacion,
+} from "@/lib/sesion-1a1-tiempo";
 
 export const Route = createFileRoute("/_authenticated/agenda-1a1")({ component: Page });
 
@@ -66,7 +74,7 @@ function startOfWeek(d: Date) {
   return x;
 }
 function fmt(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function sesionActiva(s: Pick<Sesion, "estado">) {
   return !ESTADOS_RESUELTOS.has((s.estado || "confirmada").toLowerCase());
@@ -151,7 +159,7 @@ function Page() {
 
   useEffect(() => {
     if (!uid) return;
-    const hoy = fmt(new Date());
+    const hoy = fechaHoyEcuador();
     void (async () => {
       let data: Sesion[] = [];
       if (isStaff) {
@@ -229,12 +237,9 @@ function Page() {
   const miSesion = (fecha: string, hora: string) => sesiones.find((s) => sesionActiva(s) && s.fecha === fecha && s.hora_inicio.slice(0, 5) === hora && (s.alumna_id === uid || s.profesor_id === uid));
   const profesorActual = profesores.find((p) => p.id === profesorId);
   const ratingActual = profesorId ? ratings[profesorId] : undefined;
-  const startToday = new Date(now);
-  startToday.setHours(0, 0, 0, 0);
-  const startTomorrow = new Date(startToday);
-  startTomorrow.setDate(startTomorrow.getDate() + 1);
-  const slotPasado = (fecha: string, hora: string) => new Date(`${fecha}T${hora}:00`).getTime() <= now.getTime();
-  const requiereAnticipacion = (fecha: string) => new Date(`${fecha}T00:00:00`).getTime() < startTomorrow.getTime();
+  const hoyEcuador = fechaHoyEcuador(now);
+  const slotPasado = (fecha: string, hora: string) => slot1a1Pasado(fecha, hora, now);
+  const cumpleAnticipacion = (fecha: string) => tieneUnDiaAnticipacion(fecha, now);
 
   const reservar = async () => {
     if (!booking || !uid || !profesorId || saving) return;
@@ -242,7 +247,7 @@ function Page() {
       toast.error("Primero resuelve tu sesión pendiente con este profesor. Puedes reservar normalmente con los demás profesores.");
       return;
     }
-    if (requiereAnticipacion(booking.fecha)) {
+    if (!cumpleAnticipacion(booking.fecha)) {
       toast.error("Debes reservar con al menos 1 día de anticipación.");
       return;
     }
@@ -261,12 +266,16 @@ function Page() {
     try {
       const { data: misRows } = await supabase
         .from("sesiones_1a1")
-        .select("id,profesor_id,estado")
+        .select("id,profesor_id,estado,hora_inicio,hora_fin")
         .eq("alumna_id", uid)
         .eq("fecha", fecha);
-      const misDelDia = ((misRows ?? []) as Array<{ id: string; profesor_id: string; estado: string }>).filter(sesionActiva);
-      if (misDelDia.length >= 3) {
-        toast.error("Máximo 3 reservas activas por día.");
+      const misDelDia = ((misRows ?? []) as Array<{ id: string; profesor_id: string; estado: string; hora_inicio: string; hora_fin: string | null }>).filter(sesionActiva);
+      if (misDelDia.length >= 2) {
+        toast.error("Máximo 2 reservas activas por día.");
+        return;
+      }
+      if (misDelDia.some((s) => horarios1a1SeSolapan(s.hora_inicio, hora))) {
+        toast.error("Ya tienes otra sesión 1 a 1 en ese horario. Elige otra hora.");
         return;
       }
       if (misDelDia.some((s) => s.profesor_id === profesorId)) {
@@ -337,7 +346,7 @@ function Page() {
           <div>
             <div className="text-[11px] uppercase tracking-[0.18em] opacity-80">Sesiones privadas</div>
             <h1 className="text-3xl font-bold mt-1">Agenda 1 a 1</h1>
-            <p className="text-sm opacity-90 mt-1">Lunes a viernes · disponibilidad 15:00–19:00 · máximo 60 min por sesión · Zoom automático.</p>
+            <p className="text-sm opacity-90 mt-1">Lunes a viernes · disponibilidad 15:00–19:00 · máximo 60 min por sesión · máximo 2 sesiones por día · Zoom automático.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }} className="p-2 rounded-lg bg-white/15 hover:bg-white/25"><ChevronLeft className="w-4 h-4" /></button>
@@ -401,11 +410,12 @@ function Page() {
                 <th className="px-3 py-3 text-left w-24 text-[11px] uppercase tracking-wider opacity-70">Hora</th>
                 {dias.map((d, i) => {
                   const disabled = !disponibilidad[i];
+                  const fecha = fmt(d);
                   return (
-                    <th key={i} className="px-3 py-3 text-left" style={d < startToday || disabled ? { opacity: 0.45 } : undefined}>
+                    <th key={i} className="px-3 py-3 text-left" style={fecha < hoyEcuador || disabled ? { opacity: 0.45 } : undefined}>
                       <div className="text-[11px] uppercase tracking-wider opacity-70">{DIAS[i]}</div>
                       <div className="text-base font-semibold">{d.getDate()}/{d.getMonth() + 1}</div>
-                      {disabled && d >= startToday && <div className="text-[10px]">No disponible</div>}
+                      {disabled && fecha >= hoyEcuador && <div className="text-[10px]">No disponible</div>}
                     </th>
                   );
                 })}
@@ -419,19 +429,24 @@ function Page() {
                     const fecha = fmt(d);
                     const ses = miSesion(fecha, h);
                     const taken = ocupado(fecha, h);
-                    const diaPasado = d < startToday;
+                    const diaPasado = fecha < hoyEcuador;
                     const horaPasada = slotPasado(fecha, h);
                     const noDisponible = !disponibilidad[i];
-                    const sinAnticipacion = !diaPasado && !requiereAnticipacion(fecha);
+                    const sinAnticipacion = !diaPasado && !cumpleAnticipacion(fecha);
+                    const misSesionesDia = esAlumna ? proximas.filter((s) => s.alumna_id === uid && s.fecha === fecha && sesionActiva(s)) : [];
+                    const ocupadoPorMi = misSesionesDia.some((s) => horarios1a1SeSolapan(s.hora_inicio, h));
+                    const limiteDiario = misSesionesDia.length >= 2;
 
                     if (ses) {
+                      const termino = sesion1a1Terminada(ses.fecha, ses.hora_inicio, ses.hora_fin, now);
+                      const finProgramado = horaFinProgramada1a1(ses.hora_inicio, ses.hora_fin);
                       return (
                         <td key={i} className="px-2 py-2">
                           <div className="rounded-xl bg-violet-gradient text-white p-2.5 text-xs shadow-md">
                             <div className="font-semibold flex items-center gap-1"><Video className="w-3 h-3" /><span className="truncate">{ses.profesor_id === uid ? (nombreDe(ses.alumna_id) || "Reservada") : "Reservada"}</span></div>
-                            {ses.duracion_min ? <div className="opacity-90">{ses.hora_inicio.slice(0, 5)} – {ses.hora_fin?.slice(0, 5)} · {Math.min(Number(ses.duracion_min), 60)} min</div> : <div className="opacity-80">Duración por definir · máx. 60 min</div>}
+                            {ses.duracion_min ? <div className="opacity-90">Realizada · {ses.hora_inicio.slice(0, 5)} – {ses.hora_fin?.slice(0, 5)} · {Math.min(Number(ses.duracion_min), 60)} min</div> : termino ? <div className="opacity-90 font-semibold">Pendiente de registrar duración</div> : <div className="opacity-90 font-semibold">Reservado · {ses.hora_inicio.slice(0, 5)} – {finProgramado}</div>}
                             {ses.zoom_link && <a href={ses.zoom_link} target="_blank" rel="noreferrer" className="underline opacity-95">Entrar a Zoom →</a>}
-                            {(ses.profesor_id === uid || role === "admin") && <button onClick={() => setDuracionModal(ses)} className="block underline mt-0.5 opacity-90">{ses.duracion_min ? "Editar duración" : "Registrar duración"}</button>}
+                            {(ses.profesor_id === uid || role === "admin") && termino && <button onClick={() => setDuracionModal(ses)} className="block underline mt-0.5 opacity-90">{ses.duracion_min ? "Editar duración" : "Registrar duración"}</button>}
                             {(ses.profesor_id === uid || role === "admin") && !ses.duracion_min && <button onClick={() => setCancelarModal(ses)} className="block underline mt-0.5 opacity-90">No se realizará</button>}
                           </div>
                         </td>
@@ -440,10 +455,16 @@ function Page() {
                     if (taken) {
                       return <td key={i} className="px-2 py-2"><div className="w-full py-2.5 rounded-xl border border-dashed flex items-center justify-center gap-1 text-xs font-medium"><XIcon className="w-3.5 h-3.5" /> Ocupado</div></td>;
                     }
+                    if (ocupadoPorMi) {
+                      return <td key={i} className="px-2 py-2"><div className="w-full py-2.5 rounded-xl border border-dashed text-center text-[10.5px] font-semibold">Ya tienes sesión</div></td>;
+                    }
+                    if (limiteDiario) {
+                      return <td key={i} className="px-2 py-2"><div className="w-full py-2.5 rounded-xl border border-dashed text-center text-[10.5px] font-semibold">Máximo 2 sesiones</div></td>;
+                    }
                     if (diaPasado || horaPasada || noDisponible) {
                       return <td key={i} className="px-2 py-2"><div className="w-full py-2.5 rounded-xl text-xs font-medium text-center" style={{ color: "var(--muted-foreground)", opacity: 0.45, textDecoration: diaPasado || horaPasada ? "line-through" : undefined }}>No disponible</div></td>;
                     }
-                    if (!sinAnticipacion) {
+                    if (sinAnticipacion) {
                       return <td key={i} className="px-2 py-2"><div className="w-full py-2.5 rounded-xl text-[10.5px] font-medium text-center leading-tight px-1" style={{ color: "var(--muted-foreground)", background: "rgba(0,0,0,.03)", border: "1px dashed var(--border)" }}>Reserva con 1 día de<br />anticipación</div></td>;
                     }
                     if (bloqueadoProfesorActual) {
@@ -484,7 +505,7 @@ function Page() {
                 <tr>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Fecha</th>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Hora</th>
-                  <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Duración</th>
+                  <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Estado / duración</th>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">{isStaff ? "Alumna / Profesor" : "Mentor"}</th>
                   <th className="text-right px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Acción</th>
                 </tr>
@@ -496,14 +517,16 @@ function Page() {
                   const otroNombre = nombreDe(otroId);
                   const profesorNombre = nombreDe(s.profesor_id);
                   const fechaTxt = new Date(`${s.fecha}T00:00:00`).toLocaleDateString("es-PE", { weekday: "short", day: "numeric", month: "short" });
+                  const termino = sesion1a1Terminada(s.fecha, s.hora_inicio, s.hora_fin, now);
+                  const finProgramado = horaFinProgramada1a1(s.hora_inicio, s.hora_fin);
                   return (
                     <tr key={s.id} className="border-t">
                       <td className="px-3 py-2 capitalize">{fechaTxt}</td>
                       <td className="px-3 py-2 font-mono">{s.hora_inicio.slice(0, 5)}</td>
-                      <td className="px-3 py-2 text-xs">{s.duracion_min ? `${Math.min(Number(s.duracion_min), 60)} min` : <span className="opacity-60">por definir · máx. 60 min</span>}</td>
+                      <td className="px-3 py-2 text-xs">{s.duracion_min ? `Realizada · ${Math.min(Number(s.duracion_min), 60)} min` : termino ? <span className="font-semibold">Pendiente de registrar duración</span> : <span className="font-semibold">Reservado · {s.hora_inicio.slice(0, 5)}–{finProgramado}</span>}</td>
                       <td className="px-3 py-2">{isStaff ? <><div>{otroNombre || "Alumna"}</div><div className="text-[11px] opacity-60">Profesor: {profesorNombre || "—"}</div></> : otroNombre || (esMia ? "Mentor" : "Alumna")}</td>
                       <td className="px-3 py-2 text-right">
-                        {(s.profesor_id === uid || role === "admin") && <button onClick={() => setDuracionModal(s)} className="inline-flex items-center gap-1 px-3 py-1.5 mr-2 rounded-lg text-xs font-semibold border"><Clock className="w-3.5 h-3.5" />{s.duracion_min ? "Editar duración" : "Registrar duración"}</button>}
+                        {(s.profesor_id === uid || role === "admin") && termino && <button onClick={() => setDuracionModal(s)} className="inline-flex items-center gap-1 px-3 py-1.5 mr-2 rounded-lg text-xs font-semibold border"><Clock className="w-3.5 h-3.5" />{s.duracion_min ? "Editar duración" : "Registrar duración"}</button>}
                         {(s.profesor_id === uid || role === "admin") && !s.duracion_min && <button onClick={() => setCancelarModal(s)} className="inline-flex items-center gap-1 px-3 py-1.5 mr-2 rounded-lg text-xs font-semibold border border-red-500/30 text-red-600"><Ban className="w-3.5 h-3.5" />No se realizará</button>}
                         {s.zoom_link ? <a href={s.zoom_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-gradient text-white"><Video className="w-3.5 h-3.5" /> Entrar a Zoom</a> : <span className="opacity-50 text-xs">sin link</span>}
                       </td>
