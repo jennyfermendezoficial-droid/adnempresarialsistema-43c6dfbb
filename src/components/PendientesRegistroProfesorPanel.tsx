@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 import { fetchPerfiles } from "@/lib/perfiles";
 import { formatNombre } from "@/lib/nombres";
+import { fechaHoyEcuador, sesion1a1Terminada } from "@/lib/sesion-1a1-tiempo";
 import { toast } from "sonner";
 
 interface ClasePendiente {
@@ -84,6 +85,7 @@ export function PendientesRegistroProfesorPanel() {
     }
 
     const hoy = fechaLocal();
+    const hoyEcuador = fechaHoyEcuador();
     const [clasesRes, sesionesRes] = await Promise.all([
       supabase
         .from("clases_en_vivo")
@@ -96,7 +98,7 @@ export function PendientesRegistroProfesorPanel() {
         .from("sesiones_1a1")
         .select("id,fecha,hora_inicio,hora_fin,profesor_id,alumna_id,estado,motivo,duracion_min")
         .eq("profesor_id", uid)
-        .lte("fecha", hoy)
+        .lte("fecha", hoyEcuador)
         .order("fecha", { ascending: true })
         .order("hora_inicio", { ascending: true }),
     ]);
@@ -109,8 +111,8 @@ export function PendientesRegistroProfesorPanel() {
       .filter((s) => {
         const estado = (s.estado || "confirmada").toLowerCase();
         return Number(s.duracion_min ?? 0) <= 0
-          && !["cancelada", "cancelado", "anulada", "anulado", "finalizada"].includes(estado)
-          && termino(s.fecha, s.hora_inicio, s.hora_fin);
+          && !["cancelada", "cancelado", "anulada", "anulado", "finalizada", "no_realizada", "no realizado"].includes(estado)
+          && sesion1a1Terminada(s.fecha, s.hora_inicio, s.hora_fin);
       })
       .map<Pendiente>((sesion) => ({ tipo: "1a1", sesion }));
 
