@@ -6,6 +6,7 @@ import { Video, Calendar, AlertCircle, Clock, Trash2, UserPlus, FileText, List, 
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 import { formatNombre } from "@/lib/nombres";
 import { fetchPerfiles } from "@/lib/perfiles";
+import { horaFinProgramada1a1, sesion1a1Terminada } from "@/lib/sesion-1a1-tiempo";
 import { toast } from "sonner";
 import { listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo } from "@/lib/pagos-export";
 import {
@@ -175,10 +176,16 @@ function Page() {
       const soyProfesor = s.profesor_id === uid;
       const persona = personas[soyAlumna ? s.profesor_id : s.alumna_id];
       const nombre = formatNombre(persona?.nombre_completo) || persona?.email || (soyAlumna ? "mentor" : "estudiante");
+      const termino = sesion1a1Terminada(s.fecha, s.hora_inicio, s.hora_fin, ahora);
+      const finProgramado = horaFinProgramada1a1(s.hora_inicio, s.hora_fin);
       return {
         tipo: "1a1", id: s.id, fecha: s.fecha, hora: s.hora_inicio,
         titulo: soyAlumna ? `1 a 1 con ${nombre}` : `1 a 1 · ${nombre}`,
-        sub: s.duracion_min ? `Sesión privada · ${s.hora_inicio.slice(0,5)} – ${s.hora_fin?.slice(0,5)} · ${s.duracion_min} min` : "Sesión privada · duración por definir",
+        sub: s.duracion_min
+          ? `Sesión privada · Realizada · ${s.hora_inicio.slice(0,5)} – ${s.hora_fin?.slice(0,5)} · ${s.duracion_min} min`
+          : termino
+            ? "Sesión privada · Pendiente de registrar duración"
+            : `Sesión privada · Reservado · ${s.hora_inicio.slice(0,5)} – ${finProgramado}`,
         link: s.zoom_link, motivo: s.motivo, soyProfe: soyProfesor, sesion: s,
       };
     }),
@@ -250,6 +257,9 @@ function Page() {
         <div className="space-y-2">
           {(vista === "calendario" ? items.filter((it) => !diaSel || it.fecha === diaSel) : items).map((it) => {
             const proximo = dentroDe24h(it.fecha, it.hora);
+            const termino1a1 = it.tipo === "1a1" && it.sesion
+              ? sesion1a1Terminada(it.sesion.fecha, it.sesion.hora_inicio, it.sesion.hora_fin, ahora)
+              : false;
             return (
               <div key={`${it.tipo}-${it.id}`} className="rounded-2xl border bg-card p-4 flex items-center gap-3 flex-wrap shadow-sm"
                 style={proximo ? { borderColor: "var(--violet)", boxShadow: "0 4px 16px rgba(124,107,255,.15)" } : undefined}>
@@ -290,7 +300,7 @@ function Page() {
                     <Video className="w-3.5 h-3.5" /> Entrar a Zoom
                   </a>
                 )}
-                {it.tipo === "1a1" && it.soyProfe && it.sesion && (
+                {it.tipo === "1a1" && it.soyProfe && it.sesion && termino1a1 && (
                   <button onClick={() => setDuracionModal(it.sesion!)}
                     className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold border">
                     <Clock className="w-3.5 h-3.5" /> {it.sesion.duracion_min ? "Editar duración" : "Registrar duración"}
