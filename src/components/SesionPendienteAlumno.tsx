@@ -3,6 +3,12 @@ import { AlertTriangle, CalendarClock, Clock3, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPerfiles } from "@/lib/perfiles";
 import { formatNombre } from "@/lib/nombres";
+import {
+  fechaHoyEcuador,
+  horarios1a1SeSolapan,
+  sesion1a1Terminada,
+  slot1a1Pasado,
+} from "@/lib/sesion-1a1-tiempo";
 import { toast } from "sonner";
 
 export interface SesionPendienteAlumnoRow {
@@ -19,28 +25,20 @@ export interface SesionPendienteAlumnoRow {
 }
 
 const HORAS = ["15:00", "16:00", "17:00", "18:00"];
-const SESION_ESTIMADA_MIN = 60;
-
-function fechaLocal(d = new Date()) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+const ESTADOS_RESUELTOS = new Set(["cancelada", "cancelado", "anulada", "anulado", "no_realizada", "no realizado"]);
 
 function sumarDias(fecha: string, dias: number) {
-  const d = new Date(`${fecha}T12:00:00`);
-  d.setDate(d.getDate() + dias);
-  return fechaLocal(d);
+  const [y, m, d] = fecha.split("-").map(Number);
+  const x = new Date(Date.UTC(y, m - 1, d + dias));
+  return `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, "0")}-${String(x.getUTCDate()).padStart(2, "0")}`;
+}
+
+function sesionActiva(s: Pick<SesionPendienteAlumnoRow, "estado">) {
+  return !ESTADOS_RESUELTOS.has((s.estado || "confirmada").toLowerCase());
 }
 
 function sesionYaTermino(s: SesionPendienteAlumnoRow) {
-  const ahora = new Date();
-  const inicio = new Date(`${s.fecha}T${s.hora_inicio.slice(0, 5)}:00`);
-  const fin = s.hora_fin
-    ? new Date(`${s.fecha}T${s.hora_fin.slice(0, 5)}:00`)
-    : new Date(inicio.getTime() + SESION_ESTIMADA_MIN * 60_000);
-  return fin.getTime() <= ahora.getTime();
+  return sesion1a1Terminada(s.fecha, s.hora_inicio, s.hora_fin);
 }
 
 function esPendiente(s: SesionPendienteAlumnoRow) {
@@ -60,7 +58,7 @@ export function useSesionesPendientesAlumno(uid?: string, habilitado = true) {
       return;
     }
     setLoading(true);
-    const hoy = fechaLocal();
+    const hoy = fechaHoyEcuador();
     const { data, error } = await supabase
       .from("sesiones_1a1")
       .select("id,fecha,hora_inicio,hora_fin,profesor_id,alumna_id,estado,duracion_min,motivo,zoom_link")
@@ -144,7 +142,7 @@ export function SesionPendienteAlumnoPanel({
     })();
   }, [pendientes]);
 
-  const hoy = fechaLocal();
+  const hoy = fechaHoyEcuador();
   const principal = pendientes[0];
   const fechaDestinoPrincipal = principal ? sumarDias(principal.fecha, 1) : "";
   const puedeReprogramarPrincipal = Boolean(principal && fechaDestinoPrincipal >= hoy);
@@ -160,18 +158,19 @@ export function SesionPendienteAlumnoPanel({
     setHoraNueva("");
     setCargandoHoras(true);
 
-    const dia = new Date(`${destino}T12:00:00`);
-    const indiceSemana = (dia.getDay() + 6) % 7;
+    const [y, m, d] = destino.split("-").map(Number);
+    const dia = new Date(Date.UTC(y, m - 1, d));
+    const indiceSemana = (dia.getUTCDay() + 6) % 7;
     if (indiceSemana > 4) {
       setHorasDisponibles([]);
       setCargandoHoras(false);
       return;
     }
 
-    const [{ data: ocupadas }, { data: disp }] = await Promise.all([
+    const [{ data: ocupadas }, { data: disp }, { data: propias }] = await Promise.all([
       supabase
         .from("sesiones_1a1")
-        .select("hora_inicio")
+        .select("hora_inicio,estado")
         .eq("profesor_id", sesion.profesor_id)
         .eq("fecha", destino)
         .neq("id", sesion.id),
@@ -181,6 +180,12 @@ export function SesionPendienteAlumnoPanel({
         .eq("profesor_id", sesion.profesor_id)
         .eq("dia_semana", indiceSemana)
         .maybeSingle(),
+      supabase
+        .from("sesiones_1a1")
+        .select("id,profesor_id,hora_inicio,hora_fin,estado,duracion_min,fecha,alumna_id,motivo,zoom_link")
+        .eq("alumna_id", sesion.alumna_id)
+        .eq("fecha", destino)
+        .neq("id", sesion.id),
     ]);
 
     if (disp && disp.activo === false) {
@@ -189,12 +194,28 @@ export function SesionPendienteAlumnoPanel({
       return;
     }
 
-    const tomadas = new Set(((ocupadas ?? []) as { hora_inicio: string }[]).map((x) => x.hora_inicio.slice(0, 5)));
-    const ahora = new Date();
+    const ocupadasActivas = ((ocupadas ?? []) as { hora_inicio: string; estado: string | null }[]).filter(sesionActiva);
+    const propiasActivas = ((propias ?? []) as SesionPendienteAlumnoRow[]).filter(sesionActiva);
+
+    if (propiasActivas.length >= 2) {
+      setHorasDisponibles([]);
+      setCargandoHoras(false);
+      toast.error("Ya tienes el máximo de 2 sesiones 1 a 1 ese día.");
+      return;
+    }
+    if (propiasActivas.some((s) => s.profesor_id === sesion.profesor_id)) {
+      setHorasDisponibles([]);
+      setCargandoHoras(false);
+      toast.error("Ya tienes otra sesión activa con este profesor ese día.");
+      return;
+    }
+
+    const tomadas = new Set(ocupadasActivas.map((x) => x.hora_inicio.slice(0, 5)));
     const horas = HORAS.filter((h) => {
       if (tomadas.has(h)) return false;
+      if (propiasActivas.some((s) => horarios1a1SeSolapan(s.hora_inicio, h))) return false;
       if (destino !== hoy) return true;
-      return new Date(`${destino}T${h}:00`).getTime() > ahora.getTime();
+      return !slot1a1Pasado(destino, h);
     });
     setHorasDisponibles(horas);
     setHoraNueva(horas[0] ?? "");
@@ -207,15 +228,36 @@ export function SesionPendienteAlumnoPanel({
     setGuardando(true);
 
     try {
-      const { data: choque } = await supabase
-        .from("sesiones_1a1")
-        .select("id")
-        .eq("profesor_id", seleccion.profesor_id)
-        .eq("fecha", destino)
-        .eq("hora_inicio", `${horaNueva}:00`)
-        .neq("id", seleccion.id)
-        .limit(1);
-      if ((choque?.length ?? 0) > 0) throw new Error("Ese horario acaba de ser reservado. Elige otro.");
+      const [{ data: choque }, { data: propias }] = await Promise.all([
+        supabase
+          .from("sesiones_1a1")
+          .select("id,estado")
+          .eq("profesor_id", seleccion.profesor_id)
+          .eq("fecha", destino)
+          .eq("hora_inicio", `${horaNueva}:00`)
+          .neq("id", seleccion.id),
+        supabase
+          .from("sesiones_1a1")
+          .select("id,profesor_id,hora_inicio,hora_fin,estado,duracion_min,fecha,alumna_id,motivo,zoom_link")
+          .eq("alumna_id", seleccion.alumna_id)
+          .eq("fecha", destino)
+          .neq("id", seleccion.id),
+      ]);
+
+      if (((choque ?? []) as { id: string; estado: string | null }[]).some(sesionActiva)) {
+        throw new Error("Ese horario acaba de ser reservado. Elige otro.");
+      }
+
+      const propiasActivas = ((propias ?? []) as SesionPendienteAlumnoRow[]).filter(sesionActiva);
+      if (propiasActivas.length >= 2) {
+        throw new Error("Ya tienes el máximo de 2 sesiones 1 a 1 ese día.");
+      }
+      if (propiasActivas.some((s) => s.profesor_id === seleccion.profesor_id)) {
+        throw new Error("Ya tienes otra sesión activa con este profesor ese día.");
+      }
+      if (propiasActivas.some((s) => horarios1a1SeSolapan(s.hora_inicio, horaNueva))) {
+        throw new Error("Ya tienes otra sesión 1 a 1 en ese horario. Elige otra hora.");
+      }
 
       const { data, error } = await (supabase as any).rpc("reprogramar_mi_sesion_1a1", {
         _sesion_id: seleccion.id,
@@ -308,7 +350,7 @@ export function SesionPendienteAlumnoPanel({
               {cargandoHoras ? (
                 <div className="text-sm text-muted-foreground inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Revisando horarios…</div>
               ) : horasDisponibles.length === 0 ? (
-                <div className="rounded-lg border p-3 text-sm text-muted-foreground">El Profesor no tiene un horario disponible ese día. No se puede mover a otra fecha distinta.</div>
+                <div className="rounded-lg border p-3 text-sm text-muted-foreground">No hay un horario disponible para mover esta sesión al día permitido.</div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {horasDisponibles.map((h) => (
