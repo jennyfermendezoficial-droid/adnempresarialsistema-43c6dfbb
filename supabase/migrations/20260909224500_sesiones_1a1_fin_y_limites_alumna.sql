@@ -21,7 +21,6 @@ BEGIN
   -- finalizada. Eso no es una nueva reserva ni una reprogramación, por lo que
   -- no debe volver a consumir cupos ni validar cruces históricos.
   IF TG_OP = 'UPDATE'
-     AND NEW.duracion_min IS DISTINCT FROM OLD.duracion_min
      AND lower(coalesce(NEW.estado, '')) = 'finalizada'
      AND NEW.alumna_id IS NOT DISTINCT FROM OLD.alumna_id
      AND NEW.fecha IS NOT DISTINCT FROM OLD.fecha THEN
