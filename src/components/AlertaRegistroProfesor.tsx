@@ -3,6 +3,7 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { AlertTriangle, BadgeDollarSign, Clock3, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { fechaHoyEcuador, sesion1a1Terminada } from "@/lib/sesion-1a1-tiempo";
 
 interface ClasePendiente {
   id: string;
@@ -95,6 +96,7 @@ export function AlertaRegistroProfesor() {
     }
 
     const hoy = fechaLocal();
+    const hoyEcuador = fechaHoyEcuador();
     const [clasesRes, sesionesRes, descuentoRes] = await Promise.all([
       supabase
         .from("clases_en_vivo")
@@ -106,7 +108,7 @@ export function AlertaRegistroProfesor() {
         .from("sesiones_1a1")
         .select("id,fecha,hora_inicio,hora_fin,estado,duracion_min")
         .eq("profesor_id", uid)
-        .lte("fecha", hoy)
+        .lte("fecha", hoyEcuador)
         .order("fecha", { ascending: true }),
       supabase
         .from("notificaciones")
@@ -134,8 +136,8 @@ export function AlertaRegistroProfesor() {
       .filter((s) => {
         const estado = (s.estado || "confirmada").toLowerCase();
         return Number(s.duracion_min ?? 0) <= 0
-          && !["cancelada", "cancelado", "anulada", "anulado", "finalizada"].includes(estado)
-          && yaTermino(s.fecha, s.hora_fin, s.hora_inicio);
+          && !["cancelada", "cancelado", "anulada", "anulado", "finalizada", "no_realizada", "no realizado"].includes(estado)
+          && sesion1a1Terminada(s.fecha, s.hora_inicio, s.hora_fin);
       })
       .map<Pendiente>((s) => ({
         tipo: "1a1",
