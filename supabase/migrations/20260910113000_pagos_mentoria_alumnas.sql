@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS public.pagos_mentoria_totales (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  alumna_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  alumna_id uuid NOT NULL REFERENCES public.profiles(id),
   mes integer NOT NULL CHECK (mes BETWEEN 1 AND 12),
   anio integer NOT NULL CHECK (anio BETWEEN 2000 AND 2100),
   total numeric(12,2) NOT NULL DEFAULT 0 CHECK (total >= 0),
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.pagos_mentoria_totales (
 
 CREATE TABLE IF NOT EXISTS public.pagos_mentoria_abonos (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  alumna_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  alumna_id uuid NOT NULL REFERENCES public.profiles(id),
   mes integer NOT NULL CHECK (mes BETWEEN 1 AND 12),
   anio integer NOT NULL CHECK (anio BETWEEN 2000 AND 2100),
   fecha_pago date NOT NULL DEFAULT CURRENT_DATE,
