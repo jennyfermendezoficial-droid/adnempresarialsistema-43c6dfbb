@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { AlertTriangle, BadgeDollarSign, Clock3, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,8 +38,6 @@ interface NotificacionDescuento {
   cuerpo: string;
 }
 
-const OCULTAR_MS = 10 * 60 * 1000;
-
 function fechaLocal(d = new Date()) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -71,8 +69,8 @@ function claveOculta(uid: string) {
   return `adn:alerta-horas-oculta:${uid}`;
 }
 
-function leerOculta(uid: string) {
-  try { return Number(localStorage.getItem(claveOculta(uid)) || 0); } catch { return 0; }
+function leerFirmaOculta(uid: string) {
+  try { return localStorage.getItem(claveOculta(uid)) || ""; } catch { return ""; }
 }
 
 export function AlertaRegistroProfesor() {
@@ -85,7 +83,15 @@ export function AlertaRegistroProfesor() {
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [descuento, setDescuento] = useState<NotificacionDescuento | null>(null);
   const [loading, setLoading] = useState(true);
-  const [ocultaHasta, setOcultaHasta] = useState(0);
+  const [firmaOculta, setFirmaOculta] = useState("");
+
+  const firmaActual = useMemo(
+    () => pendientes
+      .map((p) => `${p.tipo}:${p.id}`)
+      .sort()
+      .join("|"),
+    [pendientes],
+  );
 
   const cargar = async () => {
     if (!uid || !isProfesor) {
@@ -177,7 +183,7 @@ export function AlertaRegistroProfesor() {
   };
 
   useEffect(() => {
-    if (uid) setOcultaHasta(leerOculta(uid));
+    if (uid) setFirmaOculta(leerFirmaOculta(uid));
   }, [uid]);
 
   useEffect(() => {
@@ -197,24 +203,13 @@ export function AlertaRegistroProfesor() {
     };
   }, [uid, isProfesor, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!ocultaHasta || ocultaHasta <= Date.now()) return;
-    const timer = window.setTimeout(() => setOcultaHasta(0), ocultaHasta - Date.now());
-    return () => window.clearTimeout(timer);
-  }, [ocultaHasta]);
-
   const cerrarPendientes = () => {
-    if (!uid) return;
-    const hasta = Date.now() + OCULTAR_MS;
-    try { localStorage.setItem(claveOculta(uid), String(hasta)); } catch { /* noop */ }
-    setOcultaHasta(hasta);
+    if (!uid || !firmaActual) return;
+    try { localStorage.setItem(claveOculta(uid), firmaActual); } catch { /* noop */ }
+    setFirmaOculta(firmaActual);
   };
 
   const irAPendientes = () => {
-    if (uid) {
-      try { localStorage.removeItem(claveOculta(uid)); } catch { /* noop */ }
-      setOcultaHasta(0);
-    }
     navigate({ to: "/mis-clases-asignadas" });
   };
 
@@ -232,7 +227,7 @@ export function AlertaRegistroProfesor() {
 
   if (pathname.startsWith("/mis-clases-asignadas")) return null;
 
-  if (pendientes.length > 0 && Date.now() >= ocultaHasta) {
+  if (pendientes.length > 0 && firmaActual !== firmaOculta) {
     return (
       <div className="fixed inset-0 z-[115] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
         <div className="w-full max-w-lg rounded-2xl border bg-card shadow-2xl overflow-hidden">
@@ -241,15 +236,15 @@ export function AlertaRegistroProfesor() {
               type="button"
               onClick={cerrarPendientes}
               className="absolute top-3 right-3 p-2 rounded-lg bg-white/10 hover:bg-white/20"
-              aria-label="Cerrar por ahora"
-              title="Cerrar por ahora"
+              aria-label="Cerrar aviso"
+              title="Cerrar aviso"
             >
               <X className="w-4 h-4" />
             </button>
             <div className="w-11 h-11 rounded-xl bg-white/15 grid place-items-center mb-3"><Clock3 className="w-6 h-6" /></div>
             <div className="text-xs uppercase tracking-wider opacity-80">Registro pendiente</div>
             <h2 className="text-xl font-bold mt-1">Tienes clases o sesiones sin registrar</h2>
-            <p className="text-sm opacity-90 mt-1 pr-8">Puedes cerrar este aviso y seguir trabajando. En Mis clases asignadas verás exactamente cuáles están pendientes.</p>
+            <p className="text-sm opacity-90 mt-1 pr-8">Puedes cerrar este aviso y seguir trabajando. Volverá a aparecer únicamente si llega una pendiente nueva. En Mis clases asignadas seguirás viendo todas las pendientes hasta resolverlas.</p>
           </div>
 
           <div className="p-5">
@@ -266,7 +261,7 @@ export function AlertaRegistroProfesor() {
             <button onClick={irAPendientes} className="mt-4 w-full px-4 py-3 rounded-xl bg-violet-gradient text-white text-sm font-semibold">
               Ver pendientes en Mis clases asignadas
             </button>
-            <p className="text-[11px] text-center text-muted-foreground mt-2">La X oculta este aviso durante 10 minutos; las pendientes siguen visibles en Mis clases asignadas.</p>
+            <p className="text-[11px] text-center text-muted-foreground mt-2">La X guarda este conjunto de pendientes como visto. Una pendiente nueva volverá a mostrar el aviso.</p>
           </div>
         </div>
       </div>
