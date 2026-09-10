@@ -85,13 +85,17 @@ export function AlertaRegistroProfesor() {
   const [loading, setLoading] = useState(true);
   const [firmaOculta, setFirmaOculta] = useState("");
 
-  const firmaActual = useMemo(
+  const idsActuales = useMemo(
     () => pendientes
       .map((p) => `${p.tipo}:${p.id}`)
-      .sort()
-      .join("|"),
+      .sort(),
     [pendientes],
   );
+  const idsOcultos = useMemo(
+    () => new Set(firmaOculta.split("|").filter(Boolean)),
+    [firmaOculta],
+  );
+  const hayPendienteNueva = idsActuales.some((id) => !idsOcultos.has(id));
 
   const cargar = async () => {
     if (!uid || !isProfesor) {
@@ -203,8 +207,26 @@ export function AlertaRegistroProfesor() {
     };
   }, [uid, isProfesor, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!uid || loading) return;
+    const actuales = new Set(idsActuales);
+    const firmaVigente = firmaOculta
+      .split("|")
+      .filter(Boolean)
+      .filter((id) => actuales.has(id))
+      .sort()
+      .join("|");
+    if (firmaVigente === firmaOculta) return;
+    try {
+      if (firmaVigente) localStorage.setItem(claveOculta(uid), firmaVigente);
+      else localStorage.removeItem(claveOculta(uid));
+    } catch { /* noop */ }
+    setFirmaOculta(firmaVigente);
+  }, [uid, loading, idsActuales, firmaOculta]);
+
   const cerrarPendientes = () => {
-    if (!uid || !firmaActual) return;
+    if (!uid || idsActuales.length === 0) return;
+    const firmaActual = idsActuales.join("|");
     try { localStorage.setItem(claveOculta(uid), firmaActual); } catch { /* noop */ }
     setFirmaOculta(firmaActual);
   };
@@ -227,7 +249,7 @@ export function AlertaRegistroProfesor() {
 
   if (pathname.startsWith("/mis-clases-asignadas")) return null;
 
-  if (pendientes.length > 0 && firmaActual !== firmaOculta) {
+  if (pendientes.length > 0 && hayPendienteNueva) {
     return (
       <div className="fixed inset-0 z-[115] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
         <div className="w-full max-w-lg rounded-2xl border bg-card shadow-2xl overflow-hidden">
@@ -261,7 +283,7 @@ export function AlertaRegistroProfesor() {
             <button onClick={irAPendientes} className="mt-4 w-full px-4 py-3 rounded-xl bg-violet-gradient text-white text-sm font-semibold">
               Ver pendientes en Mis clases asignadas
             </button>
-            <p className="text-[11px] text-center text-muted-foreground mt-2">La X guarda este conjunto de pendientes como visto. Una pendiente nueva volverá a mostrar el aviso.</p>
+            <p className="text-[11px] text-center text-muted-foreground mt-2">La X guarda las pendientes actuales como vistas. Solo una pendiente nueva volverá a mostrar este aviso.</p>
           </div>
         </div>
       </div>
