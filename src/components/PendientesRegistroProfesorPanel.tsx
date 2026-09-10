@@ -37,6 +37,8 @@ const MOTIVOS_NO_REALIZADA = [
   { value: "evento", label: "La alumna informó que tenía un evento" },
   { value: "consulta_medica", label: "La alumna tuvo una consulta médica" },
   { value: "no_asistio", label: "La alumna no pudo asistir" },
+  { value: "profesor_no_pudo", label: "El profesor no pudo realizar la sesión" },
+  { value: "reprogramada", label: "La sesión se cambió para otro día" },
   { value: "problema_personal", label: "La alumna tuvo un problema personal" },
   { value: "problema_tecnico", label: "Hubo un inconveniente técnico" },
   { value: "otro", label: "Otro motivo" },
