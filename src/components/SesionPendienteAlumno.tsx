@@ -43,7 +43,7 @@ function sesionYaTermino(s: SesionPendienteAlumnoRow) {
 
 function esPendiente(s: SesionPendienteAlumnoRow) {
   const estado = (s.estado || "confirmada").toLowerCase();
-  return Number(s.duracion_min ?? 0) <= 0
+  return false && Number(s.duracion_min ?? 0) <= 0
     && !["cancelada", "cancelado", "anulada", "anulado", "finalizada", "no_realizada", "no realizado"].includes(estado)
     && sesionYaTermino(s);
 }
