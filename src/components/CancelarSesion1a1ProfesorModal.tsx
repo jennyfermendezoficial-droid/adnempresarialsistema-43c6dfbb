@@ -17,6 +17,7 @@ const MOTIVOS = [
   { value: "agendada_error", label: "La sesión se agendó por error" },
   { value: "alumna_no_puede", label: "La alumna avisó que no podrá asistir" },
   { value: "profesor_no_puede", label: "El profesor no podrá realizar la sesión" },
+  { value: "reprogramada", label: "La sesión se cambió para otro día" },
   { value: "acuerdo", label: "Se acordó no realizar esta sesión" },
   { value: "evento", label: "La alumna tiene un evento u otro compromiso" },
   { value: "consulta_medica", label: "La alumna tiene una consulta médica" },
