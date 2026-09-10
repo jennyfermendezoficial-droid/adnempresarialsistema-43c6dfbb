@@ -1,7 +1,8 @@
 -- Reglas de integridad para Agenda 1 a 1:
 -- 1) una alumna no puede tener sesiones 1 a 1 que se crucen entre profesores;
 -- 2) máximo 2 sesiones activas por alumna y día;
--- 3) no se puede registrar duración antes de que termine el horario reservado.
+-- 3) se conserva la regla existente de una sesión activa por profesor y día;
+-- 4) no se puede registrar duración antes de que termine el horario reservado.
 --
 -- No modifica datos existentes. Las validaciones se aplican a nuevas reservas,
 -- reprogramaciones y futuros registros de duración.
@@ -55,6 +56,22 @@ BEGIN
     RAISE EXCEPTION USING
       ERRCODE = '23514',
       MESSAGE = 'Máximo 2 sesiones 1 a 1 por día. Elige otro día.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.sesiones_1a1 s
+    WHERE s.alumna_id = NEW.alumna_id
+      AND s.profesor_id = NEW.profesor_id
+      AND s.fecha = NEW.fecha
+      AND s.id <> NEW.id
+      AND lower(coalesce(s.estado, 'confirmada')) NOT IN (
+        'cancelada', 'cancelado', 'anulada', 'anulado', 'no_realizada', 'no realizado'
+      )
+  ) THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '23514',
+      MESSAGE = 'Ya tienes una sesión activa con este profesor ese día.';
   END IF;
 
   IF EXISTS (
