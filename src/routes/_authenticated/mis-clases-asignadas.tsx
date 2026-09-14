@@ -37,7 +37,7 @@ function Page() {
   const [reemplazos, setReemplazos] = useState<Reemplazo[]>([]);
   const [reemplazoModal, setReemplazoModal] = useState<{ tipo: "clase" | "1a1"; id: string; fecha: string; titulo: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [vista, setVista] = useState<"lista" | "calendario">("calendario");
+  const [vista, setVista] = useState<"lista" | "calendario">("lista");
   const [diaSel, setDiaSel] = useState<string | null>(null);
   const [duracionModal, setDuracionModal] = useState<Sesion | null>(null);
   const [claseModal, setClaseModal] = useState<Clase | null>(null);
@@ -205,13 +205,13 @@ function Page() {
           {meses.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
         <div className="flex gap-1 p-1 rounded-lg border bg-card">
-          <button onClick={() => setVista("calendario")}
-            className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1 ${vista === "calendario" ? "bg-violet-gradient text-white" : "text-muted-foreground"}`}>
-            <CalendarDays className="w-3.5 h-3.5" /> Calendario
-          </button>
           <button onClick={() => setVista("lista")}
             className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1 ${vista === "lista" ? "bg-violet-gradient text-white" : "text-muted-foreground"}`}>
             <List className="w-3.5 h-3.5" /> Lista
+          </button>
+          <button onClick={() => setVista("calendario")}
+            className={`px-2.5 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1 ${vista === "calendario" ? "bg-violet-gradient text-white" : "text-muted-foreground"}`}>
+            <CalendarDays className="w-3.5 h-3.5" /> Calendario
           </button>
         </div>
         <button onClick={() => void descargarInforme()}
