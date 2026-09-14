@@ -198,7 +198,11 @@ export function ChatsPopover() {
   const marcarLeido = async (chatId: string) => {
     if (!uid) return;
     try {
-      await supabase.rpc("marcar_mi_chat_leido", { _chat_id: chatId });
+      const rpc = supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => PromiseLike<{ error: { message: string } | null }>;
+      await rpc.call(supabase, "marcar_mi_chat_leido", { _chat_id: chatId });
     } catch {
       // La lectura del chat no debe bloquear la conversación si una preview vieja
       // todavía no tiene la función segura aplicada.
