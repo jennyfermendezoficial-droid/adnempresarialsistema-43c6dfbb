@@ -1,4 +1,5 @@
 import { Component, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { MessageSquare, Search, ArrowLeft, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatThread } from "./ChatThread";
@@ -6,6 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatNombre } from "@/lib/nombres";
 import { fetchPerfiles, type PerfilPublico } from "@/lib/perfiles";
 import { useAuth } from "@/lib/auth-context";
+import { asegurarChat1a1 } from "@/lib/chat-1a1.functions";
+import { registrarAbridorChat } from "@/lib/chat-popover";
 import { toast } from "sonner";
 
 interface Chat { id: string; usuario_a_id: string; usuario_b_id: string; last_message_at: string }
@@ -46,6 +49,7 @@ export function ChatsPopover() {
   const { session, role } = useAuth();
   const uid = session?.user.id;
   const isStaff = role === "admin" || role === "soporte";
+  const asegurarChat = useServerFn(asegurarChat1a1);
 
   const [open, setOpen] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -108,8 +112,6 @@ export function ChatsPopover() {
   useEffect(() => { cargar(); }, [cargar]);
 
   // Realtime: refresca lista y marca no leídos
-  const openRef = useRef(open);
-  openRef.current = open;
   const cargarRef = useRef(cargar);
   cargarRef.current = cargar;
   useEffect(() => {
@@ -147,12 +149,6 @@ export function ChatsPopover() {
       .filter((p) => !q || (formatNombre(p.nombre_completo || "") || "").toLowerCase().includes(q));
   }, [isStaff, soporte, chats, busqueda, otro]);
 
-  const buscarExistente = useCallback(async (otherId: string) => {
-    if (!uid) return null;
-    const { data } = await supabase.from("chats_1a1").select("*");
-    return (((data as Chat[]) ?? []).find((c) => coincideCon(c, otherId))) ?? null;
-  }, [uid, coincideCon]);
-
   const asegurarPerfil = useCallback(async (otherId: string) => {
     if (perfiles[otherId]) return;
     const [perfil] = await fetchPerfiles([otherId]);
@@ -176,32 +172,19 @@ export function ChatsPopover() {
       return;
     }
 
-    const existente = await buscarExistente(otherId);
-    if (existente) {
-      activarChat(existente, otherId);
-      return;
+    try {
+      const chat = await asegurarChat({ data: { other_id: otherId } });
+      activarChat(chat as Chat, otherId);
+      void cargar();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo abrir el chat. Inténtalo nuevamente.");
     }
+  }, [uid, chats, coincideCon, activarChat, asegurarChat, cargar]);
 
-    const { data, error } = await supabase
-      .from("chats_1a1").insert({ usuario_a_id: uid, usuario_b_id: otherId }).select().single();
+  // Abridor directo usado por Miembros y por el perfil individual.
+  useEffect(() => registrarAbridorChat((userId) => { void abrirCon(userId); }), [abrirCon]);
 
-    if (error) {
-      const code = (error as { code?: string }).code;
-      const esDuplicado = code === "23505" || error.message.toLowerCase().includes("duplicate key");
-      if (esDuplicado) {
-        const recuperado = await buscarExistente(otherId);
-        if (recuperado) {
-          activarChat(recuperado, otherId);
-          return;
-        }
-      }
-      toast.error("No se pudo abrir el chat. Inténtalo nuevamente.");
-      return;
-    }
-
-    activarChat(data as Chat, otherId);
-  }, [uid, chats, coincideCon, buscarExistente, activarChat]);
-
+  // Compatibilidad con enlaces/componentes antiguos que todavía disparen el evento.
   useEffect(() => {
     const onAbrirChat = (event: Event) => {
       const userId = (event as CustomEvent<{ userId?: string }>).detail?.userId;
@@ -214,12 +197,16 @@ export function ChatsPopover() {
 
   const marcarLeido = async (chatId: string) => {
     if (!uid) return;
-    await supabase.from("mensajes_chat_1a1").update({ leido: true })
-      .eq("chat_id", chatId).neq("autor_id", uid).eq("leido", false);
+    try {
+      await supabase.rpc("marcar_mi_chat_leido", { _chat_id: chatId });
+    } catch {
+      // La lectura del chat no debe bloquear la conversación si una preview vieja
+      // todavía no tiene la función segura aplicada.
+    }
     setUltimos((u) => (u[chatId] ? { ...u, [chatId]: { ...u[chatId], leido: true } } : u));
   };
 
-  const seleccionar = (chatId: string) => { setSelected(chatId); marcarLeido(chatId); };
+  const seleccionar = (chatId: string) => { setSelected(chatId); void marcarLeido(chatId); };
 
   const chatActivo = chats.find((c) => c.id === selected);
   const authorMap = useMemo(() => {
