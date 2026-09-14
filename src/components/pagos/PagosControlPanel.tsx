@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { puedeVerPagos } from "@/lib/roles";
 import { formatNombre } from "@/lib/nombres";
 import { formatHM } from "@/lib/tiempo";
+import { dividirHorarioLaboral } from "@/lib/pagos-horario";
 
 interface ProfesorBasico {
   id: string;
@@ -25,8 +26,6 @@ interface CalificacionEquipo {
 interface HorarioProfesor {
   profesor_id: string;
   profesor: string;
-  clasesLaboral: number;
-  clasesFuera: number;
   sesionesLaboral: number;
   sesionesFuera: number;
 }
@@ -42,40 +41,6 @@ const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
-
-const JORNADAS_LABORALES: Array<[number, number]> = [
-  [7 * 60, 13 * 60],
-  [14 * 60 + 30, 17 * 60 + 30],
-];
-
-function minutosDesdeHora(hora: string) {
-  const [h, m] = hora.slice(0, 5).split(":").map(Number);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return 0;
-  return h * 60 + m;
-}
-
-function dividirHorario(horaInicio: string, duracionMin: number) {
-  const duracion = Math.max(0, Number(duracionMin) || 0);
-  if (!duracion) return { laboral: 0, fuera: 0 };
-
-  const inicio = minutosDesdeHora(horaInicio);
-  const fin = inicio + duracion;
-  let laboral = 0;
-
-  // Se contemplan dos días por seguridad si una actividad cruza medianoche.
-  for (const offset of [0, 24 * 60]) {
-    for (const [desde, hasta] of JORNADAS_LABORALES) {
-      const solape = Math.max(
-        0,
-        Math.min(fin, hasta + offset) - Math.max(inicio, desde + offset),
-      );
-      laboral += solape;
-    }
-  }
-
-  laboral = Math.min(duracion, laboral);
-  return { laboral, fuera: Math.max(0, duracion - laboral) };
-}
 
 function rangoMes(mes: number, anio: number) {
   const ultimo = new Date(anio, mes, 0).getDate();
@@ -214,14 +179,8 @@ export function PagosControlPanel() {
         }
 
         const { inicio, fin } = rangoMes(mesHorario, anioHorario);
-        const [{ data: profesoresData }, clasesRes, sesionesRes] = await Promise.all([
+        const [{ data: profesoresData }, sesionesRes] = await Promise.all([
           supabase.rpc("listar_profesores"),
-          supabase
-            .from("clases_en_vivo")
-            .select("profesor_id,hora_inicio,duracion_min")
-            .in("profesor_id", profesorIds)
-            .gte("fecha", inicio)
-            .lte("fecha", fin),
           supabase
             .from("sesiones_1a1")
             .select("profesor_id,hora_inicio,duracion_min,estado")
@@ -230,7 +189,6 @@ export function PagosControlPanel() {
             .lte("fecha", fin),
         ]);
 
-        if (clasesRes.error) throw clasesRes.error;
         if (sesionesRes.error) throw sesionesRes.error;
         if (!activo) return;
 
@@ -243,25 +201,9 @@ export function PagosControlPanel() {
         profesorIds.forEach((id) => acumulado.set(id, {
           profesor_id: id,
           profesor: nombres.get(id) || "Profesor",
-          clasesLaboral: 0,
-          clasesFuera: 0,
           sesionesLaboral: 0,
           sesionesFuera: 0,
         }));
-
-        ((clasesRes.data ?? []) as Array<{
-          profesor_id: string;
-          hora_inicio: string;
-          duracion_min: number | null;
-        }>).forEach((clase) => {
-          const min = Number(clase.duracion_min ?? 0);
-          if (min <= 0) return;
-          const division = dividirHorario(clase.hora_inicio, min);
-          const fila = acumulado.get(clase.profesor_id);
-          if (!fila) return;
-          fila.clasesLaboral += division.laboral;
-          fila.clasesFuera += division.fuera;
-        });
 
         ((sesionesRes.data ?? []) as Array<{
           profesor_id: string;
@@ -272,7 +214,7 @@ export function PagosControlPanel() {
           const min = Number(sesion.duracion_min ?? 0);
           const estado = (sesion.estado || "").toLowerCase();
           if (min <= 0 || ["cancelada", "cancelado", "anulada", "anulado", "no_realizada", "no realizado"].includes(estado)) return;
-          const division = dividirHorario(sesion.hora_inicio, min);
+          const division = dividirHorarioLaboral(sesion.hora_inicio, min);
           const fila = acumulado.get(sesion.profesor_id);
           if (!fila) return;
           fila.sesionesLaboral += division.laboral;
@@ -304,12 +246,10 @@ export function PagosControlPanel() {
 
   const totalesHorario = useMemo(() => horarios.reduce(
     (acc, fila) => ({
-      clasesLaboral: acc.clasesLaboral + fila.clasesLaboral,
-      clasesFuera: acc.clasesFuera + fila.clasesFuera,
       sesionesLaboral: acc.sesionesLaboral + fila.sesionesLaboral,
       sesionesFuera: acc.sesionesFuera + fila.sesionesFuera,
     }),
-    { clasesLaboral: 0, clasesFuera: 0, sesionesLaboral: 0, sesionesFuera: 0 },
+    { sesionesLaboral: 0, sesionesFuera: 0 },
   ), [horarios]);
 
   if (!puedeGestionar) return null;
@@ -377,9 +317,9 @@ export function PagosControlPanel() {
           <section className="rounded-2xl border bg-card overflow-hidden mt-4">
             <div className="px-5 py-4 border-b flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">Distribución por horario laboral</h2>
+                <h2 className="text-lg font-semibold">Distribución de sesiones 1 a 1</h2>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Horario laboral: 07:00–13:00 y 14:30–17:30. Si una actividad cruza un límite, el tiempo se divide minuto a minuto.
+                  Horario laboral: 07:00–13:00 y 14:30–17:30. Si una sesión cruza un límite, el tiempo se divide minuto a minuto.
                 </p>
               </div>
               <select
@@ -396,30 +336,26 @@ export function PagosControlPanel() {
             </div>
 
             {loadingHorario ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">Calculando distribución de horas…</div>
+              <div className="py-8 text-center text-sm text-muted-foreground">Calculando distribución de sesiones…</div>
             ) : errorHorario ? (
               <div className="p-5 text-sm text-red-600">{errorHorario}</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[820px]">
+                <table className="w-full text-sm min-w-[620px]">
                   <thead>
                     <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
                       <th className="text-left px-4 py-3 font-semibold">Profesor</th>
-                      <th className="text-right px-3 py-3 font-semibold">Clases · laboral</th>
-                      <th className="text-right px-3 py-3 font-semibold">Clases · fuera</th>
                       <th className="text-right px-3 py-3 font-semibold">1 a 1 · laboral</th>
-                      <th className="text-right px-3 py-3 font-semibold">1 a 1 · fuera</th>
-                      <th className="text-right px-4 py-3 font-semibold">Total dictado</th>
+                      <th className="text-right px-3 py-3 font-semibold">1 a 1 · fuera de horario</th>
+                      <th className="text-right px-4 py-3 font-semibold">Total 1 a 1</th>
                     </tr>
                   </thead>
                   <tbody>
                     {horarios.map((fila) => {
-                      const total = fila.clasesLaboral + fila.clasesFuera + fila.sesionesLaboral + fila.sesionesFuera;
+                      const total = fila.sesionesLaboral + fila.sesionesFuera;
                       return (
                         <tr key={fila.profesor_id} className="border-t">
                           <td className="px-4 py-3 font-semibold">{fila.profesor}</td>
-                          <td className="px-3 py-3 text-right tabular-nums">{formatHM(fila.clasesLaboral)}</td>
-                          <td className="px-3 py-3 text-right tabular-nums">{formatHM(fila.clasesFuera)}</td>
                           <td className="px-3 py-3 text-right tabular-nums">{formatHM(fila.sesionesLaboral)}</td>
                           <td className="px-3 py-3 text-right tabular-nums">{formatHM(fila.sesionesFuera)}</td>
                           <td className="px-4 py-3 text-right font-bold tabular-nums">{formatHM(total)}</td>
@@ -427,22 +363,15 @@ export function PagosControlPanel() {
                       );
                     })}
                     {horarios.length === 0 && (
-                      <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No hay actividad registrada en este período.</td></tr>
+                      <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">No hay sesiones registradas en este período.</td></tr>
                     )}
                     {horarios.length > 0 && (
                       <tr className="border-t bg-muted/40 font-semibold">
                         <td className="px-4 py-3">Total equipo</td>
-                        <td className="px-3 py-3 text-right tabular-nums">{formatHM(totalesHorario.clasesLaboral)}</td>
-                        <td className="px-3 py-3 text-right tabular-nums">{formatHM(totalesHorario.clasesFuera)}</td>
                         <td className="px-3 py-3 text-right tabular-nums">{formatHM(totalesHorario.sesionesLaboral)}</td>
                         <td className="px-3 py-3 text-right tabular-nums">{formatHM(totalesHorario.sesionesFuera)}</td>
                         <td className="px-4 py-3 text-right font-bold tabular-nums">
-                          {formatHM(
-                            totalesHorario.clasesLaboral +
-                            totalesHorario.clasesFuera +
-                            totalesHorario.sesionesLaboral +
-                            totalesHorario.sesionesFuera,
-                          )}
+                          {formatHM(totalesHorario.sesionesLaboral + totalesHorario.sesionesFuera)}
                         </td>
                       </tr>
                     )}
