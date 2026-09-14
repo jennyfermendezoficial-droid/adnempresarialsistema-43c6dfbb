@@ -507,6 +507,7 @@ function Page() {
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Hora</th>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Estado / duración</th>
                   <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">{isStaff ? "Alumna / Profesor" : "Mentor"}</th>
+                  {isStaff && <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Motivo / duda</th>}
                   <th className="text-right px-3 py-2 text-[11px] uppercase tracking-wider opacity-70">Acción</th>
                 </tr>
               </thead>
@@ -525,6 +526,11 @@ function Page() {
                       <td className="px-3 py-2 font-mono">{s.hora_inicio.slice(0, 5)}</td>
                       <td className="px-3 py-2 text-xs">{s.duracion_min ? `Realizada · ${Math.min(Number(s.duracion_min), 60)} min` : termino ? <span className="font-semibold">Pendiente de registrar duración</span> : <span className="font-semibold">Reservado · {s.hora_inicio.slice(0, 5)}–{finProgramado}</span>}</td>
                       <td className="px-3 py-2">{isStaff ? <><div>{otroNombre || "Alumna"}</div><div className="text-[11px] opacity-60">Profesor: {profesorNombre || "—"}</div></> : otroNombre || (esMia ? "Mentor" : "Alumna")}</td>
+                      {isStaff && (
+                        <td className="px-3 py-2 text-xs max-w-xs">
+                          <div className="whitespace-pre-wrap break-words">{s.motivo?.trim() || "Sin motivo registrado"}</div>
+                        </td>
+                      )}
                       <td className="px-3 py-2 text-right">
                         {(s.profesor_id === uid || role === "admin") && termino && <button onClick={() => setDuracionModal(s)} className="inline-flex items-center gap-1 px-3 py-1.5 mr-2 rounded-lg text-xs font-semibold border"><Clock className="w-3.5 h-3.5" />{s.duracion_min ? "Editar duración" : "Registrar duración"}</button>}
                         {(s.profesor_id === uid || role === "admin") && !s.duracion_min && <button onClick={() => setCancelarModal(s)} className="inline-flex items-center gap-1 px-3 py-1.5 mr-2 rounded-lg text-xs font-semibold border border-red-500/30 text-red-600"><Ban className="w-3.5 h-3.5" />No se realizará</button>}
