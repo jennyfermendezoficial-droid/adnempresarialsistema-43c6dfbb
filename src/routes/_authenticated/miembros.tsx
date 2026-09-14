@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPerfiles, type PerfilPublico } from "@/lib/perfiles";
@@ -57,7 +57,6 @@ function activoHace(iso?: string | null) {
 type Tab = "miembros" | "admins" | "online";
 
 function Page() {
-  const navigate = useNavigate();
   const { session } = useAuth();
   const uid = session?.user.id;
   const [rows, setRows] = useState<Miembro[]>([]);
@@ -125,6 +124,9 @@ function Page() {
 
   const miPerfil = uid ? rows.find((r) => r.id === uid) : undefined;
   const faltaFoto = Boolean(miPerfil && !miPerfil.avatar_url);
+  const abrirChat = (userId: string) => {
+    window.dispatchEvent(new CustomEvent("adn:abrir-chat", { detail: { userId } }));
+  };
 
   return (
     <div className="px-4 py-8 max-w-3xl mx-auto">
@@ -198,7 +200,7 @@ function Page() {
               </div>
 
               <button
-                onClick={() => navigate({ to: "/chats", search: { con: m.id } })}
+                onClick={() => abrirChat(m.id)}
                 className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-semibold hover:bg-muted transition"
               >
                 CHAT <MessageSquare className="w-4 h-4" />
