@@ -57,6 +57,11 @@ export function ChatsPopover() {
   const [selected, setSelected] = useState<string | null>(null);
 
   const otro = useCallback((c: Chat) => (c.usuario_a_id === uid ? c.usuario_b_id : c.usuario_a_id), [uid]);
+  const coincideCon = useCallback((c: Chat, otherId: string) => {
+    if (!uid) return false;
+    return (c.usuario_a_id === uid && c.usuario_b_id === otherId)
+      || (c.usuario_b_id === uid && c.usuario_a_id === otherId);
+  }, [uid]);
 
   const cargar = useCallback(async () => {
     if (!uid) return;
@@ -67,7 +72,7 @@ export function ChatsPopover() {
 
     const ids = new Set<string>(lista.map((c) => (c.usuario_a_id === uid ? c.usuario_b_id : c.usuario_a_id)));
 
-    // Solo los alumnos pueden iniciar chats, y solo con soporte/profesores.
+    // Solo los alumnos ven sugerencias de soporte para iniciar una conversación.
     if (!isStaff) {
       const { data: staff } = await supabase.rpc("listar_profesores");
       const s = ((staff ?? []) as { id: string; nombre_completo: string; avatar_url: string | null }[])
@@ -142,16 +147,70 @@ export function ChatsPopover() {
       .filter((p) => !q || (formatNombre(p.nombre_completo || "") || "").toLowerCase().includes(q));
   }, [isStaff, soporte, chats, busqueda, otro]);
 
-  const abrirCon = async (otherId: string) => {
-    if (!uid) return;
-    const existe = chats.find((c) => otro(c) === otherId);
-    if (existe) return setSelected(existe.id);
+  const buscarExistente = useCallback(async (otherId: string) => {
+    if (!uid) return null;
+    const { data } = await supabase.from("chats_1a1").select("*");
+    return (((data as Chat[]) ?? []).find((c) => coincideCon(c, otherId))) ?? null;
+  }, [uid, coincideCon]);
+
+  const asegurarPerfil = useCallback(async (otherId: string) => {
+    if (perfiles[otherId]) return;
+    const [perfil] = await fetchPerfiles([otherId]);
+    if (perfil) setPerfiles((prev) => ({ ...prev, [perfil.id]: perfil }));
+  }, [perfiles]);
+
+  const activarChat = useCallback((chat: Chat, otherId: string) => {
+    setChats((prev) => prev.some((c) => c.id === chat.id) ? prev : [chat, ...prev]);
+    setOpen(true);
+    setSelected(chat.id);
+    void asegurarPerfil(otherId);
+  }, [asegurarPerfil]);
+
+  const abrirCon = useCallback(async (otherId: string) => {
+    if (!uid || !otherId) return;
+    setOpen(true);
+
+    const local = chats.find((c) => coincideCon(c, otherId));
+    if (local) {
+      activarChat(local, otherId);
+      return;
+    }
+
+    const existente = await buscarExistente(otherId);
+    if (existente) {
+      activarChat(existente, otherId);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("chats_1a1").insert({ usuario_a_id: uid, usuario_b_id: otherId }).select().single();
-    if (error) return toast.error(error.message);
-    setChats((c) => [data as Chat, ...c]);
-    setSelected((data as Chat).id);
-  };
+
+    if (error) {
+      const code = (error as { code?: string }).code;
+      const esDuplicado = code === "23505" || error.message.toLowerCase().includes("duplicate key");
+      if (esDuplicado) {
+        const recuperado = await buscarExistente(otherId);
+        if (recuperado) {
+          activarChat(recuperado, otherId);
+          return;
+        }
+      }
+      toast.error("No se pudo abrir el chat. Inténtalo nuevamente.");
+      return;
+    }
+
+    activarChat(data as Chat, otherId);
+  }, [uid, chats, coincideCon, buscarExistente, activarChat]);
+
+  useEffect(() => {
+    const onAbrirChat = (event: Event) => {
+      const userId = (event as CustomEvent<{ userId?: string }>).detail?.userId;
+      if (!userId) return;
+      void abrirCon(userId);
+    };
+    window.addEventListener("adn:abrir-chat", onAbrirChat);
+    return () => window.removeEventListener("adn:abrir-chat", onAbrirChat);
+  }, [abrirCon]);
 
   const marcarLeido = async (chatId: string) => {
     if (!uid) return;
