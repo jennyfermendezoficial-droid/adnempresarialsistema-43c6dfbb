@@ -8,6 +8,7 @@ import { formatHM, horasDecimal } from "@/lib/tiempo";
 import { generarPagosPDF, exportarPagosExcel, listaMeses, generarInformeProfesorPDF, type InformeItem, type InformeReemplazo, type AbonoExportRow } from "@/lib/pagos-export";
 import { formatNombre } from "@/lib/nombres";
 import { puedeVerPagos } from "@/lib/roles";
+import { dividirHorarioLaboral, refTarifa1a1Fuera } from "@/lib/pagos-horario";
 import { RegistrarAbonoModal, type Abono, type CuentaEmpresa } from "@/components/pagos/RegistrarAbonoModal";
 import { PagosPrecios, type FilaPrecio } from "@/components/pagos/PagosPrecios";
 import { PagosAbonos } from "@/components/pagos/PagosAbonos";
@@ -55,6 +56,10 @@ interface StaffRow {
   clasesRealizadas: number;
   sesiones1a1: number;
   minutos1a1: number;
+  sesiones1a1Laboral: number;
+  sesiones1a1Fuera: number;
+  minutos1a1Laboral: number;
+  minutos1a1Fuera: number;
   ajusteMin: number;
   items: ItemPago[];
   mensajesEstudiantes: number;
@@ -66,6 +71,7 @@ interface StaffRow {
   descuentosList: DescuentoRow[];
   tarifaClase: number;
   tarifaSesion: number;
+  tarifaSesionFuera: number;
   pendientes: number;
   total: number;
   estado: "pagado" | "por_pagar";
@@ -250,6 +256,9 @@ function Page() {
           supabase.from("bonos").select("id,monto,motivo,tipo").eq("profesor_id", pid).eq("mes", mes).eq("anio", anio),
         ]);
         const tarifa = tarifaMap.get(pid) ?? { clase: 0, sesion: 0 };
+        const refFuera = refTarifa1a1Fuera(pid, mes, anio);
+        const tarifaSesionFueraGuardada = precioMap.get(`1a1:${refFuera}`);
+        const tarifaSesionFuera = tarifaSesionFueraGuardada != null ? tarifaSesionFueraGuardada : tarifa.sesion;
 
         const items: ItemPago[] = [];
         const clasesData = ((clasesRes.data ?? []) as { id: string; fecha: string; titulo: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null }[]);
@@ -268,15 +277,28 @@ function Page() {
 
         const sesionesData = (sesionesRes.data ?? []) as { id: string; fecha: string; alumna_id: string; hora_inicio: string; hora_fin: string | null; duracion_min: number | null; estado?: string | null }[];
         let minutos1a1 = 0;
+        let minutos1a1Laboral = 0;
+        let minutos1a1Fuera = 0;
+        let sesiones1a1Laboral = 0;
+        let sesiones1a1Fuera = 0;
         sesionesData.forEach((s) => {
           const min = s.duracion_min && s.duracion_min > 0 ? s.duracion_min : 0;
+          const division = dividirHorarioLaboral(s.hora_inicio, min);
           minutos1a1 += min;
+          minutos1a1Laboral += division.laboral;
+          minutos1a1Fuera += division.fuera;
+          if (division.laboral > 0) sesiones1a1Laboral += 1;
+          if (division.fuera > 0) sesiones1a1Fuera += 1;
           alumnaIds.add(s.alumna_id);
           const manual1 = precioMap.get(`1a1:${s.id}`);
+          const calculado = Math.round((
+            (tarifa.sesion * division.laboral / 60) +
+            (tarifaSesionFuera * division.fuera / 60)
+          ) * 100) / 100;
           items.push({
             tipo: "1a1", refId: s.id, fecha: s.fecha, horaInicio: s.hora_inicio, horaFin: s.hora_fin ?? "",
             minutos: min, titulo: null, alumnaId: s.alumna_id,
-            monto: min > 0 ? (manual1 != null && manual1 > 0 ? manual1 : Math.round((tarifa.sesion * min / 60) * 100) / 100) : 0,
+            monto: min > 0 ? (manual1 != null && manual1 > 0 ? manual1 : calculado) : 0,
           });
         });
         items.sort((a, b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio));
@@ -329,12 +351,14 @@ function Page() {
           minutosClase,
           clasesRealizadas,
           sesiones1a1, minutos1a1,
+          sesiones1a1Laboral, sesiones1a1Fuera,
+          minutos1a1Laboral, minutos1a1Fuera,
           ajusteMin: ajusteMap.get(pid) ?? 0,
           items,
           mensajesEstudiantes,
           califPromedio, califCount,
           bonos, bonosList, descuentos, descuentosList,
-          tarifaClase: tarifa.clase, tarifaSesion: tarifa.sesion,
+          tarifaClase: tarifa.clase, tarifaSesion: tarifa.sesion, tarifaSesionFuera,
           pendientes: pendientesClase + pendientesSesion,
           total,
           estado: (pago?.estado === "pagado" ? "pagado" : "por_pagar") as "pagado" | "por_pagar",
@@ -549,12 +573,13 @@ function Page() {
         <span className="text-xs text-muted-foreground">Click en el nombre para ver el detalle</span>
       </div>
       <div className="rounded-2xl border bg-card overflow-x-auto">
-        <table className="w-full text-sm min-w-[860px]">
+        <table className="w-full text-sm min-w-[1040px]">
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
               <th className="text-left px-4 py-3 font-semibold">Profesor</th>
               <th className="text-left px-3 py-3 font-semibold">Tiempo clase</th>
-              <th className="text-left px-3 py-3 font-semibold">Sesiones 1:1</th>
+              <th className="text-left px-3 py-3 font-semibold">1 a 1 · laboral</th>
+              <th className="text-left px-3 py-3 font-semibold">1 a 1 · fuera de horario</th>
               <th className="text-left px-3 py-3 font-semibold">Calificación</th>
               <th className="text-right px-3 py-3 font-semibold">Bonos</th>
               <th className="text-right px-3 py-3 font-semibold">Descuentos</th>
@@ -564,7 +589,7 @@ function Page() {
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">Cargando…</td></tr>}
+            {loading && <tr><td colSpan={10} className="text-center py-8 text-muted-foreground">Cargando…</td></tr>}
             {!loading && staff.map((s) => (
               <tr key={s.id} className="border-t hover:bg-muted/30 transition">
                 <td className="px-4 py-3">
@@ -600,8 +625,12 @@ function Page() {
                   <TarifaInput profesorId={s.id} campo="valor_hora_clase" valor={s.tarifaClase} mes={mes} anio={anio} puedeEditar={puedeEditar} onSaved={cargar} />
                 </td>
                 <td className="px-3 py-3">
-                  {s.sesiones1a1} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1)}</span>
+                  {s.sesiones1a1Laboral} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1Laboral)}</span>
                   <TarifaInput profesorId={s.id} campo="valor_hora_sesion" valor={s.tarifaSesion} mes={mes} anio={anio} puedeEditar={puedeEditar} onSaved={cargar} />
+                </td>
+                <td className="px-3 py-3">
+                  {s.sesiones1a1Fuera} <span className="text-muted-foreground text-xs">· {formatHM(s.minutos1a1Fuera)}</span>
+                  <TarifaFueraInput profesorId={s.id} valor={s.tarifaSesionFuera} mes={mes} anio={anio} puedeEditar={puedeEditar} onSaved={cargar} />
                 </td>
                 <td className="px-3 py-3"><Estrellas valor={s.califPromedio} count={s.califCount} /></td>
                 <td className="px-3 py-3 text-right tabular-nums text-emerald-600">{s.bonos ? `+$${s.bonos.toFixed(2)}` : "—"}</td>
@@ -635,13 +664,13 @@ function Page() {
                 </td>
               </tr>
             ))}
-            {!loading && staff.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">No se encontraron profesores o actividad para este mes.</td></tr>}
+            {!loading && staff.length === 0 && <tr><td colSpan={10} className="text-center py-8 text-muted-foreground">No se encontraron profesores o actividad para este mes.</td></tr>}
             {!loading && staff.length > 0 && (
               <tr className="bg-muted/40 border-t">
                 <td className="px-4 py-3" colSpan={6} />
                 <td className="px-3 py-3 text-right text-xs uppercase tracking-wider font-semibold">Total a pagar</td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums" style={{ color: "var(--violet)" }}>${tot.pagar.toFixed(2)}</td>
-                <td />
+                <td colSpan={2} />
               </tr>
             )}
           </tbody>
@@ -762,6 +791,39 @@ function TarifaInput({ profesorId, campo, valor, mes, anio, puedeEditar, onSaved
     toast.success("Valor por hora guardado");
     onSaved();
   };
+  return (
+    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+      <span>$/h</span>
+      <input type="number" step="0.01" min="0" value={v} disabled={!puedeEditar}
+        onChange={(e) => setV(e.target.value)} onBlur={guardar} placeholder="0.00"
+        className="w-20 px-2 py-1 rounded-lg border bg-background text-right tabular-nums" />
+    </div>
+  );
+}
+
+function TarifaFueraInput({ profesorId, valor, mes, anio, puedeEditar, onSaved }: {
+  profesorId: string; valor: number; mes: number; anio: number; puedeEditar: boolean; onSaved: () => void;
+}) {
+  const [v, setV] = useState(valor ? String(valor) : "");
+  useEffect(() => { setV(valor ? String(valor) : ""); }, [valor]);
+
+  const guardar = async () => {
+    const num = Number(v || 0);
+    if (!Number.isFinite(num) || num < 0) return toast.error("Valor inválido");
+    if (num === valor) return;
+    const { error } = await supabase.from("pagos_items_precio").upsert({
+      profesor_id: profesorId,
+      tipo: "1a1",
+      referencia_id: refTarifa1a1Fuera(profesorId, mes, anio),
+      mes,
+      anio,
+      monto: num,
+    }, { onConflict: "tipo,referencia_id" });
+    if (error) return toast.error(error.message);
+    toast.success("Valor 1 a 1 fuera de horario guardado");
+    onSaved();
+  };
+
   return (
     <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
       <span>$/h</span>
