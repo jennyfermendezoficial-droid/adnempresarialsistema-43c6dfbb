@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarPlus, ChevronDown, ChevronUp, Clock3, Loader2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { fetchPerfiles } from "@/lib/perfiles";
 import { formatNombre } from "@/lib/nombres";
+import { registrarSesion1a1Historica } from "@/lib/registro-historico-1a1.functions";
 import { toast } from "sonner";
 
 function fechaLocal(d = new Date()) {
@@ -23,14 +25,11 @@ function sumarMinutos(hora: string, minutos: number) {
 
 type TipoRegistro = "clase" | "1a1";
 interface Alumna { id: string; nombre_completo: string; email?: string | null }
-type RpcHistorico = (
-  fn: string,
-  args: Record<string, unknown>,
-) => Promise<{ data: unknown; error: { message: string } | null }>;
 
 export function RegistroHistoricoClaseProfesor() {
   const { session, role, roles } = useAuth();
   const uid = session?.user.id;
+  const registrarHistorica1a1 = useServerFn(registrarSesion1a1Historica);
   const puedeRegistrarHistorico = role === "admin" || role === "soporte" || roles.includes("admin") || roles.includes("soporte");
   const hoy = fechaLocal();
   const mesActual = hoy.slice(0, 7);
@@ -133,15 +132,15 @@ export function RegistroHistoricoClaseProfesor() {
       return false;
     }
 
-    const rpcClient = supabase as unknown as { rpc: RpcHistorico };
-    const { error } = await rpcClient.rpc("registrar_sesion_1a1_historica", {
-      _alumna_id: alumnaId,
-      _fecha: fecha,
-      _hora_inicio: `${horaInicio}:00`,
-      _duracion_min: minutos,
-      _motivo: motivo.trim() || null,
+    await registrarHistorica1a1({
+      data: {
+        alumna_id: alumnaId,
+        fecha,
+        hora_inicio: horaInicio,
+        duracion_min: minutos,
+        motivo: motivo.trim() || undefined,
+      },
     });
-    if (error) throw new Error(error.message);
 
     toast.success("Sesión 1 a 1 histórica registrada. Ya cuenta en horas, informes y pagos.");
     return true;
