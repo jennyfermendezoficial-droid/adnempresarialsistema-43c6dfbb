@@ -8,13 +8,13 @@ export interface NavItem { to: string; label: string; icon: typeof Home }
 
 /** Orden principal del menú (todos los usuarios). */
 export const mainItems: NavItem[] = [
+  { to: "/inicio", label: "Inicio", icon: Home },
   { to: "/comunidad", label: "Comunidad", icon: Sparkles },
   { to: "/cursos", label: "Cursos", icon: BookOpen },
   { to: "/clases-en-vivo", label: "Clases en vivo", icon: Radio },
   { to: "/calendario-clases", label: "Calendario de clases", icon: Calendar },
   { to: "/agenda-1a1", label: "Agenda 1 a 1", icon: CalendarDays },
   { to: "/miembros", label: "Miembros", icon: Users },
-  { to: "/inicio", label: "Inicio", icon: Home },
 ];
 
 /** Profesores (soporte) y admin mantienen estos accesos. */
