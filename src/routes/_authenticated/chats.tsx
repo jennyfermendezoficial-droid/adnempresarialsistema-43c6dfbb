@@ -60,6 +60,8 @@ function Page() {
   }, [profiles]);
 
   const other = (c: Chat) => (c.usuario_a_id === uid ? c.usuario_b_id : c.usuario_a_id);
+  const coincideCon = (c: Chat, otherId: string) =>
+    !!uid && ((c.usuario_a_id === uid && c.usuario_b_id === otherId) || (c.usuario_b_id === uid && c.usuario_a_id === otherId));
 
   const marcarLeido = async (chatId: string) => {
     if (!uid) return;
@@ -84,24 +86,57 @@ function Page() {
     };
   }, [selected, uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const buscarExistente = async (otherId: string) => {
+    if (!uid) return null;
+    const { data } = await supabase.from("chats_1a1").select("*");
+    return (((data as Chat[]) ?? []).find((c) => coincideCon(c, otherId))) ?? null;
+  };
+
+  const seleccionarChat = (chat: Chat) => {
+    setChats((prev) => prev.some((c) => c.id === chat.id) ? prev : [chat, ...prev]);
+    setSelected(chat.id);
+    setShowNew(false);
+  };
+
   const openChatWith = async (otherId: string) => {
-    if (!uid) return;
-    const existing = chats.find((c) => (c.usuario_a_id === uid && c.usuario_b_id === otherId) || (c.usuario_b_id === uid && c.usuario_a_id === otherId));
-    if (existing) {
-      setSelected(existing.id);
-      setShowNew(false);
+    if (!uid || !otherId) return;
+    const local = chats.find((c) => coincideCon(c, otherId));
+    if (local) {
+      seleccionarChat(local);
       return;
     }
-    const { data, error } = await supabase.from("chats_1a1").insert({ usuario_a_id: uid, usuario_b_id: otherId }).select().single();
-    if (error) return toast.error(error.message);
-    setChats((c) => [data as Chat, ...c]);
-    setSelected((data as Chat).id);
-    setShowNew(false);
+
+    const existing = await buscarExistente(otherId);
+    if (existing) {
+      seleccionarChat(existing);
+      return;
+    }
+
+    const { data, error } = await supabase.from("chats_1a1")
+      .insert({ usuario_a_id: uid, usuario_b_id: otherId })
+      .select()
+      .single();
+
+    if (error) {
+      const code = (error as { code?: string }).code;
+      const duplicado = code === "23505" || error.message.toLowerCase().includes("duplicate key");
+      if (duplicado) {
+        const recuperado = await buscarExistente(otherId);
+        if (recuperado) {
+          seleccionarChat(recuperado);
+          return;
+        }
+      }
+      toast.error("No se pudo abrir el chat. Inténtalo nuevamente.");
+      return;
+    }
+
+    seleccionarChat(data as Chat);
   };
 
   useEffect(() => {
     if (!uid || !con) return;
-    openChatWith(con);
+    void openChatWith(con);
   }, [uid, con, chats.length]); // eslint-disable-line
 
   if (!uid) return null;
@@ -121,7 +156,7 @@ function Page() {
             </div>
             <div className="max-h-64 overflow-y-auto mt-2">
               {allUsers.filter((u) => (u.nombre_completo || u.email || "").toLowerCase().includes(search.toLowerCase())).map((u) => (
-                <button key={u.id} onClick={() => openChatWith(u.id)} className="w-full text-left p-2 rounded-lg hover:bg-muted text-sm">
+                <button key={u.id} onClick={() => void openChatWith(u.id)} className="w-full text-left p-2 rounded-lg hover:bg-muted text-sm">
                   {u.nombre_completo || u.email || "Usuario"}
                 </button>
               ))}
