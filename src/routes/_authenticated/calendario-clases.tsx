@@ -4,14 +4,49 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useServerFn } from "@tanstack/react-start";
 import { createZoomMeeting } from "@/lib/zoom.functions";
-import { ChevronLeft, ChevronRight, Plus, Video, Trash2, Clock } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clock, Copy, Plus, Trash2, Video, X } from "lucide-react";
 import { toast } from "sonner";
-import { fetchPerfiles } from "@/lib/perfiles";
 import { RegistrarDuracionModal } from "@/components/RegistrarDuracionModal";
 
 export const Route = createFileRoute("/_authenticated/calendario-clases")({ component: Page });
 
-interface Clase { id: string; fecha: string; hora_inicio: string; hora_fin: string; titulo: string; descripcion: string | null; zoom_link: string | null; profesor_id: string | null; duracion_min?: number | null }
+interface Clase {
+  id: string;
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string;
+  titulo: string;
+  descripcion: string | null;
+  zoom_link: string | null;
+  profesor_id: string | null;
+  duracion_min?: number | null;
+}
+
+function fechaClase(fecha: string) {
+  return new Date(`${fecha}T12:00:00`).toLocaleDateString("es-EC", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+async function copiarTexto(texto: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(texto);
+    return;
+  }
+  const area = document.createElement("textarea");
+  area.value = texto;
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  const ok = document.execCommand("copy");
+  document.body.removeChild(area);
+  if (!ok) throw new Error("No se pudo copiar el enlace");
+}
 
 function Page() {
   const { session, role } = useAuth();
@@ -22,6 +57,8 @@ function Page() {
   const [newOn, setNewOn] = useState<string | null>(null);
   const [staff, setStaff] = useState<{ id: string; nombre: string }[]>([]);
   const [creating, setCreating] = useState(false);
+  const [detalleClase, setDetalleClase] = useState<Clase | null>(null);
+  const [linkCopiado, setLinkCopiado] = useState(false);
   const [duracionModal, setDuracionModal] = useState<Clase | null>(null);
   const [cancelar, setCancelar] = useState<Clase | null>(null);
   const [razon, setRazon] = useState("");
@@ -62,6 +99,22 @@ function Page() {
   const dayClases = (d: number) => {
     const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     return clases.filter((c) => c.fecha === date);
+  };
+
+  const abrirDetalle = (clase: Clase) => {
+    setLinkCopiado(false);
+    setDetalleClase(clase);
+  };
+
+  const copiarLink = async () => {
+    if (!detalleClase?.zoom_link) return;
+    try {
+      await copiarTexto(detalleClase.zoom_link);
+      setLinkCopiado(true);
+      toast.success("Link de la reunión copiado");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo copiar el enlace");
+    }
   };
 
   const crear = async () => {
@@ -127,6 +180,7 @@ function Page() {
     setCancelando(false);
     if (error) return toast.error(error.message);
     setClases((c) => c.filter((x) => x.id !== cancelar.id));
+    setDetalleClase((actual) => actual?.id === cancelar.id ? null : actual);
     setCancelar(null); setRazon("");
     toast.success("Clase eliminada · queda registrada en informes");
   };
@@ -143,7 +197,7 @@ function Page() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="p-2 rounded-lg bg-white/15 hover:bg-white/25"><ChevronLeft className="w-4 h-4"/></button>
-            <div className="text-sm font-semibold capitalize w-40 text-center">{cursor.toLocaleDateString("es-PE", { month: "long", year: "numeric" })}</div>
+            <div className="text-sm font-semibold capitalize w-40 text-center">{cursor.toLocaleDateString("es-EC", { month: "long", year: "numeric" })}</div>
             <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="p-2 rounded-lg bg-white/15 hover:bg-white/25"><ChevronRight className="w-4 h-4"/></button>
           </div>
         </div>
@@ -163,37 +217,106 @@ function Page() {
               )}
             </div>
             {dayClases(d).map((c) => (
-              <div key={c.id} title={c.descripcion ?? c.titulo} className="text-[10px] rounded-lg p-1.5 bg-violet-gradient text-white shadow-sm">
-                <div className="font-semibold truncate">{c.titulo}</div>
-                <div className="opacity-90">{c.hora_inicio.slice(0,5)}</div>
-                {c.descripcion && (
-                  <div className="opacity-90 line-clamp-2 mt-0.5">{c.descripcion}</div>
-                )}
-                {c.duracion_min ? (
-                  <div className="opacity-90">{c.hora_inicio.slice(0,5)} – {c.hora_fin?.slice(0,5)} · {c.duracion_min} min</div>
-                ) : null}
-                {c.zoom_link && <a href={c.zoom_link} target="_blank" rel="noreferrer" className="underline flex items-center gap-0.5"><Video className="w-2.5 h-2.5"/>Zoom</a>}
-                {c.profesor_id === session?.user.id && new Date(`${c.fecha}T${c.hora_inicio}`) <= new Date() && (
-                  <button onClick={() => setDuracionModal(c)} className="underline mt-0.5 flex items-center gap-0.5">
-                    <Clock className="w-2.5 h-2.5"/>{c.duracion_min ? "Editar duración" : "Registrar duración"}
-                  </button>
-                )}
-                {(c.profesor_id === session?.user.id || role === "admin") && !c.duracion_min && (
-                  <button onClick={() => { setCancelar(c); setRazon(""); }} className="underline mt-0.5 flex items-center gap-0.5"><Trash2 className="w-2.5 h-2.5"/>Eliminar</button>
-                )}
-              </div>
+              <button
+                type="button"
+                key={c.id}
+                title={c.titulo}
+                onClick={() => abrirDetalle(c)}
+                className="w-full text-left text-[10px] rounded-lg p-2 bg-violet-gradient text-white shadow-sm hover:brightness-110 transition"
+              >
+                <div className="font-semibold leading-tight line-clamp-2">{c.titulo}</div>
+              </button>
             ))}
           </div>
         ))}
       </div>
 
+      {detalleClase && (
+        <div className="fixed inset-0 z-50 bg-black/55 grid place-items-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setDetalleClase(null); }}>
+          <div className="w-full max-w-lg rounded-3xl bg-card border shadow-2xl overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="relative p-5 text-white bg-violet-gradient">
+              <button type="button" onClick={() => setDetalleClase(null)} className="absolute top-3 right-3 w-9 h-9 rounded-full grid place-items-center bg-white/15 hover:bg-white/25" aria-label="Cerrar detalle">
+                <X className="w-4 h-4" />
+              </button>
+              <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">Clase en vivo</div>
+              <h2 className="text-2xl font-bold mt-1 pr-10">{detalleClase.titulo}</h2>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <div className="rounded-2xl border bg-muted/25 p-4">
+                <div className="text-sm font-semibold capitalize">{fechaClase(detalleClase.fecha)}</div>
+                <div className="text-sm text-muted-foreground mt-1 inline-flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  {detalleClase.hora_inicio.slice(0, 5)} – {detalleClase.hora_fin.slice(0, 5)}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Temas de la clase</div>
+                {detalleClase.descripcion?.trim() ? (
+                  <div className="text-sm leading-6 whitespace-pre-line">{detalleClase.descripcion}</div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No se registraron temas para esta clase.</div>
+                )}
+              </div>
+
+              {detalleClase.zoom_link ? (
+                <div className="space-y-2">
+                  <a
+                    href={detalleClase.zoom_link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full min-h-12 rounded-xl bg-violet-gradient text-white font-semibold flex items-center justify-center gap-2 shadow-md hover:brightness-110 transition"
+                  >
+                    <Video className="w-5 h-5" /> Entrar a la reunión de Zoom
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void copiarLink()}
+                    className="w-full min-h-11 rounded-xl border font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted/50 transition"
+                  >
+                    {linkCopiado ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    {linkCopiado ? "Link copiado" : "Copiar link de la reunión"}
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-muted-foreground">Esta clase todavía no tiene enlace de Zoom.</div>
+              )}
+
+              {(detalleClase.profesor_id === session?.user.id || role === "admin") && (
+                <div className="pt-3 border-t flex flex-wrap justify-end gap-2">
+                  {detalleClase.profesor_id === session?.user.id && new Date(`${detalleClase.fecha}T${detalleClase.hora_inicio}`) <= new Date() && (
+                    <button
+                      type="button"
+                      onClick={() => { setDuracionModal(detalleClase); setDetalleClase(null); }}
+                      className="px-3 py-2 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5"
+                    >
+                      <Clock className="w-3.5 h-3.5" /> {detalleClase.duracion_min ? "Editar duración" : "Registrar duración"}
+                    </button>
+                  )}
+                  {!detalleClase.duracion_min && (
+                    <button
+                      type="button"
+                      onClick={() => { setCancelar(detalleClase); setRazon(""); setDetalleClase(null); }}
+                      className="px-3 py-2 rounded-lg border border-red-500/30 text-red-600 text-xs font-semibold inline-flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Eliminar clase
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {newOn && (
         <div className="fixed inset-0 bg-black/50 grid place-items-center z-50" onClick={() => setNewOn(null)}>
           <div className="bg-card p-6 rounded-3xl max-w-md w-full space-y-3 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold">Nueva clase</h3>
-            <p className="text-xs text-muted-foreground capitalize">{new Date(newOn + "T00:00:00").toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })}</p>
-            <input placeholder="Título" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background" />
-            <textarea placeholder="Descripción (opcional)" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background" rows={2} />
+            <p className="text-xs text-muted-foreground capitalize">{new Date(newOn + "T00:00:00").toLocaleDateString("es-EC", { weekday: "long", day: "numeric", month: "long" })}</p>
+            <input placeholder="Tema / nombre de la clase" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background" />
+            <textarea placeholder="Temas de la clase (opcional) · escribe uno por línea" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background" rows={4} />
             <div>
               <label className="text-xs opacity-70 mb-1 block">Profesor que dicta</label>
               <select value={form.profesor_id} onChange={(e) => setForm({ ...form, profesor_id: e.target.value })} className="w-full px-3 py-2 rounded-lg border bg-background">
