@@ -22,7 +22,7 @@ function sumarMinutos(hora: string, minutos: number) {
 export function RegistroHistoricoClaseProfesor() {
   const { session, role, roles } = useAuth();
   const uid = session?.user.id;
-  const esProfesor = role === "soporte" || roles.includes("soporte");
+  const puedeRegistrarHistorico = role === "admin" || role === "soporte" || roles.includes("admin") || roles.includes("soporte");
   const hoy = fechaLocal();
   const mesActual = hoy.slice(0, 7);
   const [abierto, setAbierto] = useState(false);
@@ -38,7 +38,7 @@ export function RegistroHistoricoClaseProfesor() {
     return sumarMinutos(horaInicio, min);
   }, [horaInicio, duracion]);
 
-  if (!uid || !esProfesor) return null;
+  if (!uid || !puedeRegistrarHistorico) return null;
 
   const guardar = async () => {
     const minutos = Number(duracion);
