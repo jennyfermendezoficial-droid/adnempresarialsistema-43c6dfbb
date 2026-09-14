@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Send, Paperclip, Mic, Square, Image as ImageIcon, Trash2, AtSign, X } from "lucide-react";
 import { toast } from "sonner";
 import { sendPushToUsers } from "@/lib/send-push.functions";
+import { enviarMensajeChat1a1 } from "@/lib/chat-1a1.functions";
 import { subirImagen, esImagen, esUrlAbsoluta } from "@/lib/cloudinary";
 
 export interface ChatMessageRow {
@@ -58,6 +60,7 @@ export function ChatThread({
 }: ChatThreadProps) {
   const { session, role } = useAuth();
   const uid = session?.user.id;
+  const enviar1a1 = useServerFn(enviarMensajeChat1a1);
   const [messages, setMessages] = useState<ChatMessageRow[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -156,18 +159,34 @@ export function ChatThread({
     })();
   }, [messages, bucket, signedUrls]);
 
+  const enviarFila1a1 = async (tipo: "texto" | "imagen" | "video" | "audio" | "archivo", contenido?: string | null, mediaUrl?: string | null) => {
+    const chatId = typeof extraInsert.chat_id === "string" ? extraInsert.chat_id : null;
+    if (!chatId) throw new Error("No se pudo identificar el chat.");
+    await enviar1a1({ data: { chat_id: chatId, tipo, contenido: contenido ?? null, media_url: mediaUrl ?? null } });
+  };
+
   const send = async () => {
     if (!uid || !text.trim()) return;
     setSending(true);
-    const payload: Record<string, unknown> = { autor_id: uid, tipo: "texto", contenido: text.trim(), ...extraInsert };
-    if (usaMenciones) {
-      payload.menciones = everyone ? [] : etiquetados.map((e) => e.id);
-      payload.mencion_everyone = everyone;
-    }
-    const { error } = await supabase.from(table).insert(payload as never);
-    setSending(false);
-    if (error) return toast.error(error.message);
     const body = text.trim();
+    try {
+      if (table === "mensajes_chat_1a1") {
+        await enviarFila1a1("texto", body, null);
+      } else {
+        const payload: Record<string, unknown> = { autor_id: uid, tipo: "texto", contenido: body, ...extraInsert };
+        if (usaMenciones) {
+          payload.menciones = everyone ? [] : etiquetados.map((e) => e.id);
+          payload.mencion_everyone = everyone;
+        }
+        const { error } = await supabase.from(table).insert(payload as never);
+        if (error) throw error;
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo enviar el mensaje");
+      setSending(false);
+      return;
+    }
+    setSending(false);
     setText("");
     if (usaMenciones) { setEtiquetados([]); setEveryone(false); }
     const destinos = usaMenciones
@@ -199,15 +218,24 @@ export function ChatThread({
       const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, { upsert: false });
       if (upErr) return toast.error(upErr.message);
     }
-    const { error } = await supabase.from(table).insert({
-      autor_id: uid,
-      tipo,
-      contenido: tipo === "archivo" ? file.name : null,
-      media_url: path,
-      ...extraInsert,
-    });
-    if (error) toast.error(error.message);
-    else if (pushRecipientIds && pushRecipientIds.length) {
+    try {
+      if (table === "mensajes_chat_1a1") {
+        await enviarFila1a1(tipo, tipo === "archivo" ? file.name : null, path);
+      } else {
+        const { error } = await supabase.from(table).insert({
+          autor_id: uid,
+          tipo,
+          contenido: tipo === "archivo" ? file.name : null,
+          media_url: path,
+          ...extraInsert,
+        });
+        if (error) throw error;
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo enviar el archivo");
+      return;
+    }
+    if (pushRecipientIds && pushRecipientIds.length) {
       sendPushToUsers({
         data: {
           userIds: pushRecipientIds,
