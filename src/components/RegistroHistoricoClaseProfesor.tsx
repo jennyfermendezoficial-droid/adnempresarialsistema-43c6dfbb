@@ -133,8 +133,8 @@ export function RegistroHistoricoClaseProfesor() {
       return false;
     }
 
-    const rpc = supabase.rpc as unknown as RpcHistorico;
-    const { error } = await rpc("registrar_sesion_1a1_historica", {
+    const rpcClient = supabase as unknown as { rpc: RpcHistorico };
+    const { error } = await rpcClient.rpc("registrar_sesion_1a1_historica", {
       _alumna_id: alumnaId,
       _fecha: fecha,
       _hora_inicio: `${horaInicio}:00`,
