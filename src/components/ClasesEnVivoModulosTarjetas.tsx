@@ -207,20 +207,21 @@ export function ClasesEnVivoModulosTarjetas({
 
   if (moduloAbierto) {
     return (
-      <div>
-        <div className="max-w-6xl mx-auto px-6 pt-5">
+      <div className="w-full max-w-full min-w-0 overflow-x-hidden">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-4 sm:pt-5">
           <button
             onClick={() => setModuloAbierto(null)}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-card text-sm font-medium"
           >
             <ArrowLeft className="w-4 h-4" /> Volver a módulos
           </button>
-          <div className="mt-3 text-sm text-muted-foreground">
+          <div className="mt-3 text-sm text-muted-foreground break-words">
             Módulo seleccionado: <span className="font-semibold text-foreground">{moduloAbierto.nombre}</span>
           </div>
         </div>
         <CursoDetalle
           cursoId={cursoId}
+          moduloId={moduloAbierto.id}
           volver
           volverLabel="Volver a módulos"
           onVolver={() => setModuloAbierto(null)}
@@ -230,24 +231,24 @@ export function ClasesEnVivoModulosTarjetas({
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto">
-      <div className="flex items-start justify-between gap-4 mb-7">
-        <div>
+    <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 md:p-8 min-w-0 overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-7">
+        <div className="min-w-0">
           <button
             onClick={onVolverBiblioteca}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3"
           >
             <ArrowLeft className="w-4 h-4" /> Volver a Clases en vivo
           </button>
-          <h1 className="text-3xl font-bold">{curso?.nombre || "Clases en vivo"}</h1>
-          {descripcionCurso && <p className="text-sm text-muted-foreground mt-1 max-w-3xl">{descripcionCurso}</p>}
-          <p className="text-sm text-muted-foreground mt-2">Selecciona un módulo para acceder a sus clases.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold break-words">{curso?.nombre || "Clases en vivo"}</h1>
+          {descripcionCurso && <p className="text-sm text-muted-foreground mt-1 max-w-3xl break-words">{descripcionCurso}</p>}
+          <p className="text-sm text-muted-foreground mt-2">Selecciona una semana o módulo para acceder únicamente a sus clases.</p>
         </div>
 
         {isStaff && (
           <button
             onClick={abrirCrear}
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-gradient text-white text-sm font-semibold"
+            className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-gradient text-white text-sm font-semibold"
           >
             <Plus className="w-4 h-4" /> Nuevo módulo
           </button>
@@ -257,7 +258,7 @@ export function ClasesEnVivoModulosTarjetas({
       {loading ? (
         <div className="py-16 text-center text-muted-foreground">Cargando módulos…</div>
       ) : modulos.length === 0 ? (
-        <div className="rounded-2xl border border-dashed bg-card p-12 text-center">
+        <div className="rounded-2xl border border-dashed bg-card p-8 sm:p-12 text-center">
           <div className="font-semibold">Aún no hay módulos</div>
           <p className="text-sm text-muted-foreground mt-1">
             {isStaff ? "Crea el primer módulo para organizar las clases." : "Todavía no hay contenido disponible."}
@@ -269,9 +270,9 @@ export function ClasesEnVivoModulosTarjetas({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 min-w-0">
           {modulos.map((modulo) => (
-            <article key={modulo.id} className="rounded-2xl border bg-card overflow-hidden shadow-sm">
+            <article key={modulo.id} className="min-w-0 rounded-2xl border bg-card overflow-hidden shadow-sm">
               <div className="relative aspect-square bg-muted">
                 {modulo.imageUrl ? (
                   <img src={modulo.imageUrl} alt={modulo.nombre} className="w-full h-full object-cover" />
@@ -283,34 +284,21 @@ export function ClasesEnVivoModulosTarjetas({
 
                 {isStaff && (
                   <div className="absolute top-3 right-3 flex gap-2">
-                    <button
-                      onClick={() => abrirEditar(modulo)}
-                      title="Editar módulo"
-                      className="p-2 rounded-lg bg-black/65 text-white backdrop-blur hover:bg-black/80"
-                    >
+                    <button onClick={() => abrirEditar(modulo)} title="Editar módulo" className="p-2 rounded-lg bg-black/65 text-white backdrop-blur hover:bg-black/80">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => void eliminar(modulo)}
-                      title="Eliminar módulo"
-                      className="p-2 rounded-lg bg-black/65 text-white backdrop-blur hover:bg-black/80"
-                    >
+                    <button onClick={() => void eliminar(modulo)} title="Eliminar módulo" className="p-2 rounded-lg bg-black/65 text-white backdrop-blur hover:bg-black/80">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 )}
               </div>
 
-              <div className="p-5 text-center">
-                <h2 className="text-lg font-bold leading-tight">{modulo.nombre}</h2>
+              <div className="p-5 text-center min-w-0">
+                <h2 className="text-lg font-bold leading-tight break-words">{modulo.nombre}</h2>
                 <div className="h-1 rounded-full bg-violet-600 my-4" />
-                {modulo.descripcionVisible && (
-                  <p className="text-sm text-muted-foreground line-clamp-3 min-h-[42px]">{modulo.descripcionVisible}</p>
-                )}
-                <button
-                  onClick={() => setModuloAbierto(modulo)}
-                  className="mt-5 inline-flex items-center justify-center px-7 py-2.5 rounded-lg border-2 border-violet-600 text-violet-700 dark:text-violet-300 font-bold hover:bg-violet-600 hover:text-white transition-colors"
-                >
+                {modulo.descripcionVisible && <p className="text-sm text-muted-foreground line-clamp-3 min-h-[42px]">{modulo.descripcionVisible}</p>}
+                <button onClick={() => setModuloAbierto(modulo)} className="mt-5 inline-flex items-center justify-center px-7 py-2.5 rounded-lg border-2 border-violet-600 text-violet-700 dark:text-violet-300 font-bold hover:bg-violet-600 hover:text-white transition-colors">
                   Acceder
                 </button>
               </div>
@@ -320,19 +308,19 @@ export function ClasesEnVivoModulosTarjetas({
       )}
 
       {(creating || editing) && (
-        <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm grid place-items-center p-4" onClick={resetEditor}>
+        <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm grid place-items-center p-3 sm:p-4" onClick={resetEditor}>
           <div className="w-full max-w-xl rounded-2xl border bg-card shadow-2xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-card z-10">
-              <div>
+            <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b sticky top-0 bg-card z-10">
+              <div className="min-w-0">
                 <div className="font-semibold">{editing ? "Editar módulo" : "Nuevo módulo"}</div>
                 <div className="text-xs text-muted-foreground">Solo Profesor y Líder/Dueño pueden modificar esta información.</div>
               </div>
-              <button onClick={resetEditor} disabled={saving} className="p-2 rounded-lg hover:bg-muted disabled:opacity-50">
+              <button onClick={resetEditor} disabled={saving} className="p-2 rounded-lg hover:bg-muted disabled:opacity-50 shrink-0">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-4 sm:p-5 space-y-4">
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Portada</label>
                 <div className="mt-2 rounded-xl border overflow-hidden bg-muted">
@@ -340,7 +328,7 @@ export function ClasesEnVivoModulosTarjetas({
                     {imagePreview ? (
                       <img src={imagePreview} alt="Vista previa" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="text-center text-muted-foreground">
+                      <div className="text-center text-muted-foreground p-4">
                         <ImagePlus className="w-10 h-10 mx-auto mb-2 opacity-50" />
                         <div className="text-xs">Puedes añadir la portada ahora o después desde Editar.</div>
                       </div>
@@ -355,35 +343,18 @@ export function ClasesEnVivoModulosTarjetas({
 
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre *</label>
-                <input
-                  value={form.nombre}
-                  onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background"
-                  placeholder="Nombre del módulo"
-                />
+                <input value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background" placeholder="Nombre del módulo" />
               </div>
 
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descripción opcional</label>
-                <textarea
-                  value={form.descripcion}
-                  onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
-                  rows={3}
-                  className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background resize-none"
-                  placeholder="Puedes dejarla vacía"
-                />
+                <textarea value={form.descripcion} onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))} rows={3} className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background resize-none" placeholder="Puedes dejarla vacía" />
               </div>
             </div>
 
-            <div className="px-5 py-4 border-t flex justify-end gap-2 sticky bottom-0 bg-card">
-              <button onClick={resetEditor} disabled={saving} className="px-4 py-2 rounded-lg border text-sm disabled:opacity-50">
-                Cancelar
-              </button>
-              <button
-                onClick={() => void guardar()}
-                disabled={saving}
-                className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2"
-              >
+            <div className="px-4 sm:px-5 py-4 border-t flex justify-end gap-2 sticky bottom-0 bg-card">
+              <button onClick={resetEditor} disabled={saving} className="px-4 py-2 rounded-lg border text-sm disabled:opacity-50">Cancelar</button>
+              <button onClick={() => void guardar()} disabled={saving} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2">
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 {saving ? "Guardando…" : "Guardar"}
               </button>
