@@ -65,20 +65,17 @@ function Page() {
 
   if (activeId) {
     return (
-      <div>
+      <div className="w-full max-w-full min-w-0 overflow-x-hidden">
         <OrganizadorClasesEnVivo cursoId={activeId} />
-        <ClasesEnVivoModulosTarjetas
-          cursoId={activeId}
-          onVolverBiblioteca={() => setActiveId(null)}
-        />
+        <ClasesEnVivoModulosTarjetas cursoId={activeId} onVolverBiblioteca={() => setActiveId(null)} />
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-semibold">Clases en vivo</h1>
+    <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 md:p-8 min-w-0 overflow-x-hidden">
+      <div className="mb-6 min-w-0">
+        <h1 className="text-2xl sm:text-3xl font-semibold">Clases en vivo</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {isStaff
             ? "Accede a todas las bibliotecas de clases en vivo y organiza sus módulos desde dentro."
@@ -87,15 +84,15 @@ function Page() {
       </div>
 
       {loading ? (
-        <div className="p-12 text-center text-muted-foreground">Cargando…</div>
+        <div className="p-8 sm:p-12 text-center text-muted-foreground">Cargando…</div>
       ) : cursos.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-12 text-center text-muted-foreground">No hay clases en vivo disponibles todavía.</div>
+        <div className="rounded-2xl border bg-card p-8 sm:p-12 text-center text-muted-foreground">No hay clases en vivo disponibles todavía.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0">
           {cursos.map((curso) => {
             const acceso = isStaff || permisos.has(curso.id);
             return (
-              <div key={curso.id} className="rounded-2xl border bg-card overflow-hidden group shadow-sm">
+              <div key={curso.id} className="min-w-0 rounded-2xl border bg-card overflow-hidden group shadow-sm">
                 <div className="relative aspect-square">
                   {curso.image_url ? <img src={curso.image_url} alt={curso.nombre} className="w-full h-full object-cover" /> : (
                     <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${curso.color_cover || "#7C6BFF"}, var(--violet-2))` }} />
@@ -109,9 +106,9 @@ function Page() {
                     <div className="absolute top-3 right-3 rounded-full bg-emerald-500/95 text-white px-2.5 py-1 text-[11px] font-semibold flex items-center gap-1 shadow"><CheckCircle2 className="w-3.5 h-3.5" /> Acceso disponible</div>
                   )}
                 </div>
-                <div className="p-4">
-                  <h3 className="font-semibold line-clamp-2">{curso.nombre}</h3>
-                  {descripcionVisible(curso.descripcion) && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{descripcionVisible(curso.descripcion)}</p>}
+                <div className="p-4 min-w-0">
+                  <h3 className="font-semibold line-clamp-2 break-words">{curso.nombre}</h3>
+                  {descripcionVisible(curso.descripcion) && <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-words">{descripcionVisible(curso.descripcion)}</p>}
                   {acceso ? (
                     <button onClick={() => setActiveId(curso.id)} className="mt-3 w-full px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center justify-center gap-1">
                       <BookOpen className="w-4 h-4" /> Acceder <ArrowRight className="w-4 h-4" />
