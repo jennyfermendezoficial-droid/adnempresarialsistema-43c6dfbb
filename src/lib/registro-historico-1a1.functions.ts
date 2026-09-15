@@ -55,8 +55,8 @@ export const registrarSesion1a1Historica = createServerFn({ method: "POST" })
     }
 
     const hoy = fechaHoyEcuador();
-    if (data.fecha.slice(0, 7) !== hoy.slice(0, 7) || data.fecha > hoy) {
-      throw new Error("Solo puedes registrar sesiones que ya ocurrieron durante el mes actual.");
+    if (data.fecha > hoy || data.fecha < "2025-01-01") {
+      throw new Error("Solo puedes registrar sesiones que ya ocurrieron dentro del período disponible del sistema.");
     }
 
     const inicio = new Date(`${data.fecha}T${data.hora_inicio}:00-05:00`);
