@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { fetchPerfiles } from "@/lib/perfiles";
 import { formatNombre } from "@/lib/nombres";
 import { registrarSesion1a1Historica } from "@/lib/registro-historico-1a1.functions";
+import { registrarCoachHistorico } from "@/lib/coach.functions";
 import { toast } from "sonner";
 
 function fechaLocal(d = new Date()) {
@@ -23,16 +24,16 @@ function sumarMinutos(hora: string, minutos: number) {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-type TipoRegistro = "clase" | "1a1";
+type TipoRegistro = "clase" | "1a1" | "coach";
 interface Alumna { id: string; nombre_completo: string; email?: string | null }
 
 export function RegistroHistoricoClaseProfesor() {
   const { session, role, roles } = useAuth();
   const uid = session?.user.id;
   const registrarHistorica1a1 = useServerFn(registrarSesion1a1Historica);
+  const registrarCoach = useServerFn(registrarCoachHistorico);
   const puedeRegistrarHistorico = role === "admin" || role === "soporte" || roles.includes("admin") || roles.includes("soporte");
   const hoy = fechaLocal();
-  const mesActual = hoy.slice(0, 7);
   const [abierto, setAbierto] = useState(false);
   const [tipoRegistro, setTipoRegistro] = useState<TipoRegistro>("clase");
   const [fecha, setFecha] = useState(hoy);
@@ -118,7 +119,7 @@ export function RegistroHistoricoClaseProfesor() {
     });
     if (error) throw error;
 
-    toast.success("Clase histórica registrada. Ya cuenta en las horas e informes del mes.");
+    toast.success("Clase histórica registrada. Ya cuenta en las horas e informes del período seleccionado.");
     return true;
   };
 
@@ -146,10 +147,32 @@ export function RegistroHistoricoClaseProfesor() {
     return true;
   };
 
+  const guardarCoach = async (minutos: number) => {
+    const titulo = tema.trim();
+    if (minutos > 480) {
+      toast.error("La duración de Coach debe estar entre 1 y 480 minutos.");
+      return false;
+    }
+    if (titulo.length < 3) {
+      toast.error("Escribe el tema tratado en Coach.");
+      return false;
+    }
+    await registrarCoach({
+      data: {
+        fecha,
+        hora_inicio: horaInicio,
+        duracion_min: minutos,
+        tema: titulo,
+      },
+    });
+    toast.success("Sesión Coach registrada. Ya queda disponible para Mis clases asignadas, Pagos e informes.");
+    return true;
+  };
+
   const guardar = async () => {
     const minutos = Number(duracion);
-    if (!fecha || !fecha.startsWith(mesActual) || fecha > hoy) {
-      toast.error("Solo puedes registrar actividades que ya ocurrieron durante el mes actual.");
+    if (!fecha || fecha < "2025-01-01" || fecha > hoy) {
+      toast.error("Selecciona una fecha pasada válida dentro del período disponible del sistema.");
       return;
     }
     if (!horaInicio) return toast.error("Indica la hora de inicio.");
@@ -162,7 +185,9 @@ export function RegistroHistoricoClaseProfesor() {
     try {
       const ok = tipoRegistro === "clase"
         ? await guardarClase(minutos)
-        : await guardarSesion1a1(minutos);
+        : tipoRegistro === "1a1"
+          ? await guardarSesion1a1(minutos)
+          : await guardarCoach(minutos);
       if (!ok) return;
 
       resetear();
@@ -188,9 +213,9 @@ export function RegistroHistoricoClaseProfesor() {
             <CalendarPlus className="w-5 h-5 text-violet" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-semibold">Registrar clase o sesión histórica del mes</div>
+            <div className="font-semibold">Registrar clase, sesión 1 a 1 o Coach histórica</div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              Para clases en vivo o sesiones 1 a 1 que ya realizaste este mes y no quedaron registradas en el sistema.
+              Para actividades que ya realizaste y no quedaron registradas. Puedes seleccionar el mes anterior u otro período pasado.
             </div>
           </div>
           {abierto ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -200,7 +225,7 @@ export function RegistroHistoricoClaseProfesor() {
           <div className="border-t p-4 grid md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo de registro *</label>
-              <div className="mt-1 flex gap-1 p-1 rounded-lg border bg-background w-fit">
+              <div className="mt-1 flex flex-wrap gap-1 p-1 rounded-lg border bg-background w-fit">
                 <button
                   type="button"
                   onClick={() => { setTipoRegistro("clase"); setDuracion("60"); }}
@@ -214,6 +239,13 @@ export function RegistroHistoricoClaseProfesor() {
                   className={`px-3 py-2 rounded-md text-sm font-semibold ${tipoRegistro === "1a1" ? "bg-violet-gradient text-white" : "text-muted-foreground"}`}
                 >
                   Sesión 1 a 1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTipoRegistro("coach"); setDuracion("60"); }}
+                  className={`px-3 py-2 rounded-md text-sm font-semibold ${tipoRegistro === "coach" ? "bg-violet-gradient text-white" : "text-muted-foreground"}`}
+                >
+                  Coach
                 </button>
               </div>
             </div>
@@ -239,7 +271,7 @@ export function RegistroHistoricoClaseProfesor() {
               <input
                 type="date"
                 value={fecha}
-                min={`${mesActual}-01`}
+                min="2025-01-01"
                 max={hoy}
                 onChange={(e) => setFecha(e.target.value)}
                 className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background"
@@ -272,25 +304,27 @@ export function RegistroHistoricoClaseProfesor() {
               )}
             </div>
 
-            {tipoRegistro === "clase" ? (
+            {tipoRegistro === "1a1" ? (
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tema de la clase *</label>
-                <input
-                  type="text"
-                  value={tema}
-                  onChange={(e) => setTema(e.target.value)}
-                  placeholder="Ej. Meta Ads · Campañas de conversión"
-                  className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background"
-                />
-              </div>
-            ) : (
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Motivo / nota <span className="normal-case font-normal">(opcional)</span></label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Motivo / tema <span className="normal-case font-normal">(opcional)</span></label>
                 <input
                   type="text"
                   value={motivo}
                   onChange={(e) => setMotivo(e.target.value.slice(0, 300))}
                   placeholder="Ej. Revisión de landing page"
+                  className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {tipoRegistro === "coach" ? "Tema tratado en Coach *" : "Tema de la clase *"}
+                </label>
+                <input
+                  type="text"
+                  value={tema}
+                  onChange={(e) => setTema(e.target.value.slice(0, 220))}
+                  placeholder={tipoRegistro === "coach" ? "Ej. Revisión de estrategia comercial" : "Ej. Meta Ads · Campañas de conversión"}
                   className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background"
                 />
               </div>
@@ -305,7 +339,7 @@ export function RegistroHistoricoClaseProfesor() {
                 className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-60"
               >
                 {guardando && <Loader2 className="w-4 h-4 animate-spin" />}
-                {tipoRegistro === "clase" ? "Registrar clase y horas" : "Registrar sesión 1 a 1"}
+                {tipoRegistro === "clase" ? "Registrar clase y horas" : tipoRegistro === "1a1" ? "Registrar sesión 1 a 1" : "Registrar Coach"}
               </button>
             </div>
           </div>
