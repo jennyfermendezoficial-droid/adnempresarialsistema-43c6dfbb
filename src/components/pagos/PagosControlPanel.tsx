@@ -1,6 +1,7 @@
 // Panel superior de Pagos: conserva la calificación del equipo para Profesores
 // y añade el selector entre la gestión de Profesores y Alumnas.
 import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +10,11 @@ import { puedeVerPagos } from "@/lib/roles";
 import { formatNombre } from "@/lib/nombres";
 import { formatHM } from "@/lib/tiempo";
 import { dividirHorarioLaboral } from "@/lib/pagos-horario";
+import {
+  CALIFICACION_EQUIPO_ANIO,
+  CALIFICACION_EQUIPO_MES,
+  resumenCalificacionesEquipo,
+} from "@/lib/team-ratings.functions";
 
 interface ProfesorBasico {
   id: string;
@@ -28,13 +34,6 @@ interface HorarioProfesor {
   profesor: string;
   sesionesLaboral: number;
   sesionesFuera: number;
-}
-
-function mesAnterior() {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - 1);
-  return { mes: d.getMonth() + 1, anio: d.getFullYear() };
 }
 
 const MESES = [
@@ -66,11 +65,11 @@ function periodosDisponibles() {
 export function PagosControlPanel() {
   const { role, session } = useAuth();
   const puedeGestionar = puedeVerPagos(role, session?.user.id);
+  const cargarResumenCalif = useServerFn(resumenCalificacionesEquipo);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const enAlumnas = pathname.startsWith("/pagos/alumnas");
   const [calificaciones, setCalificaciones] = useState<CalificacionEquipo[]>([]);
   const [loading, setLoading] = useState(true);
-  const periodoCalif = useMemo(mesAnterior, []);
   const periodos = useMemo(periodosDisponibles, []);
   const ahora = useMemo(() => new Date(), []);
   const [mesHorario, setMesHorario] = useState(ahora.getMonth() + 1);
@@ -86,57 +85,16 @@ export function PagosControlPanel() {
     }
 
     let activo = true;
-
     const cargar = async () => {
       setLoading(true);
       try {
-        const [{ data: profesoresData }, { data: califsData }] = await Promise.all([
-          supabase.rpc("listar_profesores"),
-          supabase
-            .from("calificaciones_mensuales")
-            .select("profesor_id,claridad,didactica,practico,desenvolvimiento")
-            .eq("mes", periodoCalif.mes)
-            .eq("anio", periodoCalif.anio),
-        ]);
-
+        const rows = await cargarResumenCalif();
         if (!activo) return;
-
-        const profesores = ((profesoresData ?? []) as ProfesorBasico[]).filter(
-          (p, index, arr) => arr.findIndex((x) => x.id === p.id) === index,
-        );
-
-        const porProfesor = new Map<string, { suma: number; valores: number; filas: number }>();
-        ((califsData ?? []) as Array<{
-          profesor_id: string;
-          claridad: number | null;
-          didactica: number | null;
-          practico: number | null;
-          desenvolvimiento: number | null;
-        }>).forEach((c) => {
-          const actual = porProfesor.get(c.profesor_id) ?? { suma: 0, valores: 0, filas: 0 };
-          [c.claridad, c.didactica, c.practico, c.desenvolvimiento].forEach((valor) => {
-            if (typeof valor === "number") {
-              actual.suma += valor;
-              actual.valores += 1;
-            }
-          });
-          actual.filas += 1;
-          porProfesor.set(c.profesor_id, actual);
-        });
-
-        setCalificaciones(
-          profesores
-            .map((p) => {
-              const c = porProfesor.get(p.id);
-              return {
-                profesor_id: p.id,
-                profesor: formatNombre(p.nombre_completo) || p.email || "Profesor",
-                promedio: c && c.valores ? c.suma / c.valores : 0,
-                cantidad: c?.filas ?? 0,
-              };
-            })
-            .sort((a, b) => a.profesor.localeCompare(b.profesor, "es")),
-        );
+        setCalificaciones((rows as CalificacionEquipo[]).sort((a, b) => a.profesor.localeCompare(b.profesor, "es")));
+      } catch (error) {
+        if (!activo) return;
+        console.error("No se pudo cargar la calificación del equipo", error);
+        setCalificaciones([]);
       } finally {
         if (activo) setLoading(false);
       }
@@ -149,7 +107,7 @@ export function PagosControlPanel() {
       activo = false;
       window.removeEventListener("focus", refrescar);
     };
-  }, [puedeGestionar, enAlumnas, periodoCalif.mes, periodoCalif.anio]);
+  }, [puedeGestionar, enAlumnas]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!puedeGestionar || enAlumnas) {
@@ -280,18 +238,18 @@ export function PagosControlPanel() {
               <div className="flex items-center gap-2">
                 <Star className="w-5 h-5 text-amber-500" />
                 <h2 className="text-lg font-semibold">
-                  Calificación del equipo · {MESES[periodoCalif.mes - 1]} {periodoCalif.anio}
+                  Calificación del equipo · {MESES[CALIFICACION_EQUIPO_MES - 1]} {CALIFICACION_EQUIPO_ANIO}
                 </h2>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Cierre del mes anterior. Se muestran todos los profesores, incluso quienes todavía no recibieron una calificación.
+                Evaluación obligatoria de agosto. Se muestran todos los Profesores y Líderes, incluso quienes todavía no han recibido una calificación válida con razón.
               </p>
             </div>
 
             {loading ? (
               <div className="py-8 text-center text-muted-foreground">Cargando calificaciones…</div>
             ) : calificaciones.length === 0 ? (
-              <div className="p-6 text-sm text-muted-foreground">No hay profesores disponibles para este resumen.</div>
+              <div className="p-6 text-sm text-muted-foreground">No hay miembros del equipo disponibles para este resumen.</div>
             ) : (
               <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
                 {calificaciones.map((c) => (
