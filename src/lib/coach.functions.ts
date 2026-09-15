@@ -70,6 +70,12 @@ export const registrarCoachHistorico = createServerFn({ method: "POST" })
       throw new Error("La sesión Coach no puede terminar al día siguiente.");
     }
 
+    const inicio = new Date(`${data.fecha}T${data.hora_inicio}:00-05:00`);
+    const fin = new Date(inicio.getTime() + data.duracion_min * 60_000);
+    if (!Number.isFinite(inicio.getTime()) || fin.getTime() > Date.now()) {
+      throw new Error("La sesión Coach indicada todavía no ha terminado.");
+    }
+
     const { data: duplicado, error: duplicadoError } = await supabaseAdmin
       .from("ae_actividades")
       .select("id")
