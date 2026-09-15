@@ -30,6 +30,9 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
   const [uploadingCover, setUploadingCover] = useState<string | null>(null);
   const [editing, setEditing] = useState<Curso | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [savingCreate, setSavingCreate] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCursoId = useRef<string | null>(null);
 
@@ -48,12 +51,28 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
     });
   }, [uid, tipo]);
 
+  const abrirCrearCurso = () => {
+    setNuevoNombre("");
+    setCreating(true);
+  };
+
+  const cerrarCrearCurso = () => {
+    if (savingCreate) return;
+    setCreating(false);
+    setNuevoNombre("");
+  };
+
   const crearCurso = async () => {
-    const nombre = prompt(`Nombre de${etiqueta === "curso" ? "l curso" : " la clase en vivo"}`);
-    if (!nombre) return;
+    const nombre = nuevoNombre.trim();
+    if (!nombre) return toast.error(`Escribe el nombre de${etiqueta === "curso" ? "l curso" : " la clase en vivo"}.`);
+    setSavingCreate(true);
     const { data, error } = await supabase.from("cursos").insert({ nombre, orden: cursos.length, tipo }).select().single();
+    setSavingCreate(false);
     if (error) return toast.error(error.message);
     setCursos((c) => [...c, data as Curso]);
+    setCreating(false);
+    setNuevoNombre("");
+    toast.success(`${etiqueta === "curso" ? "Curso" : "Clase en vivo"} cread${etiqueta === "curso" ? "o" : "a"}`);
   };
 
   const borrarCurso = async (id: string) => {
@@ -113,7 +132,7 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
           <h1 className="text-3xl font-semibold">{titulo}</h1>
           <p className="text-sm text-muted-foreground">{subtitulo}</p>
         </div>
-        {isStaff && <button onClick={crearCurso} className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center gap-1"><Plus className="w-4 h-4"/>Nuev{etiqueta === "curso" ? "o curso" : "a clase en vivo"}</button>}
+        {isStaff && <button onClick={abrirCrearCurso} className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center gap-1"><Plus className="w-4 h-4"/>Nuev{etiqueta === "curso" ? "o curso" : "a clase en vivo"}</button>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -158,9 +177,40 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
         {cursos.length === 0 && <div className="col-span-full text-center text-muted-foreground py-12">No hay contenido todavía.</div>}
       </div>
 
+      {creating && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
+          <div className="bg-card border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b">
+              <div>
+                <h3 className="font-semibold">Nuev{etiqueta === "curso" ? "o curso" : "a clase en vivo"}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Este formulario se mantiene abierto aunque cambies de pestaña.</p>
+              </div>
+              <button onClick={cerrarCrearCurso} disabled={savingCreate} className="p-2 rounded-lg hover:bg-muted"><X className="w-4 h-4"/></button>
+            </div>
+            <div className="p-5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre *</label>
+              <input
+                autoFocus
+                value={nuevoNombre}
+                onChange={(e) => setNuevoNombre(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void crearCurso(); }}
+                placeholder={etiqueta === "curso" ? "Nombre del curso" : "Nombre de la clase en vivo"}
+                className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background"
+              />
+            </div>
+            <div className="px-5 py-4 border-t flex justify-end gap-2">
+              <button onClick={cerrarCrearCurso} disabled={savingCreate} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button>
+              <button onClick={() => void crearCurso()} disabled={savingCreate || !nuevoNombre.trim()} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold disabled:opacity-60 flex items-center gap-2">
+                {savingCreate && <Loader2 className="w-4 h-4 animate-spin"/>}{savingCreate ? "Guardando…" : "Crear"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editing && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4" onClick={() => setEditing(null)}>
-          <div className="bg-card border rounded-2xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4">
+          <div className="bg-card border rounded-2xl w-full max-w-lg overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3 border-b">
               <h3 className="font-semibold">Editar {etiqueta}</h3>
               <button onClick={() => setEditing(null)} className="opacity-60 hover:opacity-100"><X className="w-4 h-4"/></button>
