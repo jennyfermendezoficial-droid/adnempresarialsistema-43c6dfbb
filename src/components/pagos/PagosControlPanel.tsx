@@ -1,5 +1,5 @@
 // Panel superior de Pagos: conserva la calificación del equipo para Profesores
-// y añade el selector entre la gestión de Profesores y Alumnas.
+// y añade el selector entre la gestión de Profesores, Alumnas y Freelance.
 import { useEffect, useMemo, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Star } from "lucide-react";
@@ -68,6 +68,8 @@ export function PagosControlPanel() {
   const puedeGestionar = puedeVerPagos(role, session?.user.id);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const enAlumnas = pathname.startsWith("/pagos/alumnas");
+  const enFreelance = pathname.startsWith("/pagos/freelance");
+  const enProfesores = !enAlumnas && !enFreelance;
   const [calificaciones, setCalificaciones] = useState<CalificacionEquipo[]>([]);
   const [loading, setLoading] = useState(true);
   const periodoCalif = useMemo(mesAnterior, []);
@@ -80,7 +82,7 @@ export function PagosControlPanel() {
   const [errorHorario, setErrorHorario] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!puedeGestionar || enAlumnas) {
+    if (!puedeGestionar || !enProfesores) {
       setLoading(false);
       return;
     }
@@ -149,10 +151,10 @@ export function PagosControlPanel() {
       activo = false;
       window.removeEventListener("focus", refrescar);
     };
-  }, [puedeGestionar, enAlumnas, periodoCalif.mes, periodoCalif.anio]);
+  }, [puedeGestionar, enProfesores, periodoCalif.mes, periodoCalif.anio]);
 
   useEffect(() => {
-    if (!puedeGestionar || enAlumnas) {
+    if (!puedeGestionar || !enProfesores) {
       setHorarios([]);
       setLoadingHorario(false);
       return;
@@ -242,7 +244,7 @@ export function PagosControlPanel() {
       window.removeEventListener("adn:horas-actualizadas", refrescar);
       window.removeEventListener("adn:clase-historica-registrada", refrescar);
     };
-  }, [puedeGestionar, enAlumnas, mesHorario, anioHorario]);
+  }, [puedeGestionar, enProfesores, mesHorario, anioHorario]);
 
   const totalesHorario = useMemo(() => horarios.reduce(
     (acc, fila) => ({
@@ -260,7 +262,7 @@ export function PagosControlPanel() {
         <div className="inline-flex items-center gap-1 rounded-xl border bg-card p-1">
           <Link
             to="/pagos"
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${!enAlumnas ? "bg-violet-gradient text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${enProfesores ? "bg-violet-gradient text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}
           >
             Profesores
           </Link>
@@ -270,10 +272,16 @@ export function PagosControlPanel() {
           >
             Alumnas
           </Link>
+          <Link
+            to="/pagos/freelance"
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${enFreelance ? "bg-violet-gradient text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}
+          >
+            Freelance
+          </Link>
         </div>
       </div>
 
-      {!enAlumnas && (
+      {enProfesores && (
         <>
           <section className="rounded-2xl border bg-card overflow-hidden">
             <div className="px-5 py-4 border-b">
