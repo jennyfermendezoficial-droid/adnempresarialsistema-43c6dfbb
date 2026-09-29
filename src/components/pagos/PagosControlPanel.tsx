@@ -228,6 +228,12 @@ export function PagosControlPanel() {
           >
             Alumnas
           </Link>
+          <Link
+            to="/pagos/freelance"
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${pathname.startsWith("/pagos/freelance") ? "bg-violet-gradient text-white shadow-sm" : "text-muted-foreground hover:bg-muted/50"}`}
+          >
+            Freelance
+          </Link>
         </div>
       </div>
 
