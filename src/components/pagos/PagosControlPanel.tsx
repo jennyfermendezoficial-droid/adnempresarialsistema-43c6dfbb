@@ -68,6 +68,7 @@ export function PagosControlPanel() {
   const cargarResumenCalif = useServerFn(resumenCalificacionesEquipo);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const enAlumnas = pathname.startsWith("/pagos/alumnas");
+  const enFreelance = pathname.startsWith("/pagos/freelance");
   const [calificaciones, setCalificaciones] = useState<CalificacionEquipo[]>([]);
   const [loading, setLoading] = useState(true);
   const periodos = useMemo(periodosDisponibles, []);
@@ -79,7 +80,7 @@ export function PagosControlPanel() {
   const [errorHorario, setErrorHorario] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!puedeGestionar || enAlumnas) {
+    if (!puedeGestionar || enAlumnas || enFreelance) {
       setLoading(false);
       return;
     }
@@ -107,10 +108,10 @@ export function PagosControlPanel() {
       activo = false;
       window.removeEventListener("focus", refrescar);
     };
-  }, [puedeGestionar, enAlumnas]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [puedeGestionar, enAlumnas, enFreelance]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!puedeGestionar || enAlumnas) {
+    if (!puedeGestionar || enAlumnas || enFreelance) {
       setHorarios([]);
       setLoadingHorario(false);
       return;
@@ -200,7 +201,7 @@ export function PagosControlPanel() {
       window.removeEventListener("adn:horas-actualizadas", refrescar);
       window.removeEventListener("adn:clase-historica-registrada", refrescar);
     };
-  }, [puedeGestionar, enAlumnas, mesHorario, anioHorario]);
+  }, [puedeGestionar, enAlumnas, enFreelance, mesHorario, anioHorario]);
 
   const totalesHorario = useMemo(() => horarios.reduce(
     (acc, fila) => ({
@@ -237,7 +238,7 @@ export function PagosControlPanel() {
         </div>
       </div>
 
-      {!enAlumnas && (
+      {!enAlumnas && !enFreelance && (
         <>
           <section className="rounded-2xl border bg-card overflow-hidden">
             <div className="px-5 py-4 border-b">
