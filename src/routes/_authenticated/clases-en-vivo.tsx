@@ -3,7 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, BookOpen, CheckCircle2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { CursoDetalle } from "@/components/CursoDetalle";
+import { ClasesEnVivoModulosTarjetas } from "@/components/ClasesEnVivoModulosTarjetas";
+import { OrganizadorClasesEnVivo } from "@/components/OrganizadorClasesEnVivo";
+import { esContenidoEquipo, descripcionVisible } from "@/lib/contenido-equipo";
 
 interface Curso {
   id: string;
@@ -12,6 +14,8 @@ interface Curso {
   color_cover: string | null;
   image_url: string | null;
   orden: number;
+  solo_equipo?: boolean | null;
+  parent_curso_id?: string | null;
 }
 
 export const Route = createFileRoute("/_authenticated/clases-en-vivo")({
@@ -41,109 +45,76 @@ function Page() {
     let cancelled = false;
     const load = async () => {
       const [{ data: cs }, { data: ps }] = await Promise.all([
-        supabase
-          .from("cursos")
-          .select("id,nombre,descripcion,color_cover,image_url,orden")
-          .eq("tipo", "clase_en_vivo")
-          .order("orden"),
-        uid
-          ? supabase.from("permisos_cursos").select("curso_id").eq("usuario_id", uid)
-          : Promise.resolve({ data: [] as { curso_id: string }[] }),
+        supabase.from("cursos").select("*").eq("tipo", "clase_en_vivo").order("orden"),
+        uid ? supabase.from("permisos_cursos").select("curso_id").eq("usuario_id", uid) : Promise.resolve({ data: [] as { curso_id: string }[] }),
       ]);
 
       if (cancelled) return;
-      setCursos((cs as Curso[]) ?? []);
+      const todos = ((cs ?? []) as Curso[]);
+      const visibles = isStaff
+        ? todos
+        : todos.filter((c) => c.solo_equipo !== true && !c.parent_curso_id && !esContenidoEquipo(c.descripcion));
+
+      setCursos(visibles);
       setPermisos(new Set(((ps ?? []) as { curso_id: string }[]).map((p) => p.curso_id)));
       setLoading(false);
     };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [uid]);
+    void load();
+    return () => { cancelled = true; };
+  }, [uid, isStaff]);
 
   if (activeId) {
     return (
-      <CursoDetalle
-        cursoId={activeId}
-        volver
-        volverLabel="Volver a clases en vivo"
-        onVolver={() => setActiveId(null)}
-      />
+      <div className="w-full max-w-full min-w-0 overflow-x-hidden">
+        <OrganizadorClasesEnVivo cursoId={activeId} />
+        <ClasesEnVivoModulosTarjetas cursoId={activeId} onVolverBiblioteca={() => setActiveId(null)} />
+      </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-semibold">Clases en vivo</h1>
+    <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 md:p-8 min-w-0 overflow-x-hidden">
+      <div className="mb-6 min-w-0">
+        <h1 className="text-2xl sm:text-3xl font-semibold">Clases en vivo</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Accede a las clases en vivo que tienes habilitadas.
+          {isStaff
+            ? "Accede a todas las bibliotecas de clases en vivo y organiza sus módulos desde dentro."
+            : "Accede a las clases en vivo que tienes habilitadas."}
         </p>
       </div>
 
       {loading ? (
-        <div className="p-12 text-center text-muted-foreground">Cargando…</div>
+        <div className="p-8 sm:p-12 text-center text-muted-foreground">Cargando…</div>
       ) : cursos.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-12 text-center text-muted-foreground">
-          No hay clases en vivo disponibles todavía.
-        </div>
+        <div className="rounded-2xl border bg-card p-8 sm:p-12 text-center text-muted-foreground">No hay clases en vivo disponibles todavía.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0">
           {cursos.map((curso) => {
             const acceso = isStaff || permisos.has(curso.id);
             return (
-              <div key={curso.id} className="rounded-2xl border bg-card overflow-hidden group shadow-sm">
+              <div key={curso.id} className="min-w-0 rounded-2xl border bg-card overflow-hidden group shadow-sm">
                 <div className="relative aspect-square">
-                  {curso.image_url ? (
-                    <img src={curso.image_url} alt={curso.nombre} className="w-full h-full object-cover" />
-                  ) : (
-                    <div
-                      className="w-full h-full"
-                      style={{
-                        background: `linear-gradient(135deg, ${curso.color_cover || "#7C6BFF"}, var(--violet-2))`,
-                      }}
-                    />
+                  {curso.image_url ? <img src={curso.image_url} alt={curso.nombre} className="w-full h-full object-cover" /> : (
+                    <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${curso.color_cover || "#7C6BFF"}, var(--violet-2))` }} />
                   )}
-
                   {!acceso && (
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] grid place-items-center">
-                      <div className="w-14 h-14 rounded-full bg-white/95 shadow-xl grid place-items-center">
-                        <Lock className="w-7 h-7 text-violet-600" />
-                      </div>
+                      <div className="w-14 h-14 rounded-full bg-white/95 shadow-xl grid place-items-center"><Lock className="w-7 h-7 text-violet-600" /></div>
                     </div>
                   )}
-
                   {acceso && (
-                    <div className="absolute top-3 right-3 rounded-full bg-emerald-500/95 text-white px-2.5 py-1 text-[11px] font-semibold flex items-center gap-1 shadow">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Acceso disponible
-                    </div>
+                    <div className="absolute top-3 right-3 rounded-full bg-emerald-500/95 text-white px-2.5 py-1 text-[11px] font-semibold flex items-center gap-1 shadow"><CheckCircle2 className="w-3.5 h-3.5" /> Acceso disponible</div>
                   )}
                 </div>
-
-                <div className="p-4">
-                  <h3 className="font-semibold line-clamp-2">{curso.nombre}</h3>
-                  {curso.descripcion && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{curso.descripcion}</p>
-                  )}
-
+                <div className="p-4 min-w-0">
+                  <h3 className="font-semibold line-clamp-2 break-words">{curso.nombre}</h3>
+                  {descripcionVisible(curso.descripcion) && <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-words">{descripcionVisible(curso.descripcion)}</p>}
                   {acceso ? (
-                    <button
-                      onClick={() => setActiveId(curso.id)}
-                      className="mt-3 w-full px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center justify-center gap-1"
-                    >
-                      <BookOpen className="w-4 h-4" />
-                      Acceder
-                      <ArrowRight className="w-4 h-4" />
+                    <button onClick={() => setActiveId(curso.id)} className="mt-3 w-full px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center justify-center gap-1">
+                      <BookOpen className="w-4 h-4" /> Acceder <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      disabled
-                      className="mt-3 w-full px-3 py-2 rounded-lg border text-sm opacity-60 flex items-center justify-center gap-1"
-                    >
-                      <Lock className="w-4 h-4" /> Sin acceso
-                    </button>
+                    <button type="button" disabled className="mt-3 w-full px-3 py-2 rounded-lg border text-sm opacity-60 flex items-center justify-center gap-1"><Lock className="w-4 h-4" /> Sin acceso</button>
                   )}
                 </div>
               </div>

@@ -18,6 +18,7 @@ interface AuthState {
   session: Session | null;
   profile: Profile | null;
   role: AppRole | null;
+  roles: AppRole[];
   loading: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -44,16 +45,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string) => {
-    const [{ data: prof }, { data: roles }] = await Promise.all([
+    const [perfilRes, rolesRes, adminRes, soporteRes, usuarioRes] = await Promise.all([
       supabase.from("profiles").select("id, email, nombre_completo, avatar_url, estado").eq("id", uid).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid),
+      supabase.rpc("has_role", { _user_id: uid, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: uid, _role: "soporte" }),
+      supabase.rpc("has_role", { _user_id: uid, _role: "usuario" }),
     ]);
-    setProfile((prof as Profile | null) ?? null);
+
+    setProfile((perfilRes.data as Profile | null) ?? null);
+
+    const detectados = new Set<AppRole>();
+    ((rolesRes.data ?? []) as { role: string }[]).forEach(({ role: r }) => {
+      if (r === "admin" || r === "soporte" || r === "usuario") detectados.add(r);
+    });
+
+    // has_role es SECURITY DEFINER y confirma el rol aunque la lectura directa
+    // de user_roles esté retrasada o falle por una política/permisos del cliente.
+    if (adminRes.data === true) detectados.add("admin");
+    if (soporteRes.data === true) detectados.add("soporte");
+    if (usuarioRes.data === true) detectados.add("usuario");
+
+    const validos = Array.from(detectados);
+    setRoles(validos);
+
     const priority: AppRole[] = ["admin", "soporte", "usuario"];
-    const found = priority.find((r) => roles?.some((x) => x.role === r)) ?? null;
+    const found = priority.find((r) => validos.includes(r)) ?? null;
     setRole(found);
   };
 
@@ -61,7 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const sid = getOrCreateDeviceSessionId();
       const ua = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 300) : "desconocido";
-      
       await supabase.rpc("registrar_sesion", { _session_id: sid, _dispositivo: ua });
     } catch { /* noop */ }
   };
@@ -77,8 +97,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null);
         setRole(null);
+        setRoles([]);
       }
     });
+
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       if (data.session?.user) {
@@ -87,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false);
     });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -98,14 +121,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const sid = localStorage.getItem(SESSION_KEY);
         if (!sid) return;
-        
         const { data, error } = await supabase.rpc("validar_sesion", { _session_id: sid });
         if (cancelled || error) return;
         if (data === false) {
           toast.error("Tu sesión se cerró porque se superó el límite de 5 dispositivos activos.");
           try { localStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
           await supabase.auth.signOut();
-          setSession(null); setProfile(null); setRole(null);
+          setSession(null);
+          setProfile(null);
+          setRole(null);
+          setRoles([]);
         }
       } catch { /* noop */ }
     };
@@ -121,16 +146,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const sid = localStorage.getItem(SESSION_KEY);
       if (sid) {
-        
         await supabase.rpc("cerrar_sesion", { _session_id: sid });
         localStorage.removeItem(SESSION_KEY);
       }
     } catch { /* noop */ }
     await supabase.auth.signOut();
-    setSession(null); setProfile(null); setRole(null);
+    setSession(null);
+    setProfile(null);
+    setRole(null);
+    setRoles([]);
   };
 
-  return <Ctx.Provider value={{ session, profile, role, loading, refresh, signOut }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ session, profile, role, roles, loading, refresh, signOut }}>{children}</Ctx.Provider>;
 }
 
 export function useAuth() {

@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import { firmarSubidaCloudinary } from "./cloudinary.functions";
 
 export type CarpetaCloudinary =
@@ -6,7 +7,8 @@ export type CarpetaCloudinary =
   | "adn/cursos"
   | "adn/chats"
   | "adn/tareas"
-  | "adn/comprobantes";
+  | "adn/comprobantes"
+  | "adn/sistema";
 
 export function esImagen(file: File): boolean {
   return file.type.startsWith("image/");
@@ -17,8 +19,39 @@ export function esUrlAbsoluta(v: string | null | undefined): boolean {
   return !!v && /^https?:\/\//i.test(v);
 }
 
-/** Sube una imagen a Cloudinary y devuelve la URL pública final. */
+async function subirPortadaCursoSupabase(file: File): Promise<string> {
+  const extensionCruda = file.name.split(".").pop() || "jpg";
+  const extension = extensionCruda.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const uuid = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+  const path = `equipo/${Date.now()}-${uuid}.${extension}`;
+
+  const { error } = await supabase.storage
+    .from("course-covers")
+    .upload(path, file, {
+      upsert: false,
+      cacheControl: "3600",
+      contentType: file.type || undefined,
+    });
+
+  if (error) throw new Error(`No se pudo subir la portada: ${error.message}`);
+
+  const { data } = supabase.storage.from("course-covers").getPublicUrl(path);
+  if (!data.publicUrl) throw new Error("No se pudo obtener la URL pública de la portada");
+  return data.publicUrl;
+}
+
+/**
+ * Sube una imagen y devuelve su URL pública final.
+ * Las portadas de cursos usan el bucket de Supabase Storage que ya existía
+ * antes de Cloudinary. El resto de carpetas mantiene el flujo existente.
+ */
 export async function subirImagen(file: File, carpeta: CarpetaCloudinary): Promise<string> {
+  if (carpeta === "adn/cursos") {
+    return subirPortadaCursoSupabase(file);
+  }
+
   const firma = await firmarSubidaCloudinary({ data: { carpeta } });
 
   const form = new FormData();

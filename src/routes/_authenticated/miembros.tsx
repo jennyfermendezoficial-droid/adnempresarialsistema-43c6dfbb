@@ -1,10 +1,12 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPerfiles, type PerfilPublico } from "@/lib/perfiles";
 import { Avatar } from "@/components/NivelBadge";
 import { formatNombre } from "@/lib/nombres";
-import { Search, MessageSquare, CalendarDays, Clock } from "lucide-react";
+import { abrirChatSuperior } from "@/lib/chat-popover";
+import { useAuth } from "@/lib/auth-context";
+import { Camera, Search, MessageSquare, CalendarDays, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/miembros")({
   component: Page,
@@ -56,7 +58,8 @@ function activoHace(iso?: string | null) {
 type Tab = "miembros" | "admins" | "online";
 
 function Page() {
-  const navigate = useNavigate();
+  const { session } = useAuth();
+  const uid = session?.user.id;
   const [rows, setRows] = useState<Miembro[]>([]);
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<Tab>("miembros");
@@ -120,9 +123,25 @@ function Page() {
     return base.filter((r) => (formatNombre(r.nombre_completo) || "").toLowerCase().includes(needle));
   }, [rows, tab, q]);
 
+  const miPerfil = uid ? rows.find((r) => r.id === uid) : undefined;
+  const faltaFoto = Boolean(miPerfil && !miPerfil.avatar_url);
+
   return (
     <div className="px-4 py-8 max-w-3xl mx-auto">
       <h1 className="sr-only">Miembros</h1>
+
+      {faltaFoto && (
+        <div className="mb-5 rounded-2xl border bg-card p-4 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-violet/10 grid place-items-center shrink-0">
+            <Camera className="w-5 h-5 text-violet" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm">Pon una foto en tu perfil</div>
+            <p className="text-xs text-muted-foreground mt-0.5">Ayuda a que profesores y miembros de la comunidad te reconozcan fácilmente.</p>
+          </div>
+          <Link to="/perfil" className="shrink-0 px-3 py-2 rounded-lg bg-violet-gradient text-white text-xs font-semibold">Agregar foto</Link>
+        </div>
+      )}
 
       <div className="relative mb-5">
         <Search className="w-[18px] h-[18px] absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -179,7 +198,7 @@ function Page() {
               </div>
 
               <button
-                onClick={() => navigate({ to: "/chats", search: { con: m.id } })}
+                onClick={() => abrirChatSuperior(m.id)}
                 className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-semibold hover:bg-muted transition"
               >
                 CHAT <MessageSquare className="w-4 h-4" />

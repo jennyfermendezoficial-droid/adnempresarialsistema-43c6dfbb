@@ -6,6 +6,11 @@ import { TopNav } from "@/components/TopNav";
 import { Logo, BrandName } from "@/components/Logo";
 import { PostClassRatingModal } from "@/components/PostClassRatingModal";
 import { FichaProfesorModal } from "@/components/FichaProfesorModal";
+import { AlertaRegistroProfesor } from "@/components/AlertaRegistroProfesor";
+import { Agenda1a1FinalizacionProfesor } from "@/components/Agenda1a1FinalizacionProfesor";
+import { PendientesRegistroProfesorPanel } from "@/components/PendientesRegistroProfesorPanel";
+import { RegistroHistoricoClaseProfesor } from "@/components/RegistroHistoricoClaseProfesor";
+import { PagosControlPanel } from "@/components/pagos/PagosControlPanel";
 import { ChatsPopover } from "@/components/ChatsPopover";
 import { NotificationsPopover } from "@/components/NotificationsPopover";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
@@ -23,17 +28,14 @@ function AuthedLayout() {
     if (!loading && !session) navigate({ to: "/login", replace: true });
   }, [session, loading, navigate]);
 
-  // Cerrar drawer al cambiar de ruta
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
-  // Bloquear scroll del body cuando el drawer está abierto en móvil
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.body.style.overflow = drawerOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [drawerOpen]);
 
-  // Hook global de notificaciones (sonido, push, recordatorios)
   useGlobalNotifications();
 
   if (loading || !session) {
@@ -63,7 +65,6 @@ function AuthedLayout() {
 
   return (
     <div className="h-screen w-full flex overflow-hidden">
-      {/* Drawer móvil / tablet */}
       {drawerOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
@@ -84,12 +85,10 @@ function AuthedLayout() {
       )}
 
       <main className="flex-1 overflow-y-auto flex flex-col min-w-0" style={{ background: "var(--bg-2)" }}>
-        {/* Menú superior (computador) */}
         <div className="hidden lg:block">
           <TopNav />
         </div>
 
-        {/* Top bar móvil/tablet con hamburguesa */}
         <header
           className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-3 h-14 border-b"
           style={{
@@ -116,11 +115,16 @@ function AuthedLayout() {
           </div>
         </header>
         <div className="flex-1">
+          {pathname.startsWith("/pagos") && <PagosControlPanel />}
+          {pathname.startsWith("/agenda-1a1") && <Agenda1a1FinalizacionProfesor />}
+          {pathname.startsWith("/mis-clases-asignadas") && <RegistroHistoricoClaseProfesor />}
+          {pathname.startsWith("/mis-clases-asignadas") && <PendientesRegistroProfesorPanel />}
           <Outlet />
         </div>
       </main>
       <PostClassRatingModal />
       <FichaProfesorModal />
+      <AlertaRegistroProfesor />
     </div>
   );
 }

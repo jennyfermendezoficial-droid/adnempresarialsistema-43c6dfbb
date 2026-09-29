@@ -28,6 +28,10 @@ const ICONS: Record<string, typeof Bell> = {
   tarea_nueva: ClipboardList,
   entrega_nueva: ClipboardList,
   tarea_calificada: CheckCircle2,
+  sesion_pendiente_reprogramar: AlarmClock,
+  sesion_reprogramada: CalendarClock,
+  sesion_pendiente_registro: AlarmClock,
+  sesion_no_realizada: CalendarClock,
 };
 
 function timeAgo(iso: string) {

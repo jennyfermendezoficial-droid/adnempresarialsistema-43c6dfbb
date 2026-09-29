@@ -10,6 +10,7 @@ import {
 } from "@/lib/comunidad";
 import { Avatar } from "@/components/NivelBadge";
 import { PostEditor } from "@/components/comunidad/PostEditor";
+import { CommunityLogo } from "@/components/Logo";
 import { Heart, MessageCircle, Pin, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -84,7 +85,6 @@ function Page() {
       <div>
         <h1 className="text-2xl md:text-3xl font-semibold mb-4">Comunidad</h1>
 
-        {/* Caja crear */}
         <button
           onClick={() => setEditor({ open: true })}
           className="w-full flex items-center gap-3 p-4 rounded-2xl border bg-card text-left hover:bg-muted/40 transition"
@@ -93,7 +93,6 @@ function Page() {
           <span className="text-muted-foreground">Escribe algo…</span>
         </button>
 
-        {/* Filtros */}
         <div className="flex flex-wrap gap-2 my-4">
           <Chip active={!filtro} onClick={() => setFiltro("")} label="Todos" />
           {cats.map((c) => (
@@ -178,10 +177,14 @@ function Page() {
         </div>
       </div>
 
-      {/* Lateral */}
       <aside className="space-y-4">
         <div className="rounded-2xl border bg-card overflow-hidden">
-          <div className="h-24" style={{ background: "linear-gradient(135deg,var(--violet),var(--violet-2))" }} />
+          <div
+            className="h-28 flex items-center justify-center"
+            style={{ background: "linear-gradient(135deg,var(--deep-2),var(--violet),var(--violet-2))" }}
+          >
+            <CommunityLogo size={72} />
+          </div>
           <div className="p-4">
             <div className="font-semibold">ADN Empresarial</div>
             <p className="text-xs text-muted-foreground mt-1">

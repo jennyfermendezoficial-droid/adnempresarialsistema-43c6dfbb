@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -8,7 +8,6 @@ import { progresoNivel } from "@/lib/niveles";
 import { Avatar } from "@/components/NivelBadge";
 import { tiempoRelativo, type Comentario, type Post } from "@/lib/comunidad";
 import { ArrowLeft, MessageSquare } from "lucide-react";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/miembro/$userId")({
   component: Page,
@@ -30,7 +29,6 @@ function Page() {
   const { userId } = Route.useParams();
   const { session } = useAuth();
   const uid = session?.user.id;
-  const navigate = useNavigate();
 
   const [perfil, setPerfil] = useState<PerfilPublico | null>(null);
   const [cursos, setCursos] = useState<CursoProgreso[]>([]);
@@ -76,15 +74,9 @@ function Page() {
     })();
   }, [userId]);
 
-  const abrirChat = async () => {
-    if (!uid || uid === userId) return;
-    const { data: existentes } = await supabase.from("chats_1a1").select("id,usuario_a_id,usuario_b_id");
-    const found = ((existentes ?? []) as { id: string; usuario_a_id: string; usuario_b_id: string }[])
-      .find((c) => (c.usuario_a_id === uid && c.usuario_b_id === userId) || (c.usuario_b_id === uid && c.usuario_a_id === userId));
-    if (found) return navigate({ to: "/chats", search: { con: userId } });
-    const { error } = await supabase.from("chats_1a1").insert({ usuario_a_id: uid, usuario_b_id: userId });
-    if (error) return toast.error(error.message);
-    navigate({ to: "/chats", search: { con: userId } });
+  const abrirChat = () => {
+    if (!uid) return;
+    window.dispatchEvent(new CustomEvent("adn:abrir-chat", { detail: { userId } }));
   };
 
   if (!perfil) return <div className="p-8 text-sm text-muted-foreground">Cargando…</div>;

@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil, Youtube, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil, Youtube, ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo, getBunnyVideoStatus } from "@/lib/bunny.functions";
@@ -13,13 +13,22 @@ interface Modulo { id: string; curso_id: string; nombre: string; descripcion: st
 interface Recurso { tipo: "link" | "archivo"; nombre: string; url: string }
 interface Leccion { id: string; modulo_id: string; nombre: string; descripcion: string | null; bunny_video_id: string | null; orden: number; duracion_min: number | null; recursos_adjuntos: Recurso[] | null }
 
+type DialogoCurso =
+  | { tipo: "modulo"; nombre: string }
+  | { tipo: "video-url"; modId: string; url: string; nombre: string }
+  | { tipo: "video-archivo"; modId: string; file: File; nombre: string }
+  | { tipo: "link"; url: string; nombre: string }
+  | null;
+
 export function CursoDetalle({
   cursoId,
+  moduloId,
   volver,
   volverLabel,
   onVolver,
 }: {
   cursoId: string;
+  moduloId?: string;
   volver?: boolean;
   volverLabel?: string;
   onVolver?: () => void;
@@ -47,6 +56,8 @@ export function CursoDetalle({
   const [videoStatus, setVideoStatus] = useState<{ ready: boolean; failed: boolean; encodeProgress: number; status: number } | null>(null);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState("");
+  const [dialogoCurso, setDialogoCurso] = useState<DialogoCurso>(null);
+  const [savingDialogo, setSavingDialogo] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingModId = useRef<string | null>(null);
@@ -55,7 +66,6 @@ export function CursoDetalle({
 
   useEffect(() => { getBunnyCfg().then(setBunnyCfg).catch(() => {}); }, []); // eslint-disable-line
 
-  // Abre el módulo de la clase que se está viendo
   useEffect(() => {
     if (active?.modulo_id) setAbiertos((s) => (s.has(active.modulo_id) ? s : new Set(s).add(active.modulo_id)));
   }, [active?.modulo_id]);
@@ -79,8 +89,6 @@ export function CursoDetalle({
       : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
-  // Silencia errores conocidos de player.js cuando el iframe se desmonta
-  // al cambiar de clase (postMessage sobre contentWindow null).
   useEffect(() => {
     const onError = (e: ErrorEvent) => {
       const msg = e.message || "";
@@ -105,7 +113,6 @@ export function CursoDetalle({
     };
   }, []);
 
-  // Player.js: escucha timeupdate del iframe de Bunny y marca completada al 90%
   useEffect(() => {
     if (!active?.bunny_video_id) return;
     if (!/^[0-9a-f-]{20,}$/i.test(active.bunny_video_id)) return;
@@ -122,12 +129,12 @@ export function CursoDetalle({
         const lecId = active.id;
         const onTime = (data: { seconds: number; duration: number }) => {
           try {
-          if (!data?.duration || !data?.seconds) return;
-          const pct = data.seconds / data.duration;
-          if (pct >= 0.9 && !autoCompletedRef.current.has(lecId) && !completadas.has(lecId)) {
-            autoCompletedRef.current.add(lecId);
-            marcarCompletada(active);
-          }
+            if (!data?.duration || !data?.seconds) return;
+            const pct = data.seconds / data.duration;
+            if (pct >= 0.9 && !autoCompletedRef.current.has(lecId) && !completadas.has(lecId)) {
+              autoCompletedRef.current.add(lecId);
+              marcarCompletada(active);
+            }
           } catch { /* noop */ }
         };
         p.on("timeupdate", onTime);
@@ -137,11 +144,10 @@ export function CursoDetalle({
     return () => { cancelled = true; if (detach) detach(); };
   }, [active?.id, videoStatus?.ready]); // eslint-disable-line
 
-  // Poll Bunny encoding status for the active lesson
   useEffect(() => {
     setVideoStatus(null);
     if (!active?.bunny_video_id) return;
-    if (!/^[0-9a-f-]{20,}$/i.test(active.bunny_video_id)) return; // sólo IDs Bunny
+    if (!/^[0-9a-f-]{20,}$/i.test(active.bunny_video_id)) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const check = async () => {
@@ -149,9 +155,7 @@ export function CursoDetalle({
         const s = await getBunnyStatus({ data: { videoId: active.bunny_video_id! } });
         if (cancelled) return;
         setVideoStatus(s);
-        if (!s.ready && !s.failed) {
-          timer = setTimeout(check, 5000);
-        }
+        if (!s.ready && !s.failed) timer = setTimeout(check, 5000);
       } catch {
         if (!cancelled) timer = setTimeout(check, 8000);
       }
@@ -165,14 +169,16 @@ export function CursoDetalle({
       const { data: c } = await supabase.from("cursos").select("*").eq("id", cursoId).maybeSingle();
       setCurso((c as Curso) ?? null);
       const { data: mods } = await supabase.from("modulos_curso").select("*").eq("curso_id", cursoId).order("orden");
-      const modList = (mods as Modulo[]) ?? [];
+      const allMods = (mods as Modulo[]) ?? [];
+      const modList = moduloId ? allMods.filter((m) => m.id === moduloId) : allMods;
       setModulos(modList);
+      if (moduloId) setAbiertos(new Set([moduloId]));
       const ids = modList.map((m) => m.id);
       if (ids.length) {
         const { data: lecs } = await supabase.from("lecciones").select("*").in("modulo_id", ids).order("orden");
         const lecList = (lecs as Leccion[]) ?? [];
         setLecciones(lecList);
-        setActive((prev) => prev ?? lecList[0] ?? null);
+        setActive(moduloId ? (lecList[0] ?? null) : ((prev) => prev ?? lecList[0] ?? null) as never);
         if (uid && lecList.length) {
           const { data: prog } = await supabase
             .from("progreso_lecciones")
@@ -183,20 +189,14 @@ export function CursoDetalle({
         }
       } else {
         setLecciones([]);
+        setActive(null);
+        setCompletadas(new Set());
       }
     })();
-  }, [cursoId, uid]);
+  }, [cursoId, uid, moduloId]);
 
-  const crearModulo = async () => {
-    const nombre = prompt("Nombre del módulo (ej: Módulo 1 - Fundamentos)");
-    if (!nombre) return;
-    const { data, error } = await supabase
-      .from("modulos_curso")
-      .insert({ curso_id: cursoId, nombre, orden: modulos.length })
-      .select()
-      .single();
-    if (error) return toast.error(error.message);
-    setModulos((m) => [...m, data as Modulo]);
+  const crearModulo = () => {
+    setDialogoCurso({ tipo: "modulo", nombre: "" });
   };
 
   const borrarModulo = async (id: string) => {
@@ -212,71 +212,22 @@ export function CursoDetalle({
     fileInputRef.current?.click();
   };
 
-  const agregarLeccionURL = async (modId: string) => {
-    const url = prompt("Pega la URL del video (YouTube o MP4 directo)");
-    if (!url) return;
-    const nombre = prompt("Nombre de la clase", "Nueva clase");
-    if (!nombre) return;
-    const orden = lecciones.filter((l) => l.modulo_id === modId).length;
-    const { data, error } = await supabase
-      .from("lecciones")
-      .insert({ modulo_id: modId, nombre, bunny_video_id: url, orden })
-      .select()
-      .single();
-    if (error) return toast.error(error.message);
-    const nueva = data as Leccion;
-    setLecciones((l) => [...l, nueva]);
-    if (!active) setActive(nueva);
-    toast.success("Clase agregada");
+  const agregarLeccionURL = (modId: string) => {
+    setDialogoCurso({ tipo: "video-url", modId, url: "", nombre: "Nueva clase" });
   };
 
-  const onFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     const modId = pendingModId.current;
+    pendingModId.current = null;
     if (!file || !modId) return;
-    const nombre = prompt("Nombre de la clase", file.name.replace(/\.[^.]+$/, ""));
-    if (!nombre) return;
-    try {
-      setUploadingFor(modId);
-      setUploadPct(0);
-      const cred = await createBunny({ data: { title: nombre } });
-      const tus = await import("tus-js-client");
-      await new Promise<void>((resolve, reject) => {
-        const upload = new tus.Upload(file, {
-          endpoint: "https://video.bunnycdn.com/tusupload",
-          retryDelays: [0, 3000, 5000, 10000, 20000],
-          headers: {
-            AuthorizationSignature: cred.authorizationSignature,
-            AuthorizationExpire: String(cred.authorizationExpire),
-            VideoId: cred.videoId,
-            LibraryId: String(cred.libraryId),
-          },
-          metadata: { filetype: file.type, title: nombre },
-          onError: (err: Error) => reject(err),
-          onProgress: (sent: number, total: number) => setUploadPct(Math.round((sent / total) * 100)),
-          onSuccess: () => resolve(),
-        });
-        upload.start();
-      });
-      const orden = lecciones.filter((l) => l.modulo_id === modId).length;
-      const { data, error } = await supabase
-        .from("lecciones")
-        .insert({ modulo_id: modId, nombre, bunny_video_id: cred.videoId, orden })
-        .select()
-        .single();
-      if (error) throw error;
-      const nueva = data as Leccion;
-      setLecciones((l) => [...l, nueva]);
-      if (!active) setActive(nueva);
-      toast.success("Clase subida");
-    } catch (err) {
-      toast.error((err as Error).message || "Error subiendo el video");
-    } finally {
-      setUploadingFor(null);
-      setUploadPct(0);
-      pendingModId.current = null;
-    }
+    setDialogoCurso({
+      tipo: "video-archivo",
+      modId,
+      file,
+      nombre: file.name.replace(/\.[^.]+$/, ""),
+    });
   };
 
   const borrarLeccion = async (l: Leccion) => {
@@ -330,11 +281,15 @@ export function CursoDetalle({
   };
 
   const addRecurso = async (r: Recurso) => {
-    if (!active) return;
+    if (!active) return false;
     const recursos = [...(active.recursos_adjuntos ?? []), r];
     const { error } = await supabase.from("lecciones").update({ recursos_adjuntos: recursos as unknown as never }).eq("id", active.id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
     updateActive({ recursos_adjuntos: recursos });
+    return true;
   };
 
   const removeRecurso = async (idx: number) => {
@@ -345,11 +300,107 @@ export function CursoDetalle({
     updateActive({ recursos_adjuntos: recursos });
   };
 
-  const agregarLink = async () => {
-    const url = prompt("URL del enlace (https://…)");
-    if (!url) return;
-    const nombre = prompt("Nombre del enlace", url) || url;
-    await addRecurso({ tipo: "link", nombre, url });
+  const agregarLink = () => {
+    if (!active) return;
+    setDialogoCurso({ tipo: "link", url: "", nombre: "" });
+  };
+
+  const cerrarDialogo = () => {
+    if (savingDialogo) return;
+    setDialogoCurso(null);
+  };
+
+  const guardarDialogo = async () => {
+    if (!dialogoCurso) return;
+    setSavingDialogo(true);
+    try {
+      if (dialogoCurso.tipo === "modulo") {
+        const nombre = dialogoCurso.nombre.trim();
+        if (!nombre) throw new Error("Escribe el nombre del módulo.");
+        const { data, error } = await supabase
+          .from("modulos_curso")
+          .insert({ curso_id: cursoId, nombre, orden: modulos.length })
+          .select()
+          .single();
+        if (error) throw error;
+        setModulos((m) => [...m, data as Modulo]);
+        toast.success("Módulo creado");
+      }
+
+      if (dialogoCurso.tipo === "video-url") {
+        const url = dialogoCurso.url.trim();
+        const nombre = dialogoCurso.nombre.trim();
+        if (!url) throw new Error("Pega la URL del video.");
+        if (!nombre) throw new Error("Escribe el nombre de la clase.");
+        const orden = lecciones.filter((l) => l.modulo_id === dialogoCurso.modId).length;
+        const { data, error } = await supabase
+          .from("lecciones")
+          .insert({ modulo_id: dialogoCurso.modId, nombre, bunny_video_id: url, orden })
+          .select()
+          .single();
+        if (error) throw error;
+        const nueva = data as Leccion;
+        setLecciones((l) => [...l, nueva]);
+        if (!active) setActive(nueva);
+        toast.success("Clase agregada");
+      }
+
+      if (dialogoCurso.tipo === "video-archivo") {
+        const nombre = dialogoCurso.nombre.trim();
+        if (!nombre) throw new Error("Escribe el nombre de la clase.");
+        setUploadingFor(dialogoCurso.modId);
+        setUploadPct(0);
+        const cred = await createBunny({ data: { title: nombre } });
+        const tus = await import("tus-js-client");
+        await new Promise<void>((resolve, reject) => {
+          const upload = new tus.Upload(dialogoCurso.file, {
+            endpoint: "https://video.bunnycdn.com/tusupload",
+            retryDelays: [0, 3000, 5000, 10000, 20000],
+            headers: {
+              AuthorizationSignature: cred.authorizationSignature,
+              AuthorizationExpire: String(cred.authorizationExpire),
+              VideoId: cred.videoId,
+              LibraryId: String(cred.libraryId),
+            },
+            metadata: { filetype: dialogoCurso.file.type, title: nombre },
+            onError: (err: Error) => reject(err),
+            onProgress: (sent: number, total: number) => setUploadPct(Math.round((sent / total) * 100)),
+            onSuccess: () => resolve(),
+          });
+          upload.start();
+        });
+        const orden = lecciones.filter((l) => l.modulo_id === dialogoCurso.modId).length;
+        const { data, error } = await supabase
+          .from("lecciones")
+          .insert({ modulo_id: dialogoCurso.modId, nombre, bunny_video_id: cred.videoId, orden })
+          .select()
+          .single();
+        if (error) throw error;
+        const nueva = data as Leccion;
+        setLecciones((l) => [...l, nueva]);
+        if (!active) setActive(nueva);
+        toast.success("Clase subida");
+      }
+
+      if (dialogoCurso.tipo === "link") {
+        const url = dialogoCurso.url.trim();
+        if (!url) throw new Error("Pega la URL del enlace.");
+        const nombre = dialogoCurso.nombre.trim() || url;
+        const ok = await addRecurso({ tipo: "link", nombre, url });
+        if (!ok) return;
+        toast.success("Link añadido");
+      }
+
+      setDialogoCurso(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar");
+    } finally {
+      setSavingDialogo(false);
+      if (dialogoCurso?.tipo === "video-archivo") {
+        setUploadingFor(null);
+        setUploadPct(0);
+      }
+    }
   };
 
   const recursoFileRef = useRef<HTMLInputElement>(null);
@@ -361,8 +412,7 @@ export function CursoDetalle({
       setUploadingRecurso(true);
       if (esImagen(file)) {
         const url = await subirImagen(file, "adn/cursos");
-        await addRecurso({ tipo: "archivo", nombre: file.name, url });
-        toast.success("Archivo subido");
+        if (await addRecurso({ tipo: "archivo", nombre: file.name, url })) toast.success("Archivo subido");
         return;
       }
       const path = `${cursoId}/${active.id}/${Date.now()}-${file.name}`;
@@ -370,8 +420,7 @@ export function CursoDetalle({
       if (upErr) throw upErr;
       const { data: signed, error: signErr } = await supabase.storage.from("course-media").createSignedUrl(path, 60 * 60 * 24 * 365);
       if (signErr) throw signErr;
-      await addRecurso({ tipo: "archivo", nombre: file.name, url: signed.signedUrl });
-      toast.success("Archivo subido");
+      if (await addRecurso({ tipo: "archivo", nombre: file.name, url: signed.signedUrl })) toast.success("Archivo subido");
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -384,24 +433,20 @@ export function CursoDetalle({
   const pct = totalLec ? Math.round((hechas / totalLec) * 100) : 0;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden">
       <input ref={fileInputRef} type="file" accept="video/*" hidden onChange={onFileChosen} />
       <input ref={recursoFileRef} type="file" hidden onChange={onRecursoFile} />
 
-      {/* Header con portada */}
-      <div className="relative h-56 overflow-hidden">
+      <div className="relative h-48 sm:h-56 overflow-hidden">
         {curso?.image_url ? (
           <img src={curso.image_url} alt={curso.nombre} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${curso?.color_cover || "#7C6BFF"}, var(--violet-2))` }} />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
-        <div className="absolute inset-x-0 bottom-0 p-6 max-w-6xl mx-auto">
+        <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6 max-w-6xl mx-auto min-w-0">
           {volver && (onVolver ? (
-            <button
-              onClick={onVolver}
-              className="inline-flex items-center gap-1 text-sm text-white/90 hover:text-white mb-2"
-            >
+            <button onClick={onVolver} className="inline-flex items-center gap-1 text-sm text-white/90 hover:text-white mb-2">
               <ArrowLeft className="w-4 h-4" /> {volverLabel || "Volver"}
             </button>
           ) : (
@@ -409,10 +454,10 @@ export function CursoDetalle({
               <ArrowLeft className="w-4 h-4" /> {volverLabel || "Volver a cursos"}
             </Link>
           ))}
-          <h1 className="text-3xl md:text-4xl font-bold text-white drop-shadow">{curso?.nombre || "Curso"}</h1>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white drop-shadow break-words">{curso?.nombre || "Curso"}</h1>
           {curso?.descripcion && <p className="text-white/80 text-sm mt-1 max-w-2xl">{curso.descripcion}</p>}
-          <div className="mt-3 flex items-center gap-3 text-xs text-white/90">
-            <div className="h-1.5 w-48 rounded-full bg-white/20 overflow-hidden">
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/90">
+            <div className="h-1.5 w-32 sm:w-48 max-w-full rounded-full bg-white/20 overflow-hidden">
               <div className="h-full bg-violet-gradient" style={{ width: `${pct}%` }} />
             </div>
             <span>{hechas}/{totalLec} clases · {pct}%</span>
@@ -420,36 +465,28 @@ export function CursoDetalle({
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6 grid lg:grid-cols-3 gap-6">
-        {/* Reproductor */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="rounded-2xl overflow-hidden bg-black aspect-video">
+      <div className="max-w-6xl mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 min-w-0">
+        <div className="lg:col-span-2 space-y-4 min-w-0">
+          <div className="rounded-2xl overflow-hidden bg-black aspect-video w-full max-w-full min-w-0">
             {active?.bunny_video_id ? (
               /youtube\.com|youtu\.be/.test(active.bunny_video_id) ? (
                 <iframe
                   src={active.bunny_video_id.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/")}
-                  className="w-full h-full"
+                  className="block w-full h-full max-w-full border-0"
                   allowFullScreen
                 />
               ) : /^[0-9a-f-]{20,}$/i.test(active.bunny_video_id) && bunnyCfg ? (
                 videoStatus?.failed ? (
                   <div className="w-full h-full grid place-items-center text-white/80 text-center p-6">
-                    <div>
-                      <p className="font-semibold">El video falló al procesarse</p>
-                      <p className="text-xs opacity-70 mt-1">Vuelve a subirlo, por favor.</p>
-                    </div>
+                    <div><p className="font-semibold">El video falló al procesarse</p><p className="text-xs opacity-70 mt-1">Vuelve a subirlo, por favor.</p></div>
                   </div>
                 ) : videoStatus && !videoStatus.ready ? (
                   <div className="w-full h-full grid place-items-center text-white/80 text-center p-6">
                     <div className="space-y-3 max-w-sm">
                       <Loader2 className="w-8 h-8 animate-spin mx-auto" />
                       <p className="font-semibold">Procesando video… {videoStatus.encodeProgress}%</p>
-                      <p className="text-xs opacity-70">
-                        Bunny está transcodificando el archivo. Esto puede tardar varios minutos según el tamaño. La página se actualiza sola cuando esté listo.
-                      </p>
-                      <div className="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
-                        <div className="h-full bg-violet-gradient transition-all" style={{ width: `${videoStatus.encodeProgress}%` }} />
-                      </div>
+                      <p className="text-xs opacity-70">Bunny está transcodificando el archivo. Esto puede tardar varios minutos según el tamaño. La página se actualiza sola cuando esté listo.</p>
+                      <div className="h-1.5 w-full rounded-full bg-white/15 overflow-hidden"><div className="h-full bg-violet-gradient transition-all" style={{ width: `${videoStatus.encodeProgress}%` }} /></div>
                     </div>
                   </div>
                 ) : (
@@ -457,49 +494,38 @@ export function CursoDetalle({
                     key={active.bunny_video_id}
                     ref={playerIframeRef}
                     src={`https://iframe.mediadelivery.net/embed/${bunnyCfg.libraryId}/${active.bunny_video_id}?autoplay=false&playerjs=true`}
-                    className="w-full h-full"
+                    className="block w-full h-full max-w-full border-0"
                     allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
                     allowFullScreen
                   />
                 )
               ) : (
-                <video src={active.bunny_video_id} controls className="w-full h-full" />
+                <video src={active.bunny_video_id} controls className="block w-full h-full max-w-full object-contain" />
               )
             ) : (
-              <div className="w-full h-full grid place-items-center text-white/60">
-                {totalLec === 0 ? "Sin clases aún" : "Selecciona una clase"}
-              </div>
+              <div className="w-full h-full grid place-items-center text-white/60">{totalLec === 0 ? "Sin clases aún" : "Selecciona una clase"}</div>
             )}
           </div>
 
           {active && (
-            <div className="rounded-2xl border bg-card p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold">{active.nombre}</h2>
+            <div className="rounded-2xl border bg-card p-4 sm:p-5 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xl font-semibold break-words">{active.nombre}</h2>
                   {editLec ? (
-                    <textarea
-                      value={editLec.descripcion}
-                      onChange={(e) => setEditLec({ descripcion: e.target.value })}
-                      rows={4}
-                      className="mt-2 w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none"
-                      placeholder="Descripción de la clase…"
-                    />
+                    <textarea value={editLec.descripcion} onChange={(e) => setEditLec({ descripcion: e.target.value })} rows={4} className="mt-2 w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none" placeholder="Descripción de la clase…" />
                   ) : (
-                    active.descripcion && <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{active.descripcion}</p>
+                    active.descripcion && <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap break-words">{active.descripcion}</p>
                   )}
                 </div>
-                <button
-                  onClick={() => marcarCompletada(active)}
-                  className={`text-sm px-3 py-1.5 rounded-lg flex items-center gap-1 ${completadas.has(active.id) ? "bg-violet-gradient text-white" : "border"}`}
-                >
+                <button onClick={() => marcarCompletada(active)} className={`self-start shrink-0 text-sm px-3 py-1.5 rounded-lg flex items-center gap-1 ${completadas.has(active.id) ? "bg-violet-gradient text-white" : "border"}`}>
                   {completadas.has(active.id) ? <CheckCircle2 className="w-4 h-4"/> : <Circle className="w-4 h-4"/>}
                   {completadas.has(active.id) ? "Completada" : "Marcar completada"}
                 </button>
               </div>
 
               {isStaff && (
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {editLec ? (
                     <>
                       <button onClick={guardarDescripcion} disabled={savingLec} className="text-xs px-3 py-1.5 rounded-lg bg-violet-gradient text-white flex items-center gap-1">
@@ -508,13 +534,9 @@ export function CursoDetalle({
                       <button onClick={() => setEditLec(null)} className="text-xs px-3 py-1.5 rounded-lg border">Cancelar</button>
                     </>
                   ) : (
-                    <button onClick={() => setEditLec({ descripcion: active.descripcion ?? "" })} className="text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1">
-                      <Pencil className="w-3 h-3"/> Editar descripción
-                    </button>
+                    <button onClick={() => setEditLec({ descripcion: active.descripcion ?? "" })} className="text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1"><Pencil className="w-3 h-3"/> Editar descripción</button>
                   )}
-                  <button onClick={agregarLink} className="text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1">
-                    <LinkIcon className="w-3 h-3"/> Añadir link
-                  </button>
+                  <button onClick={agregarLink} className="text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1"><LinkIcon className="w-3 h-3"/> Añadir link</button>
                   <button onClick={() => recursoFileRef.current?.click()} disabled={uploadingRecurso} className="text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1">
                     {uploadingRecurso ? <Loader2 className="w-3 h-3 animate-spin"/> : <Paperclip className="w-3 h-3"/>} Subir archivo
                   </button>
@@ -522,17 +544,13 @@ export function CursoDetalle({
               )}
 
               {(active.recursos_adjuntos?.length ?? 0) > 0 && (
-                <div className="mt-4 space-y-1.5">
+                <div className="mt-4 space-y-1.5 min-w-0">
                   <div className="text-xs uppercase tracking-wider opacity-60">Recursos</div>
                   {(active.recursos_adjuntos ?? []).map((r, i) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/30 text-sm">
+                    <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/30 text-sm min-w-0">
                       {r.tipo === "link" ? <LinkIcon className="w-3.5 h-3.5 opacity-60"/> : <FileText className="w-3.5 h-3.5 opacity-60"/>}
-                      <a href={r.url} target="_blank" rel="noreferrer" className="flex-1 truncate hover:underline">{r.nombre}</a>
-                      {isStaff && (
-                        <button onClick={() => removeRecurso(i)} className="opacity-40 hover:opacity-100">
-                          <Trash2 className="w-3 h-3"/>
-                        </button>
-                      )}
+                      <a href={r.url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate hover:underline">{r.nombre}</a>
+                      {isStaff && <button onClick={() => removeRecurso(i)} className="opacity-40 hover:opacity-100"><Trash2 className="w-3 h-3"/></button>}
                     </div>
                   ))}
                 </div>
@@ -541,32 +559,18 @@ export function CursoDetalle({
           )}
         </div>
 
-        {/* Sidebar de módulos */}
-        <aside className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Contenido del curso</h3>
-            {isStaff && (
-              <button onClick={crearModulo} className="text-xs px-2 py-1 rounded border flex items-center gap-1">
-                <Plus className="w-3 h-3"/>Módulo
-              </button>
-            )}
+        <aside className="space-y-3 min-w-0 w-full max-w-full">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-semibold min-w-0 truncate">{moduloId ? (modulos[0]?.nombre || "Contenido de la semana") : "Contenido del curso"}</h3>
+            {isStaff && !moduloId && <button onClick={crearModulo} className="text-xs px-2 py-1 rounded border flex items-center gap-1"><Plus className="w-3 h-3"/>Módulo</button>}
           </div>
 
           <div className="relative">
             <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 opacity-40" />
-            <input
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar contenido"
-              className="w-full pl-3 pr-9 py-2.5 rounded-xl border bg-card text-sm outline-none focus:border-violet-400"
-            />
+            <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar contenido" className="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border bg-card text-sm outline-none focus:border-violet-400" />
           </div>
 
-          {modulos.length === 0 && (
-            <div className="text-center text-sm text-muted-foreground border border-dashed rounded-xl p-6">
-              Aún no hay módulos.
-            </div>
-          )}
+          {modulos.length === 0 && <div className="text-center text-sm text-muted-foreground border border-dashed rounded-xl p-6">Aún no hay módulos.</div>}
 
           {modulos.map((m, idx) => {
             const todas = lecciones.filter((l) => l.modulo_id === m.id);
@@ -574,105 +578,55 @@ export function CursoDetalle({
             const lecs = q ? todas.filter((l) => l.nombre.toLowerCase().includes(q)) : todas;
             if (q && lecs.length === 0) return null;
             const done = todas.filter((l) => completadas.has(l.id)).length;
-            const pct = todas.length ? Math.round((done / todas.length) * 100) : 0;
-            const abierto = q ? true : abiertos.has(m.id);
+            const pctModulo = todas.length ? Math.round((done / todas.length) * 100) : 0;
+            const abierto = moduloId ? true : q ? true : abiertos.has(m.id);
             return (
-              <div key={m.id} className="rounded-xl border bg-card overflow-hidden">
-                <div className="px-3 py-3 flex items-center gap-3 bg-muted/30">
-                  <button
-                    onClick={() => setAbiertos((s) => { const n = new Set(s); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n; })}
-                    className="flex-1 min-w-0 flex items-center gap-3 text-left"
-                  >
-                    <span className="w-8 h-8 shrink-0 rounded-full border grid place-items-center text-xs font-semibold opacity-80">
-                      {idx + 1}
-                    </span>
+              <div key={m.id} className="rounded-xl border bg-card overflow-hidden min-w-0 max-w-full">
+                <div className="px-3 py-3 flex items-center gap-3 bg-muted/30 min-w-0">
+                  <button onClick={() => !moduloId && setAbiertos((s) => { const n = new Set(s); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n; })} className="flex-1 min-w-0 flex items-center gap-3 text-left">
+                    <span className="w-8 h-8 shrink-0 rounded-full border grid place-items-center text-xs font-semibold opacity-80">{idx + 1}</span>
                     <span className="flex-1 min-w-0">
                       <span className="block font-semibold text-sm truncate">{m.nombre}</span>
-                      <span className="flex items-center gap-2 mt-1">
-                        <span className="text-[11px] opacity-60 w-8">{pct}%</span>
-                        <span className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
-                          <span className="block h-full bg-violet-gradient" style={{ width: `${pct}%` }} />
-                        </span>
-                      </span>
+                      <span className="flex items-center gap-2 mt-1"><span className="text-[11px] opacity-60 w-8">{pctModulo}%</span><span className="flex-1 h-1 rounded-full bg-muted overflow-hidden"><span className="block h-full bg-violet-gradient" style={{ width: `${pctModulo}%` }} /></span></span>
                     </span>
-                    {abierto ? <ChevronUp className="w-4 h-4 opacity-60 shrink-0"/> : <ChevronDown className="w-4 h-4 opacity-60 shrink-0"/>}
+                    {!moduloId && (abierto ? <ChevronUp className="w-4 h-4 opacity-60 shrink-0"/> : <ChevronDown className="w-4 h-4 opacity-60 shrink-0"/>)}
                   </button>
                   {isStaff && (
                     <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        disabled={uploadingFor !== null}
-                        onClick={() => subirLeccion(m.id)}
-                        title="Subir video (Bunny)"
-                        className="p-1.5 rounded border hover:bg-muted disabled:opacity-50"
-                      >
+                      <button disabled={uploadingFor !== null} onClick={() => subirLeccion(m.id)} title="Subir video (Bunny)" className="p-1.5 rounded border hover:bg-muted disabled:opacity-50">
                         {uploadingFor === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Upload className="w-3.5 h-3.5"/>}
                       </button>
-                      <button
-                        onClick={() => agregarLeccionURL(m.id)}
-                        title="Agregar clase por URL (YouTube/MP4)"
-                        className="p-1.5 rounded border hover:bg-muted"
-                      >
-                        <Youtube className="w-3.5 h-3.5"/>
-                      </button>
-                      <button onClick={() => borrarModulo(m.id)} className="p-1.5 rounded opacity-50 hover:opacity-100">
-                        <Trash2 className="w-3.5 h-3.5"/>
-                      </button>
+                      <button onClick={() => agregarLeccionURL(m.id)} title="Agregar clase por URL (YouTube/MP4)" className="p-1.5 rounded border hover:bg-muted"><Youtube className="w-3.5 h-3.5"/></button>
+                      {!moduloId && <button onClick={() => borrarModulo(m.id)} className="p-1.5 rounded opacity-50 hover:opacity-100"><Trash2 className="w-3.5 h-3.5"/></button>}
                     </div>
                   )}
                 </div>
-                {uploadingFor === m.id && (
-                  <div className="px-4 py-1 text-xs text-muted-foreground border-t">Subiendo… {uploadPct}%</div>
-                )}
+                {uploadingFor === m.id && <div className="px-4 py-1 text-xs text-muted-foreground border-t">Subiendo… {uploadPct}%</div>}
                 {abierto && (
-                  <ul className="p-2 space-y-2 border-t">
+                  <ul className="p-2 space-y-2 border-t min-w-0">
                     {lecs.map((l) => {
                       const isActive = active?.id === l.id;
                       const ok = completadas.has(l.id);
                       const thumb = miniatura(l);
                       return (
-                        <li key={l.id} className={`flex items-center gap-2 p-2 rounded-xl transition-colors ${isActive ? "bg-muted" : "hover:bg-muted/50"}`}>
-                          <button onClick={() => setActive(l)} className="flex-1 min-w-0 text-left flex items-center gap-3">
-                            <span className="relative w-[86px] h-[52px] shrink-0 rounded-lg overflow-hidden bg-muted grid place-items-center">
-                              {thumb ? (
-                                <img
-                                  src={thumb}
-                                  alt=""
-                                  loading="lazy"
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                                />
-                              ) : (
-                                <Play className="w-5 h-5 opacity-40" />
-                              )}
+                        <li key={l.id} className={`flex items-center gap-2 p-2 rounded-xl transition-colors min-w-0 ${isActive ? "bg-muted" : "hover:bg-muted/50"}`}>
+                          <button onClick={() => setActive(l)} className="flex-1 min-w-0 text-left flex items-center gap-2 sm:gap-3">
+                            <span className="relative w-[72px] h-[44px] sm:w-[86px] sm:h-[52px] shrink-0 rounded-lg overflow-hidden bg-muted grid place-items-center">
+                              {thumb ? <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : <Play className="w-5 h-5 opacity-40" />}
                               {isActive ? (
-                                <span className="absolute inset-0 bg-black/55 grid place-items-center gap-0.5 text-white text-[10px] font-semibold">
-                                  <Play className="w-4 h-4 fill-current" />
-                                  Tocando ahora
-                                </span>
+                                <span className="absolute inset-0 bg-black/55 grid place-items-center gap-0.5 text-white text-[10px] font-semibold"><Play className="w-4 h-4 fill-current" />Tocando ahora</span>
                               ) : l.duracion_min ? (
-                                <span className="absolute bottom-1 right-1 px-1 rounded bg-black/70 text-white text-[10px]">
-                                  {formatoDuracion(l.duracion_min)}
-                                </span>
+                                <span className="absolute bottom-1 right-1 px-1 rounded bg-black/70 text-white text-[10px]">{formatoDuracion(l.duracion_min)}</span>
                               ) : null}
                             </span>
                             <span className="flex-1 min-w-0 text-sm leading-snug line-clamp-2">{l.nombre}</span>
                           </button>
-                          {ok ? (
-                            <CheckCircle2 className="w-4 h-4 text-violet shrink-0"/>
-                          ) : (
-                            <Circle className="w-4 h-4 opacity-30 shrink-0"/>
-                          )}
-                          {isStaff && (
-                            <button onClick={() => borrarLeccion(l)} className="p-1 opacity-40 hover:opacity-100">
-                              <Trash2 className="w-3 h-3"/>
-                            </button>
-                          )}
+                          {ok ? <CheckCircle2 className="w-4 h-4 text-violet shrink-0"/> : <Circle className="w-4 h-4 opacity-30 shrink-0"/>}
+                          {isStaff && <button onClick={() => borrarLeccion(l)} className="p-1 opacity-40 hover:opacity-100"><Trash2 className="w-3 h-3"/></button>}
                         </li>
                       );
                     })}
-                    {lecs.length === 0 && (
-                      <li className="px-4 py-3 text-xs text-muted-foreground italic">Sin clases todavía</li>
-                    )}
+                    {lecs.length === 0 && <li className="px-4 py-3 text-xs text-muted-foreground italic">Sin clases todavía</li>}
                   </ul>
                 )}
               </div>
@@ -680,6 +634,86 @@ export function CursoDetalle({
           })}
         </aside>
       </div>
+
+      {dialogoCurso && (
+        <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
+          <div className="w-full max-w-lg rounded-2xl border bg-card shadow-2xl overflow-hidden">
+            <div className="flex items-start justify-between px-5 py-4 border-b">
+              <div>
+                <h3 className="font-semibold">
+                  {dialogoCurso.tipo === "modulo" && "Nuevo módulo"}
+                  {dialogoCurso.tipo === "video-url" && "Añadir clase por YouTube / URL"}
+                  {dialogoCurso.tipo === "video-archivo" && "Nombre de la clase"}
+                  {dialogoCurso.tipo === "link" && "Añadir link"}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Puedes cambiar de pestaña y volver: este formulario seguirá aquí hasta que lo cierres.</p>
+              </div>
+              <button onClick={cerrarDialogo} disabled={savingDialogo} className="p-2 rounded-lg hover:bg-muted disabled:opacity-50" aria-label="Cerrar"><X className="w-4 h-4"/></button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {dialogoCurso.tipo === "modulo" && (
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre del módulo *</label>
+                  <input autoFocus value={dialogoCurso.nombre} onChange={(e) => setDialogoCurso({ ...dialogoCurso, nombre: e.target.value })} placeholder="Ej. Módulo 1 - Fundamentos" className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background" />
+                </div>
+              )}
+
+              {dialogoCurso.tipo === "video-url" && (
+                <>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">URL del video *</label>
+                    <input autoFocus value={dialogoCurso.url} onChange={(e) => setDialogoCurso({ ...dialogoCurso, url: e.target.value })} placeholder="https://youtube.com/watch?v=..." className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre de la clase *</label>
+                    <input value={dialogoCurso.nombre} onChange={(e) => setDialogoCurso({ ...dialogoCurso, nombre: e.target.value })} placeholder="Nombre de la clase" className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background" />
+                  </div>
+                </>
+              )}
+
+              {dialogoCurso.tipo === "video-archivo" && (
+                <>
+                  <div className="rounded-xl border bg-muted/30 p-3 text-sm">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Archivo seleccionado</div>
+                    <div className="mt-1 truncate">{dialogoCurso.file.name}</div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre de la clase *</label>
+                    <input autoFocus value={dialogoCurso.nombre} onChange={(e) => setDialogoCurso({ ...dialogoCurso, nombre: e.target.value })} className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background" />
+                  </div>
+                  {savingDialogo && uploadingFor === dialogoCurso.modId && (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs text-muted-foreground"><span>Subiendo video…</span><span>{uploadPct}%</span></div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full bg-violet-gradient transition-all" style={{ width: `${uploadPct}%` }} /></div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {dialogoCurso.tipo === "link" && (
+                <>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">URL del enlace *</label>
+                    <input autoFocus value={dialogoCurso.url} onChange={(e) => setDialogoCurso({ ...dialogoCurso, url: e.target.value })} placeholder="https://..." className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre del enlace</label>
+                    <input value={dialogoCurso.nombre} onChange={(e) => setDialogoCurso({ ...dialogoCurso, nombre: e.target.value })} placeholder="Ej. Material de apoyo" className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background" />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t flex justify-end gap-2">
+              <button onClick={cerrarDialogo} disabled={savingDialogo} className="px-4 py-2 rounded-lg border text-sm disabled:opacity-50">Cancelar</button>
+              <button onClick={() => void guardarDialogo()} disabled={savingDialogo} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2">
+                {savingDialogo && <Loader2 className="w-4 h-4 animate-spin"/>}{savingDialogo ? (dialogoCurso.tipo === "video-archivo" ? `Subiendo ${uploadPct}%` : "Guardando…") : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

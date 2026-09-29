@@ -11,6 +11,7 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
+import { BrandingRuntime } from "@/components/BrandingRuntime";
 
 function NotFoundComponent() {
   return (
@@ -92,10 +93,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9ffd9189-3b01-41c1-b525-ae4565ef0ffc/id-preview-3ff600b0--6980a227-5530-486f-bd67-bf641e83d284.lovable.app-1779745897024.png" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -119,10 +117,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
+    <html lang="es">
+      <head><HeadContent /></head>
       <body>
         {children}
         <Scripts />
@@ -137,6 +133,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <BrandingRuntime />
         <Outlet />
         <Toaster richColors position="top-right" />
       </AuthProvider>

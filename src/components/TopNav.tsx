@@ -1,7 +1,7 @@
 import { formatNombre } from "@/lib/nombres";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ChevronDown, LogOut, User } from "lucide-react";
-import { Logo, BrandName } from "./Logo";
+import { ChevronDown, Landmark, LogOut, User } from "lucide-react";
+import { Logo, CommunityLogo, BrandName } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { InstallAppButton } from "./InstallAppButton";
 import { ChatsPopover } from "./ChatsPopover";
@@ -11,15 +11,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { mainItems, staffItems, adminItems, pagosItems, type NavItem } from "@/lib/nav-items";
 import { labelRol, puedeVerPagos } from "@/lib/roles";
+import { debeMostrarAccesoFicha } from "@/lib/ficha-profesor";
 
 const BAR = "var(--deep-2)";
 
 export function TopNav() {
-  const { profile, role, signOut, session } = useAuth();
+  const { profile, role, roles, signOut, session } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
+  const enComunidad = pathname === "/comunidad" || pathname.startsWith("/comunidad/");
 
   const isStaff = role === "admin" || role === "soporte";
+  const puedeFicha = debeMostrarAccesoFicha({
+    nombre: profile?.nombre_completo,
+    role,
+    roles,
+  });
   const flat: NavItem[] = [
     ...mainItems,
     ...(isStaff ? staffItems : []),
@@ -28,6 +35,9 @@ export function TopNav() {
   ];
 
   const initial = (formatNombre(profile?.nombre_completo) || profile?.email || "?").slice(0, 1).toUpperCase();
+  const abrirDatosPago = () => window.dispatchEvent(new Event("adn:abrir-datos-pago"));
+
+  const navItemClass = "group flex items-center gap-1.5 2xl:gap-2 px-2 xl:px-2.5 2xl:px-3 py-2 text-[12.5px] xl:text-[13px] 2xl:text-[14px] leading-none whitespace-nowrap border-b-2 transition-colors shrink-0";
 
   return (
     <header
@@ -40,11 +50,10 @@ export function TopNav() {
           className="absolute inset-0 pointer-events-none"
           style={{ background: "radial-gradient(circle at top right, rgba(124,107,255,.15), transparent 60%)" }}
         />
-        <div className="relative z-10 mx-auto w-full max-w-[1400px] px-6">
-          {/* Fila 1 */}
+        <div className="relative z-10 mx-auto w-full max-w-[1800px] px-3 xl:px-5 2xl:px-6">
           <div className="h-14 flex items-center gap-4">
             <Link to="/comunidad" className="flex items-center gap-3 min-w-0">
-              <Logo size={30} />
+              {enComunidad ? <CommunityLogo size={30} /> : <Logo size={30} />}
               <BrandName className="text-[15px] truncate" />
             </Link>
 
@@ -75,6 +84,11 @@ export function TopNav() {
                       <User className="w-4 h-4" /> Mi perfil
                     </Link>
                   </DropdownMenuItem>
+                  {puedeFicha && (
+                    <DropdownMenuItem onSelect={abrirDatosPago} className="flex items-center gap-2 cursor-pointer">
+                      <Landmark className="w-4 h-4" /> Datos de pago
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => signOut()} className="flex items-center gap-2 cursor-pointer">
                     <LogOut className="w-4 h-4" /> Cerrar sesión
                   </DropdownMenuItem>
@@ -83,24 +97,33 @@ export function TopNav() {
             </div>
           </div>
 
-          {/* Fila 2: pestañas */}
-          <nav className="flex items-stretch justify-center gap-1 overflow-x-auto">
+          <nav className="flex flex-wrap items-center justify-center gap-x-0.5 xl:gap-x-1 gap-y-0 overflow-visible pb-1">
             {flat.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
                 to={to}
-                className="group flex items-center gap-2 px-3 py-2.5 text-[14px] whitespace-nowrap border-b-2 transition-colors"
+                className={navItemClass}
                 style={
                   isActive(to)
                     ? { color: "#fff", borderColor: "var(--violet)" }
                     : { color: "var(--violet-light)", borderColor: "transparent" }
                 }
               >
-                <Icon className="w-[17px] h-[17px] shrink-0 opacity-80" />
+                <Icon className="w-4 h-4 2xl:w-[17px] 2xl:h-[17px] shrink-0 opacity-80" />
                 <span>{label}</span>
               </Link>
             ))}
-
+            {puedeFicha && (
+              <button
+                type="button"
+                onClick={abrirDatosPago}
+                className={`${navItemClass} border-transparent`}
+                style={{ color: "var(--violet-light)" }}
+              >
+                <Landmark className="w-4 h-4 2xl:w-[17px] 2xl:h-[17px] shrink-0 opacity-80" />
+                <span>Datos de pago</span>
+              </button>
+            )}
           </nav>
         </div>
       </div>
