@@ -3,12 +3,12 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil, Youtube, ChevronDown, ChevronUp, Search, X } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Upload, Loader2, Play, CheckCircle2, Circle, Link as LinkIcon, Paperclip, FileText, Save, Pencil, Youtube, ChevronDown, ChevronUp, Search, X, FolderTree } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo, getBunnyVideoStatus } from "@/lib/bunny.functions";
 
-interface Curso { id: string; nombre: string; descripcion: string | null; image_url: string | null; color_cover: string | null }
+interface Curso { id: string; nombre: string; descripcion: string | null; image_url: string | null; color_cover: string | null; orden?: number; solo_equipo?: boolean | null; parent_curso_id?: string | null; tipo?: string }
 interface Modulo { id: string; curso_id: string; nombre: string; descripcion: string | null; orden: number }
 interface Recurso { tipo: "link" | "archivo"; nombre: string; url: string }
 interface Leccion { id: string; modulo_id: string; nombre: string; descripcion: string | null; bunny_video_id: string | null; orden: number; duracion_min: number | null; recursos_adjuntos: Recurso[] | null }
@@ -56,6 +56,10 @@ export function CursoDetalle({
   const [videoStatus, setVideoStatus] = useState<{ ready: boolean; failed: boolean; encodeProgress: number; status: number } | null>(null);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState("");
+  const [subcursos, setSubcursos] = useState<Curso[]>([]);
+  const [catalogoCursos, setCatalogoCursos] = useState<Curso[]>([]);
+  const [editSubcurso, setEditSubcurso] = useState<Curso | null>(null);
+  const [savingSubcurso, setSavingSubcurso] = useState(false);
   const [dialogoCurso, setDialogoCurso] = useState<DialogoCurso>(null);
   const [savingDialogo, setSavingDialogo] = useState(false);
 
@@ -167,7 +171,31 @@ export function CursoDetalle({
   useEffect(() => {
     (async () => {
       const { data: c } = await supabase.from("cursos").select("*").eq("id", cursoId).maybeSingle();
-      setCurso((c as Curso) ?? null);
+      const cursoActual = (c as Curso | null) ?? null;
+      setCurso(cursoActual);
+
+      const tipoCurso = cursoActual?.tipo ?? "curso";
+      const { data: cursosData } = await supabase
+        .from("cursos")
+        .select("*")
+        .eq("tipo", tipoCurso)
+        .order("orden");
+      const catalogo = (cursosData ?? []) as Curso[];
+      setCatalogoCursos(catalogo);
+
+      const hijos = catalogo.filter((item) => item.parent_curso_id === cursoId);
+      if (isStaff || !uid || hijos.length === 0) {
+        setSubcursos(isStaff ? hijos : hijos.filter((item) => item.solo_equipo !== true));
+      } else {
+        const { data: permisosHijos } = await supabase
+          .from("permisos_cursos")
+          .select("curso_id")
+          .eq("usuario_id", uid)
+          .in("curso_id", hijos.map((item) => item.id));
+        const permitidos = new Set(((permisosHijos ?? []) as { curso_id: string }[]).map((item) => item.curso_id));
+        setSubcursos(hijos.filter((item) => item.solo_equipo !== true && permitidos.has(item.id)));
+      }
+
       const { data: mods } = await supabase.from("modulos_curso").select("*").eq("curso_id", cursoId).order("orden");
       const allMods = (mods as Modulo[]) ?? [];
       const modList = moduloId ? allMods.filter((m) => m.id === moduloId) : allMods;
@@ -193,7 +221,62 @@ export function CursoDetalle({
         setCompletadas(new Set());
       }
     })();
-  }, [cursoId, uid, moduloId]);
+  }, [cursoId, uid, moduloId, isStaff]);
+
+  const esDescendienteCurso = (id: string, ancestroId: string) => {
+    const vistos = new Set<string>();
+    let actual = catalogoCursos.find((item) => item.id === id)?.parent_curso_id ?? null;
+    while (actual && !vistos.has(actual)) {
+      if (actual === ancestroId) return true;
+      vistos.add(actual);
+      actual = catalogoCursos.find((item) => item.id === actual)?.parent_curso_id ?? null;
+    }
+    return false;
+  };
+
+  const rutaCurso = (id: string) => {
+    const partes: string[] = [];
+    const vistos = new Set<string>();
+    let actual: string | null = id;
+    while (actual && !vistos.has(actual)) {
+      vistos.add(actual);
+      const item = catalogoCursos.find((cursoItem) => cursoItem.id === actual);
+      if (!item) break;
+      partes.unshift(item.nombre);
+      actual = item.parent_curso_id ?? null;
+    }
+    return partes.join(" → ");
+  };
+
+  const opcionesDestinoSubcurso = editSubcurso
+    ? catalogoCursos
+        .filter((item) => item.id !== editSubcurso.id && !esDescendienteCurso(item.id, editSubcurso.id))
+        .sort((a, b) => rutaCurso(a.id).localeCompare(rutaCurso(b.id), "es"))
+    : [];
+
+  const guardarEdicionSubcurso = async () => {
+    if (!editSubcurso || !isStaff) return;
+    const nombre = editSubcurso.nombre.trim();
+    if (!nombre) return toast.error("Escribe el nombre del submódulo.");
+    setSavingSubcurso(true);
+    const { error } = await supabase
+      .from("cursos")
+      .update({
+        nombre,
+        descripcion: editSubcurso.descripcion,
+        parent_curso_id: editSubcurso.parent_curso_id ?? null,
+      })
+      .eq("id", editSubcurso.id);
+    setSavingSubcurso(false);
+    if (error) return toast.error(error.message);
+    toast.success("Submódulo actualizado");
+    setEditSubcurso(null);
+    const tipoCurso = curso?.tipo ?? "curso";
+    const { data: cursosData } = await supabase.from("cursos").select("*").eq("tipo", tipoCurso).order("orden");
+    const catalogo = (cursosData ?? []) as Curso[];
+    setCatalogoCursos(catalogo);
+    setSubcursos(catalogo.filter((item) => item.parent_curso_id === cursoId && (isStaff || item.solo_equipo !== true)));
+  };
 
   const crearModulo = () => {
     setDialogoCurso({ tipo: "modulo", nombre: "" });
@@ -465,6 +548,56 @@ export function CursoDetalle({
         </div>
       </div>
 
+      {subcursos.length > 0 && (
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-1 min-w-0">
+          <div className="rounded-2xl border bg-card p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <FolderTree className="w-5 h-5 text-violet-600" />
+              <div>
+                <h2 className="font-semibold">Submódulos</h2>
+                <p className="text-xs text-muted-foreground">Contenido organizado dentro de este curso.</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {subcursos.map((subcurso) => (
+                <div key={subcurso.id} className="rounded-xl border bg-muted/20 overflow-hidden min-w-0">
+                  <div className="aspect-[16/7] bg-muted">
+                    {subcurso.image_url ? (
+                      <img src={subcurso.image_url} alt={subcurso.nombre} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center bg-gradient-to-br from-violet-950 via-zinc-900 to-zinc-800">
+                        <FolderTree className="w-8 h-8 text-white/25" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3 min-w-0">
+                    <h3 className="font-semibold text-sm break-words">{subcurso.nombre}</h3>
+                    {subcurso.descripcion && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{subcurso.descripcion}</p>}
+                    <div className="mt-3 flex gap-2">
+                      <Link
+                        to="/cursos/$cursoId"
+                        params={{ cursoId: subcurso.id }}
+                        className="flex-1 px-3 py-2 rounded-lg bg-violet-gradient text-white text-xs font-semibold text-center"
+                      >
+                        Entrar
+                      </Link>
+                      {isStaff && (
+                        <button
+                          onClick={() => setEditSubcurso({ ...subcurso })}
+                          className="px-3 py-2 rounded-lg border text-xs font-medium inline-flex items-center gap-1"
+                        >
+                          <Pencil className="w-3.5 h-3.5" /> Editar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 min-w-0">
         <div className="lg:col-span-2 space-y-4 min-w-0">
           <div className="rounded-2xl overflow-hidden bg-black aspect-video w-full max-w-full min-w-0">
@@ -634,6 +767,66 @@ export function CursoDetalle({
           })}
         </aside>
       </div>
+
+      {editSubcurso && (
+        <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm grid place-items-center p-4" onClick={() => !savingSubcurso && setEditSubcurso(null)}>
+          <div className="w-full max-w-lg rounded-2xl border bg-card shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between px-5 py-4 border-b">
+              <div>
+                <h3 className="font-semibold">Editar / mover submódulo</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Puedes cambiar el nombre, descripción y ubicación.</p>
+              </div>
+              <button onClick={() => setEditSubcurso(null)} disabled={savingSubcurso} className="p-2 rounded-lg hover:bg-muted disabled:opacity-50">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre *</label>
+                <input
+                  autoFocus
+                  value={editSubcurso.nombre}
+                  onChange={(e) => setEditSubcurso({ ...editSubcurso, nombre: e.target.value })}
+                  className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descripción</label>
+                <textarea
+                  value={editSubcurso.descripcion ?? ""}
+                  onChange={(e) => setEditSubcurso({ ...editSubcurso, descripcion: e.target.value })}
+                  rows={3}
+                  className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background resize-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <FolderTree className="w-3.5 h-3.5" /> Ubicación / submódulo
+                </label>
+                <select
+                  value={editSubcurso.parent_curso_id ?? ""}
+                  onChange={(e) => setEditSubcurso({ ...editSubcurso, parent_curso_id: e.target.value || null })}
+                  className="mt-1 w-full px-3 py-2.5 rounded-lg border bg-background text-sm"
+                >
+                  <option value="">Curso principal (sin submódulo)</option>
+                  {opcionesDestinoSubcurso.map((destino) => (
+                    <option key={destino.id} value={destino.id}>
+                      {rutaCurso(destino.id)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t flex justify-end gap-2">
+              <button onClick={() => setEditSubcurso(null)} disabled={savingSubcurso} className="px-4 py-2 rounded-lg border text-sm disabled:opacity-50">Cancelar</button>
+              <button onClick={() => void guardarEdicionSubcurso()} disabled={savingSubcurso} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2">
+                {savingSubcurso && <Loader2 className="w-4 h-4 animate-spin" />}
+                {savingSubcurso ? "Guardando…" : "Guardar cambios"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {dialogoCurso && (
         <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
