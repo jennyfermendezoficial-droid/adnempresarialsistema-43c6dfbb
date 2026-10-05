@@ -33,8 +33,11 @@ export function CursoDetalle({
   volverLabel?: string;
   onVolver?: () => void;
 }) {
-  const { session, role } = useAuth();
+  const { session, profile, role } = useAuth();
   const isStaff = role === "admin" || role === "soporte";
+  const nombreCuenta = (profile?.nombre_completo ?? "").trim().toLocaleLowerCase("es-EC");
+  const puedeGestionarCursos =
+    isStaff && (nombreCuenta === "jaime zambrano" || nombreCuenta === "eric troya");
   const uid = session?.user.id;
 
   const createBunny = useServerFn(createBunnyVideoForUpload);
@@ -255,7 +258,7 @@ export function CursoDetalle({
     : [];
 
   const guardarEdicionSubcurso = async () => {
-    if (!editSubcurso || !isStaff) return;
+    if (!editSubcurso || !puedeGestionarCursos) return;
     const nombre = editSubcurso.nombre.trim();
     if (!nombre) return toast.error("Escribe el nombre del submódulo.");
     setSavingSubcurso(true);
@@ -581,7 +584,7 @@ export function CursoDetalle({
                       >
                         Entrar
                       </Link>
-                      {isStaff && (
+                      {puedeGestionarCursos && (
                         <button
                           onClick={() => setEditSubcurso({ ...subcurso })}
                           className="px-3 py-2 rounded-lg border text-xs font-medium inline-flex items-center gap-1"
@@ -657,7 +660,7 @@ export function CursoDetalle({
                 </button>
               </div>
 
-              {isStaff && (
+              {puedeGestionarCursos && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {editLec ? (
                     <>
@@ -683,7 +686,7 @@ export function CursoDetalle({
                     <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/30 text-sm min-w-0">
                       {r.tipo === "link" ? <LinkIcon className="w-3.5 h-3.5 opacity-60"/> : <FileText className="w-3.5 h-3.5 opacity-60"/>}
                       <a href={r.url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate hover:underline">{r.nombre}</a>
-                      {isStaff && <button onClick={() => removeRecurso(i)} className="opacity-40 hover:opacity-100"><Trash2 className="w-3 h-3"/></button>}
+                      {puedeGestionarCursos && <button onClick={() => removeRecurso(i)} className="opacity-40 hover:opacity-100"><Trash2 className="w-3 h-3"/></button>}
                     </div>
                   ))}
                 </div>
@@ -695,7 +698,7 @@ export function CursoDetalle({
         <aside className="space-y-3 min-w-0 w-full max-w-full">
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-semibold min-w-0 truncate">{moduloId ? (modulos[0]?.nombre || "Contenido de la semana") : "Contenido del curso"}</h3>
-            {isStaff && !moduloId && <button onClick={crearModulo} className="text-xs px-2 py-1 rounded border flex items-center gap-1"><Plus className="w-3 h-3"/>Módulo</button>}
+            {puedeGestionarCursos && !moduloId && <button onClick={crearModulo} className="text-xs px-2 py-1 rounded border flex items-center gap-1"><Plus className="w-3 h-3"/>Módulo</button>}
           </div>
 
           <div className="relative">
@@ -724,7 +727,7 @@ export function CursoDetalle({
                     </span>
                     {!moduloId && (abierto ? <ChevronUp className="w-4 h-4 opacity-60 shrink-0"/> : <ChevronDown className="w-4 h-4 opacity-60 shrink-0"/>)}
                   </button>
-                  {isStaff && (
+                  {puedeGestionarCursos && (
                     <div className="flex items-center gap-1 shrink-0">
                       <button disabled={uploadingFor !== null} onClick={() => subirLeccion(m.id)} title="Subir video (Bunny)" className="p-1.5 rounded border hover:bg-muted disabled:opacity-50">
                         {uploadingFor === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Upload className="w-3.5 h-3.5"/>}
@@ -755,7 +758,7 @@ export function CursoDetalle({
                             <span className="flex-1 min-w-0 text-sm leading-snug line-clamp-2">{l.nombre}</span>
                           </button>
                           {ok ? <CheckCircle2 className="w-4 h-4 text-violet shrink-0"/> : <Circle className="w-4 h-4 opacity-30 shrink-0"/>}
-                          {isStaff && <button onClick={() => borrarLeccion(l)} className="p-1 opacity-40 hover:opacity-100"><Trash2 className="w-3 h-3"/></button>}
+                          {puedeGestionarCursos && <button onClick={() => borrarLeccion(l)} className="p-1 opacity-40 hover:opacity-100"><Trash2 className="w-3 h-3"/></button>}
                         </li>
                       );
                     })}
