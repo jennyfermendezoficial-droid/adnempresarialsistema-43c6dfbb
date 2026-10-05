@@ -21,8 +21,11 @@ interface Curso {
 interface Props { tipo: "curso" | "clase_en_vivo"; titulo: string; subtitulo: string; etiqueta: string }
 
 export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
-  const { session, role } = useAuth();
+  const { session, profile, role } = useAuth();
   const isStaff = role === "admin" || role === "soporte";
+  const nombreCuenta = (profile?.nombre_completo ?? "").trim().toLocaleLowerCase("es-EC");
+  const puedeGestionarCursos =
+    isStaff && (nombreCuenta === "jaime zambrano" || nombreCuenta === "eric troya");
   const uid = session?.user.id;
   const navigate = useNavigate();
   const [cursos, setCursos] = useState<Curso[]>([]);
@@ -174,7 +177,7 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
           <h1 className="text-3xl font-semibold">{titulo}</h1>
           <p className="text-sm text-muted-foreground">{subtitulo}</p>
         </div>
-        {isStaff && <button onClick={abrirCrearCurso} className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center gap-1"><Plus className="w-4 h-4"/>Nuev{etiqueta === "curso" ? "o curso" : "a clase en vivo"}</button>}
+        {puedeGestionarCursos && <button onClick={abrirCrearCurso} className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm flex items-center gap-1"><Plus className="w-4 h-4"/>Nuev{etiqueta === "curso" ? "o curso" : "a clase en vivo"}</button>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -188,7 +191,7 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
                 ) : (
                   <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${c.color_cover || "#7C6BFF"}, var(--violet-2))` }} />
                 )}
-                {isStaff && (
+                {puedeGestionarCursos && (
                   <div className="absolute top-2 right-2 flex gap-1">
                     <button onClick={() => cambiarPortada(c.id)} disabled={uploadingCover === c.id} title="Cambiar portada (1:1)" className="px-2 py-1 rounded-md bg-black/60 backdrop-blur text-white text-xs flex items-center gap-1 hover:bg-black/80">
                       {uploadingCover === c.id ? <Loader2 className="w-3 h-3 animate-spin"/> : <ImagePlus className="w-3 h-3"/>}
@@ -202,7 +205,7 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="font-semibold">{c.nombre}</h3>
-                  {isStaff && <button onClick={() => borrarCurso(c.id)} className="opacity-50 hover:opacity-100"><Trash2 className="w-4 h-4"/></button>}
+                  {puedeGestionarCursos && <button onClick={() => borrarCurso(c.id)} className="opacity-50 hover:opacity-100"><Trash2 className="w-4 h-4"/></button>}
                 </div>
                 {c.descripcion && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.descripcion}</p>}
                 {acceso ? (
