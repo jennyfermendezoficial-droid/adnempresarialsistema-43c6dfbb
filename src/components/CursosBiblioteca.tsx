@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { esContenidoEquipo } from "@/lib/contenido-equipo";
-import { BookOpen, Plus, Trash2, ImagePlus, Loader2, Pencil, X, ArrowRight } from "lucide-react";
+import { BookOpen, Plus, Trash2, ImagePlus, Loader2, Pencil, X, ArrowRight, FolderTree } from "lucide-react";
 import { toast } from "sonner";
 
 interface Curso {
@@ -26,6 +26,7 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
   const uid = session?.user.id;
   const navigate = useNavigate();
   const [cursos, setCursos] = useState<Curso[]>([]);
+  const [catalogo, setCatalogo] = useState<Curso[]>([]);
   const [permisos, setPermisos] = useState<Set<string>>(new Set());
   const [uploadingCover, setUploadingCover] = useState<string | null>(null);
   const [editing, setEditing] = useState<Curso | null>(null);
@@ -36,16 +37,53 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCursoId = useRef<string | null>(null);
 
-  const reloadCursos = () =>
-    supabase.from("cursos").select("*").eq("tipo", tipo).order("orden").then(({ data }) => {
-      const visibles = ((data ?? []) as Curso[]).filter(
-        (c) => c.solo_equipo !== true && !c.parent_curso_id && !esContenidoEquipo(c.descripcion),
-      );
-      setCursos(visibles);
-    });
+  const reloadCursos = async () => {
+    const { data, error } = await supabase.from("cursos").select("*").eq("tipo", tipo).order("orden");
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const todos = (data ?? []) as Curso[];
+    setCatalogo(todos);
+    const visibles = todos.filter(
+      (c) => c.solo_equipo !== true && !c.parent_curso_id && !esContenidoEquipo(c.descripcion),
+    );
+    setCursos(visibles);
+  };
+
+  const rutaCurso = (id: string) => {
+    const partes: string[] = [];
+    const vistos = new Set<string>();
+    let actual: string | null = id;
+    while (actual && !vistos.has(actual)) {
+      vistos.add(actual);
+      const curso = catalogo.find((c) => c.id === actual);
+      if (!curso) break;
+      partes.unshift(curso.nombre);
+      actual = curso.parent_curso_id ?? null;
+    }
+    return partes.join(" → ");
+  };
+
+  const esDescendiente = (id: string, ancestroId: string) => {
+    const vistos = new Set<string>();
+    let actual = catalogo.find((c) => c.id === id)?.parent_curso_id ?? null;
+    while (actual && !vistos.has(actual)) {
+      if (actual === ancestroId) return true;
+      vistos.add(actual);
+      actual = catalogo.find((c) => c.id === actual)?.parent_curso_id ?? null;
+    }
+    return false;
+  };
+
+  const opcionesDestino = editing
+    ? catalogo
+        .filter((c) => c.id !== editing.id && !esDescendiente(c.id, editing.id))
+        .sort((a, b) => rutaCurso(a.id).localeCompare(rutaCurso(b.id), "es"))
+    : [];
 
   useEffect(() => {
-    reloadCursos();
+    void reloadCursos();
     if (uid) supabase.from("permisos_cursos").select("curso_id").eq("usuario_id", uid).then(({ data }) => {
       setPermisos(new Set(((data ?? []) as { curso_id: string }[]).map((p) => p.curso_id)));
     });
@@ -113,13 +151,17 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
     setSavingEdit(true);
     const { error } = await supabase
       .from("cursos")
-      .update({ nombre: editing.nombre, descripcion: editing.descripcion })
+      .update({
+        nombre: editing.nombre,
+        descripcion: editing.descripcion,
+        parent_curso_id: editing.parent_curso_id ?? null,
+      })
       .eq("id", editing.id);
     setSavingEdit(false);
     if (error) return toast.error(error.message);
-    setCursos((cs) => cs.map((c) => (c.id === editing.id ? { ...c, nombre: editing.nombre, descripcion: editing.descripcion } : c)));
-    toast.success("Actualizado");
+    toast.success(editing.parent_curso_id ? "Curso movido al submódulo seleccionado" : "Curso actualizado");
     setEditing(null);
+    await reloadCursos();
   };
 
   const tieneAcceso = (c: Curso) => isStaff || permisos.has(c.id);
@@ -234,6 +276,24 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
               <div>
                 <label className="text-xs font-medium">Descripción</label>
                 <textarea value={editing.descripcion ?? ""} onChange={(e) => setEditing({ ...editing, descripcion: e.target.value })} rows={4} className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none" placeholder="Descripción del curso, objetivos, a quién va dirigido…" />
+              </div>
+              <div>
+                <label className="text-xs font-medium flex items-center gap-1"><FolderTree className="w-3.5 h-3.5" /> Ubicación / submódulo</label>
+                <select
+                  value={editing.parent_curso_id ?? ""}
+                  onChange={(e) => setEditing({ ...editing, parent_curso_id: e.target.value || null })}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm"
+                >
+                  <option value="">Cursos principales (sin submódulo)</option>
+                  {opcionesDestino.map((destino) => (
+                    <option key={destino.id} value={destino.id}>
+                      {rutaCurso(destino.id)}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Al guardar, este curso aparecerá dentro del submódulo seleccionado. Los descendientes del propio curso no se pueden elegir para evitar ciclos.
+                </p>
               </div>
               <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">Para añadir clases, módulos, links y archivos entra al curso desde "Entrar al curso".</div>
             </div>
