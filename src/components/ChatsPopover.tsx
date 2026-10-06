@@ -70,7 +70,10 @@ export function ChatsPopover() {
   const cargar = useCallback(async () => {
     if (!uid) return;
     const { data: rows } = await supabase
-      .from("chats_1a1").select("*").order("last_message_at", { ascending: false });
+      .from("chats_1a1")
+      .select("*")
+      .or(`usuario_a_id.eq.${uid},usuario_b_id.eq.${uid}`)
+      .order("last_message_at", { ascending: false });
     const lista = (rows as Chat[]) ?? [];
     setChats(lista);
 
