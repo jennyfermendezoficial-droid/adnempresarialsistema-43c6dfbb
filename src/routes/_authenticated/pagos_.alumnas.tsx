@@ -97,7 +97,7 @@ function nombreAlumna(a: AlumnaBasica) {
   return formatNombre(a.nombre_completo) || a.email || "Alumna";
 }
 
-// Estas dos tablas son nuevas y se crean en la migración de esta misma rama.
+// Tablas creadas previamente para la gestión mensual de mentoría de alumnas.
 // El cast conserva el cliente generado actual sin tocar types.ts; en runtime
 // Supabase recibe los nombres reales que aparecen antes del `as`.
 function tablaTotales() {
@@ -576,7 +576,6 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
         setReferenciaPago(data.numero_comprobante);
       }
       if (data.banco) setBancoOrigen(data.banco);
-      if (data.beneficiario) setTitularOrigen(data.beneficiario);
       if (data.tipo_pago) {
         const normalizado = data.tipo_pago === "tarjeta" ? "tarjeta" : data.tipo_pago;
         if (["transferencia", "efectivo", "cheque", "deposito", "tarjeta", "otro"].includes(normalizado)) setTipoPago(normalizado);
