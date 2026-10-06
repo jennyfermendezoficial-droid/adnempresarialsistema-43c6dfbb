@@ -592,7 +592,17 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
 
   const guardar = async () => {
     if (!Number.isFinite(montoNum) || montoNum <= 0) return toast.error("Escribe el monto del abono.");
-    if (fila.total > 0 && montoNum > fila.falta + 0.001) return toast.error(`El abono supera lo que falta por pagar (${dinero(fila.falta)}).`);
+    if (fila.total <= 0) return toast.error("Primero registra el total de mentoría del mes.");
+    if (montoNum > fila.falta + 0.001) return toast.error(`El abono supera lo que falta por pagar (${dinero(fila.falta)}).`);
+    if ((tipoPago === "transferencia" || tipoPago === "deposito") && !bancoOrigen.trim()) {
+      return toast.error("Indica el banco de origen para este pago.");
+    }
+    if ((tipoPago === "transferencia" || tipoPago === "deposito") && !archivo) {
+      return toast.error("Adjunta el comprobante de la transferencia o depósito.");
+    }
+    if (tipoPago === "tarjeta" && tarjetaUltimos4 && tarjetaUltimos4.length !== 4) {
+      return toast.error("Los últimos 4 dígitos de la tarjeta deben tener exactamente 4 números.");
+    }
     setGuardando(true);
     let archivoUrl: string | null = null;
     if (archivo) {
