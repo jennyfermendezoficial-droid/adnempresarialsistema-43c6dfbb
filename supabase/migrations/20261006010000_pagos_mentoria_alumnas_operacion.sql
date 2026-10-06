@@ -326,11 +326,11 @@ BEGIN
     RAISE EXCEPTION 'Sin permiso para modificar acompañantes';
   END IF;
 
-  IF NOT public.puede_pagos(auth.uid()) AND NOT EXISTS (
+  IF NOT EXISTS (
     SELECT 1 FROM public.pagos_mentoria_alumnas a
     WHERE a.alumna_id = objetivo AND a.activo = true
   ) THEN
-    RAISE EXCEPTION 'La cuenta no está seleccionada como alumna de mentoría';
+    RAISE EXCEPTION 'Primero selecciona la cuenta como alumna de mentoría';
   END IF;
 
   IF COALESCE(array_length(_acompanantes, 1), 0) > 2 THEN
@@ -437,11 +437,18 @@ BEGIN
     RAISE EXCEPTION 'Sin permiso para guardar datos bancarios';
   END IF;
 
-  IF NOT public.puede_pagos(auth.uid()) AND NOT EXISTS (
+  IF NOT EXISTS (
+    SELECT 1 FROM public.user_roles ur
+    WHERE ur.user_id = _alumna_id AND ur.role = 'usuario'::public.app_role
+  ) THEN
+    RAISE EXCEPTION 'Los datos bancarios de este módulo son solo para cuentas de Alumno';
+  END IF;
+
+  IF NOT EXISTS (
     SELECT 1 FROM public.pagos_mentoria_alumnas a
     WHERE a.alumna_id = _alumna_id AND a.activo = true
   ) THEN
-    RAISE EXCEPTION 'La cuenta no está seleccionada como alumna de mentoría';
+    RAISE EXCEPTION 'Primero selecciona la cuenta como alumna de mentoría';
   END IF;
 
   IF BTRIM(COALESCE(_banco, '')) = ''
