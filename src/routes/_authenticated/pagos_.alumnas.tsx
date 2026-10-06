@@ -296,7 +296,7 @@ function Page() {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
           <div aria-hidden className="absolute -top-10 -right-10 w-40 h-40 rounded-full" style={{ background: "radial-gradient(circle, rgba(124,107,255,.5), transparent 70%)" }} />
-          <div className="text-[10px] uppercase tracking-wider opacity-70">Total por cobrar · {MESES[mes - 1]}</div>
+          <div className="text-[10px] uppercase tracking-wider opacity-70">Deuda total · {MESES[mes - 1]}</div>
           <div className="text-3xl font-bold mt-1 tabular-nums">{dinero(resumen.cobrar)}</div>
           <div className="text-xs opacity-80 mt-1">{resumen.pendientes} alumna{resumen.pendientes === 1 ? "" : "s"} · debe</div>
         </div>
