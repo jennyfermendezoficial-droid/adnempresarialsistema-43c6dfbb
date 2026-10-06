@@ -76,7 +76,7 @@ interface FilaAlumna extends AlumnaBasica {
   total: number;
   pagado: number;
   falta: number;
-  estado: "pagado" | "debe";
+  estado: "pagado" | "debe" | "sin_total";
   abonos: AbonoMentoria[];
 }
 
@@ -192,7 +192,7 @@ function Page() {
       const lista = abonosPorAlumna.get(alumna.id) ?? [];
       const pagado = Math.round(lista.reduce((s, a) => s + Number(a.monto || 0), 0) * 100) / 100;
       const falta = Math.max(0, Math.round((total - pagado) * 100) / 100);
-      const estado: "pagado" | "debe" = total > 0 && pagado + 0.001 >= total ? "pagado" : "debe";
+      const estado: FilaAlumna["estado"] = total <= 0 ? "sin_total" : pagado + 0.001 >= total ? "pagado" : "debe";
       return { ...alumna, total, pagado, falta, estado, abonos: lista };
     });
   }, [alumnas, totales, abonos]);
@@ -260,7 +260,7 @@ function Page() {
                   total: f.total,
                   pagado: f.pagado,
                   falta: f.falta,
-                  estado: f.estado,
+                  estado: f.estado === "sin_total" ? "sin_total" : f.estado,
                   cuentaCompleta: Boolean(f.cuenta_bancaria_completa),
                   acompanantes: Number(f.acompanantes_count || 0),
                   abonos: f.abonos.map((a) => ({
@@ -293,7 +293,7 @@ function Page() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
           <div aria-hidden className="absolute -top-10 -right-10 w-40 h-40 rounded-full" style={{ background: "radial-gradient(circle, rgba(124,107,255,.5), transparent 70%)" }} />
           <div className="text-[10px] uppercase tracking-wider opacity-70">Total por cobrar · {MESES[mes - 1]}</div>
@@ -309,7 +309,7 @@ function Page() {
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3 px-1">
         <div>
           <h2 className="text-lg font-semibold">Resumen de alumnas · {MESES[mes - 1]} {anio}</h2>
-          <p className="text-xs text-muted-foreground">Control de pagos de la mentoría. El estado solo puede ser Pagado o Debe.</p>
+          <p className="text-xs text-muted-foreground">Control mensual de la mentoría. El total mensual se fija por alumna y Pagado/Falta se calculan desde los abonos.</p>
         </div>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -368,6 +368,8 @@ function Page() {
                     <span className="px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 inline-flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" /> Pagado
                     </span>
+                  ) : f.estado === "sin_total" ? (
+                    <span className="px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Sin valor</span>
                   ) : (
                     <span className="px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">Debe</span>
                   )}
