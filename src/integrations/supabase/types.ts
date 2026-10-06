@@ -994,6 +994,103 @@ export type Database = {
           },
         ]
       }
+      mentoria_acompanantes: {
+        Row: {
+          acompanante_id: string
+          alumna_id: string
+          orden: number
+        }
+        Insert: {
+          acompanante_id: string
+          alumna_id: string
+          orden?: number
+        }
+        Update: {
+          acompanante_id?: string
+          alumna_id?: string
+          orden?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentoria_acompanantes_acompanante_id_fkey"
+            columns: ["acompanante_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentoria_acompanantes_alumna_id_fkey"
+            columns: ["alumna_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentoria_alumnas: {
+        Row: {
+          alumna_id: string
+          created_at: string
+          seleccionada: boolean
+        }
+        Insert: {
+          alumna_id: string
+          created_at?: string
+          seleccionada?: boolean
+        }
+        Update: {
+          alumna_id?: string
+          created_at?: string
+          seleccionada?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentoria_alumnas_alumna_id_fkey"
+            columns: ["alumna_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentoria_datos_pago: {
+        Row: {
+          alumna_id: string
+          banco: string | null
+          cedula_titular: string | null
+          numero_cuenta: string | null
+          tipo_cuenta: string | null
+          titular_cuenta: string | null
+          updated_at: string
+        }
+        Insert: {
+          alumna_id: string
+          banco?: string | null
+          cedula_titular?: string | null
+          numero_cuenta?: string | null
+          tipo_cuenta?: string | null
+          titular_cuenta?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alumna_id?: string
+          banco?: string | null
+          cedula_titular?: string | null
+          numero_cuenta?: string | null
+          tipo_cuenta?: string | null
+          titular_cuenta?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentoria_datos_pago_alumna_id_fkey"
+            columns: ["alumna_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modulos_curso: {
         Row: {
           curso_id: string
@@ -1300,6 +1397,121 @@ export type Database = {
           total_horas?: number
         }
         Relationships: []
+      }
+      pagos_mentoria_abonos: {
+        Row: {
+          alumna_id: string
+          anio: number
+          archivo_nombre: string | null
+          archivo_url: string | null
+          banco_origen: string | null
+          creado_por: string | null
+          created_at: string
+          cuenta_origen: string | null
+          fecha_pago: string
+          id: string
+          mes: number
+          monto: number
+          numero_comprobante: string | null
+          observacion: string | null
+          referencia_pago: string | null
+          tarjeta_marca: string | null
+          tarjeta_ultimos4: string | null
+          tipo_pago: string
+          titular_origen: string | null
+        }
+        Insert: {
+          alumna_id: string
+          anio: number
+          archivo_nombre?: string | null
+          archivo_url?: string | null
+          banco_origen?: string | null
+          creado_por?: string | null
+          created_at?: string
+          cuenta_origen?: string | null
+          fecha_pago?: string
+          id?: string
+          mes: number
+          monto?: number
+          numero_comprobante?: string | null
+          observacion?: string | null
+          referencia_pago?: string | null
+          tarjeta_marca?: string | null
+          tarjeta_ultimos4?: string | null
+          tipo_pago?: string
+          titular_origen?: string | null
+        }
+        Update: {
+          alumna_id?: string
+          anio?: number
+          archivo_nombre?: string | null
+          archivo_url?: string | null
+          banco_origen?: string | null
+          creado_por?: string | null
+          created_at?: string
+          cuenta_origen?: string | null
+          fecha_pago?: string
+          id?: string
+          mes?: number
+          monto?: number
+          numero_comprobante?: string | null
+          observacion?: string | null
+          referencia_pago?: string | null
+          tarjeta_marca?: string | null
+          tarjeta_ultimos4?: string | null
+          tipo_pago?: string
+          titular_origen?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagos_mentoria_abonos_alumna_id_fkey"
+            columns: ["alumna_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pagos_mentoria_totales: {
+        Row: {
+          alumna_id: string
+          anio: number
+          creado_por: string | null
+          created_at: string
+          id: string
+          mes: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          alumna_id: string
+          anio: number
+          creado_por?: string | null
+          created_at?: string
+          id?: string
+          mes: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          alumna_id?: string
+          anio?: number
+          creado_por?: string | null
+          created_at?: string
+          id?: string
+          mes?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagos_mentoria_totales_alumna_id_fkey"
+            columns: ["alumna_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pagos_tarifas_mes: {
         Row: {
@@ -1911,12 +2123,41 @@ export type Database = {
           tarifa_sesion_1a1: number
         }[]
       }
+      guardar_acompanantes_mentoria: {
+        Args: { _acompanantes: string[]; _alumna_id: string }
+        Returns: undefined
+      }
+      guardar_alumna_mentoria: {
+        Args: { _activo: boolean; _alumna_id: string }
+        Returns: undefined
+      }
+      guardar_datos_pago_alumna: {
+        Args: {
+          _alumna_id: string
+          _banco: string
+          _cedula_titular?: string
+          _numero_cuenta: string
+          _tipo_cuenta: string
+          _titular_cuenta: string
+        }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      listar_acompanantes_mentoria: {
+        Args: { _alumna_id: string }
+        Returns: {
+          avatar_url: string
+          email: string
+          id: string
+          nombre_completo: string
+          orden: number
+        }[]
       }
       listar_profesores: {
         Args: never
@@ -1926,6 +2167,28 @@ export type Database = {
           email: string
           id: string
           nombre_completo: string
+        }[]
+      }
+      listar_usuarios_acompanantes: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          email: string
+          id: string
+          nombre_completo: string
+        }[]
+      }
+      listar_usuarios_para_mentoria: {
+        Args: never
+        Returns: {
+          acompanantes_count: number
+          avatar_url: string
+          cuenta_bancaria_completa: boolean
+          email: string
+          estado: string
+          id: string
+          nombre_completo: string
+          seleccionada: boolean
         }[]
       }
       marcar_no_registradas: { Args: never; Returns: number }
@@ -1942,6 +2205,18 @@ export type Database = {
           _usuarios: string[]
         }
         Returns: undefined
+      }
+      obtener_datos_pago_alumna: {
+        Args: { _alumna_id: string }
+        Returns: {
+          banco: string
+          cedula_titular: string
+          completo: boolean
+          numero_cuenta: string
+          seleccionada: boolean
+          tipo_cuenta: string
+          titular_cuenta: string
+        }[]
       }
       perfiles_basicos: {
         Args: { _ids: string[] }
@@ -2010,6 +2285,14 @@ export type Database = {
         Args: { _dispositivo: string; _session_id: string }
         Returns: undefined
       }
+      revisar_horas_pendientes: {
+        Args: { _profesor_id?: string }
+        Returns: {
+          dias_max: number
+          pendientes: number
+          profesor_id: string
+        }[]
+      }
       titlecase_nombre: { Args: { _txt: string }; Returns: string }
       validar_sesion: { Args: { _session_id: string }; Returns: boolean }
     }
@@ -2031,12 +2314,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2060,11 +2343,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2085,11 +2368,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2110,11 +2393,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2127,11 +2410,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

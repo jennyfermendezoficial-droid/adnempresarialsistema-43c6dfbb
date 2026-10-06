@@ -178,7 +178,7 @@ export function CursoDetalle({
         const { data: lecs } = await supabase.from("lecciones").select("*").in("modulo_id", ids).order("orden");
         const lecList = (lecs as Leccion[]) ?? [];
         setLecciones(lecList);
-        setActive(moduloId ? (lecList[0] ?? null) : ((prev) => prev ?? lecList[0] ?? null) as never);
+        setActive(moduloId ? (lecList[0] ?? null) : ((prev: Leccion | null) => prev ?? lecList[0] ?? null) as never);
         if (uid && lecList.length) {
           const { data: prog } = await supabase
             .from("progreso_lecciones")
