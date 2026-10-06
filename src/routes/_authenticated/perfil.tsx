@@ -251,7 +251,7 @@ function MentoriaDatosPagoPanel({ uid }: { uid?: string }) {
     });
     setGuardandoCuenta(false);
     if (error) return toast.error(error.message);
-    setCuenta({ banco: banco.trim(), tipo_cuenta: tipoCuenta, numero_cuenta: numeroCuenta.trim(), titular_cuenta: titular.trim(), cedula_titular: cedula.trim() || null, completo: true });
+    setCuenta({ seleccionada: true, banco: banco.trim(), tipo_cuenta: tipoCuenta, numero_cuenta: numeroCuenta.trim(), titular_cuenta: titular.trim(), cedula_titular: cedula.trim() || null, completo: true });
     toast.success("Cuenta bancaria guardada");
   };
 
