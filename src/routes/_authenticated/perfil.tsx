@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { subirImagen } from "@/lib/cloudinary";
 import { useAuth } from "@/lib/auth-context";
+import { formatNombre } from "@/lib/nombres";
 import { toast } from "sonner";
 import { InstallAppButton } from "@/components/InstallAppButton";
 import { Landmark, Save, Users } from "lucide-react";

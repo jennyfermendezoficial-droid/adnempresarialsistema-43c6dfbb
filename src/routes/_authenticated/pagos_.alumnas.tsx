@@ -8,6 +8,7 @@ import {
   Eye,
   FileImage,
   FileText,
+  Landmark,
   Loader2,
   ReceiptText,
   Search,
