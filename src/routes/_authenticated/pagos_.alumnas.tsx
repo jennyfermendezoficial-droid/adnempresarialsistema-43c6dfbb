@@ -744,7 +744,7 @@ function ComprobantesModal({ fila, onClose }: { fila: FilaAlumna; onClose: () =>
                     </div>
                   )}
                   {(a.tarjeta_marca || a.tarjeta_ultimos4) && <div className="text-[11px] text-muted-foreground mt-1">Tarjeta: {[a.tarjeta_marca, a.tarjeta_ultimos4 ? `•••• ${a.tarjeta_ultimos4}` : null].filter(Boolean).join(" · ")}</div>}
-                  {a.observacion && <div className="text-xs text-muted-foreground mt-1">{a.observacion}</div>
+                  {a.observacion && <div className="text-xs text-muted-foreground mt-1">{a.observacion}</div>}
                 </div>
                 <button onClick={() => void abrirComprobante(a)} disabled={!a.archivo_url} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 disabled:opacity-40">
                   <Eye className="w-3.5 h-3.5" /> {a.archivo_url ? "Abrir comprobante" : "Sin archivo"}
