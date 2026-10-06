@@ -48,9 +48,13 @@ function Page() {
         setAllUsers(list.filter((p) => p.id !== uid && staffIds.has(p.id)));
       }
     })();
-    supabase.from("chats_1a1").select("*").order("last_message_at", { ascending: false }).then(({ data }) => {
-      setChats((data as Chat[]) ?? []);
-    });
+    supabase.from("chats_1a1")
+      .select("*")
+      .or(`usuario_a_id.eq.${uid},usuario_b_id.eq.${uid}`)
+      .order("last_message_at", { ascending: false })
+      .then(({ data }) => {
+        setChats((data as Chat[]) ?? []);
+      });
   }, [uid, isStaff]);
 
   const authorMap = useMemo(() => {
@@ -88,7 +92,9 @@ function Page() {
 
   const buscarExistente = async (otherId: string) => {
     if (!uid) return null;
-    const { data } = await supabase.from("chats_1a1").select("*");
+    const { data } = await supabase.from("chats_1a1")
+      .select("*")
+      .or(`usuario_a_id.eq.${uid},usuario_b_id.eq.${uid}`);
     return (((data as Chat[]) ?? []).find((c) => coincideCon(c, otherId))) ?? null;
   };
 
