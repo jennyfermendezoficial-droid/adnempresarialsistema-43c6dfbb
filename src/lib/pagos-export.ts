@@ -418,3 +418,151 @@ export async function generarInformeProfesorPDF(input: InformeProfesorInput) {
   const safe = nombre.normalize("NFD").replace(/[^\w]+/g, "_");
   doc.save(`Informe_${safe}_${MESES[mes - 1]}_${anio}.pdf`);
 }
+
+
+export interface InformeAlumnaAbonoPDF {
+  fecha: string;
+  monto: number;
+  tipo: string;
+  bancoOrigen?: string | null;
+  cuentaOrigen?: string | null;
+  titularOrigen?: string | null;
+  referencia?: string | null;
+  numeroComprobante?: string | null;
+  observacion?: string | null;
+}
+
+export interface InformeAlumnaPDFInput {
+  mes: number;
+  anio: number;
+  totalAlumnas: number;
+  seleccionadas: number;
+  pagadas: number;
+  pendientes: number;
+  totalFacturado: number;
+  totalAbonado: number;
+  totalFalta: number;
+  filas: Array<{
+    nombre: string;
+    email: string;
+    total: number;
+    pagado: number;
+    falta: number;
+    estado: string;
+    cuentaCompleta: boolean;
+    acompanantes: number;
+    abonos: InformeAlumnaAbonoPDF[];
+  }>;
+}
+
+export function generarInformeAlumnasPDF(input: InformeAlumnaPDFInput) {
+  const { mes, anio, totalAlumnas, seleccionadas, pagadas, pendientes, totalFacturado, totalAbonado, totalFalta, filas } = input;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+
+  doc.setFillColor(15, 20, 49);
+  doc.rect(0, 0, W, 105, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("ADN Empresarial", 40, 38);
+  doc.setFontSize(14);
+  doc.text("Informe de pagos · Alumnas", 40, 61);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(200, 195, 235);
+  doc.text(`Periodo · ${MESES[mes - 1]} ${anio}`, 40, 82);
+
+  const cards: [string, string][] = [
+    ["Alumnas seleccionadas", String(seleccionadas)],
+    ["Total facturado", `$${totalFacturado.toFixed(2)}`],
+    ["Total abonado", `$${totalAbonado.toFixed(2)}`],
+    ["Deuda pendiente", `$${totalFalta.toFixed(2)}`],
+  ];
+  const cw = (W - 80 - 30) / 4;
+  cards.forEach(([label, value], i) => {
+    const x = 40 + i * (cw + 10);
+    doc.setDrawColor(225, 222, 240);
+    doc.setFillColor(250, 248, 255);
+    doc.roundedRect(x, 123, cw, 55, 6, 6, "FD");
+    doc.setTextColor(120, 118, 145);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(label.toUpperCase(), x + 10, 141);
+    doc.setTextColor(30, 28, 50);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text(value, x + 10, 162);
+  });
+
+  let y = 199;
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 28, 50);
+  doc.setFontSize(11);
+  doc.text(`Estado del periodo · ${pagadas} pagadas · ${pendientes} pendientes · ${totalAlumnas} cuentas con rol Alumno`, 40, y);
+  y += 12;
+
+  if (!filas.length) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("No existen alumnas seleccionadas para este periodo.", 40, y + 24);
+  } else {
+    autoTable(doc, {
+      startY: y + 15,
+      head: [["Alumna", "Total", "Pagado", "Falta", "Estado", "Cuenta bancaria", "Acomp."]],
+      body: filas.map((f) => [
+        f.nombre,
+        `$${f.total.toFixed(2)}`,
+        `$${f.pagado.toFixed(2)}`,
+        `$${f.falta.toFixed(2)}`,
+        f.estado === "pagado" ? "Pagado" : "Debe",
+        f.cuentaCompleta ? "Completa" : "Pendiente",
+        String(f.acompanantes),
+      ]),
+      styles: { fontSize: 8, cellPadding: 5, textColor: [40, 38, 60] },
+      headStyles: { fillColor: [124, 107, 255], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [250, 249, 255] },
+      columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 6: { halign: "center" } },
+      margin: { left: 40, right: 40 },
+    });
+
+    y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 60) + 24;
+
+    for (const f of filas) {
+      if (!f.abonos.length) continue;
+      if (y > H - 150) { doc.addPage(); y = 45; }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(30, 28, 50);
+      doc.text(`${f.nombre} · movimientos del periodo`, 40, y);
+      y += 8;
+      autoTable(doc, {
+        startY: y + 10,
+        head: [["Fecha", "Monto", "Método", "Banco origen", "Cuenta origen", "Referencia", "Comprobante", "Observación"]],
+        body: f.abonos.map((a) => [
+          a.fecha,
+          `$${Number(a.monto).toFixed(2)}`,
+          a.tipo || "-",
+          a.bancoOrigen || "-",
+          a.cuentaOrigen || "-",
+          a.referencia || a.numeroComprobante || "-",
+          a.numeroComprobante || "-",
+          a.observacion || "-",
+        ]),
+        styles: { fontSize: 7, cellPadding: 3.5, textColor: [40, 38, 60] },
+        headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 252, 249] },
+        columnStyles: { 1: { halign: "right" } },
+        margin: { left: 40, right: 40 },
+      });
+      y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 50) + 18;
+    }
+  }
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(140, 138, 160);
+  doc.text(`Generado el ${new Date().toLocaleString("es-EC")} · ADN Empresarial`, 40, H - 24);
+  doc.save(`Informe_Alumnas_${MESES[mes - 1]}_${anio}.pdf`);
+}
