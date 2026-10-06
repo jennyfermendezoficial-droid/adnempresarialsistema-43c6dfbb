@@ -541,6 +541,12 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
   const [monto, setMonto] = useState("");
   const [tipoPago, setTipoPago] = useState("transferencia");
   const [numero, setNumero] = useState("");
+  const [bancoOrigen, setBancoOrigen] = useState("");
+  const [cuentaOrigen, setCuentaOrigen] = useState("");
+  const [titularOrigen, setTitularOrigen] = useState("");
+  const [referenciaPago, setReferenciaPago] = useState("");
+  const [tarjetaMarca, setTarjetaMarca] = useState("");
+  const [tarjetaUltimos4, setTarjetaUltimos4] = useState("");
   const [observacion, setObservacion] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -563,8 +569,16 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
       const data = await leer({ data: { imagenBase64: dataUrl } });
       if (data.monto) setMonto(String(data.monto));
       if (data.fecha && /^\d{4}-\d{2}-\d{2}$/.test(data.fecha)) setFecha(data.fecha);
-      if (data.numero_comprobante) setNumero(data.numero_comprobante);
-      if (data.tipo_pago && ["transferencia", "efectivo", "cheque", "deposito", "otro"].includes(data.tipo_pago)) setTipoPago(data.tipo_pago);
+      if (data.numero_comprobante) {
+        setNumero(data.numero_comprobante);
+        setReferenciaPago(data.numero_comprobante);
+      }
+      if (data.banco) setBancoOrigen(data.banco);
+      if (data.beneficiario) setTitularOrigen(data.beneficiario);
+      if (data.tipo_pago) {
+        const normalizado = data.tipo_pago === "tarjeta" ? "tarjeta" : data.tipo_pago;
+        if (["transferencia", "efectivo", "cheque", "deposito", "tarjeta", "otro"].includes(normalizado)) setTipoPago(normalizado);
+      }
       if (data.observacion && !observacion) setObservacion(data.observacion);
       toast.success("Comprobante leído · revisa los datos antes de guardar");
     } catch (error) {
@@ -598,6 +612,13 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
       numero_comprobante: numero.trim() || null,
       observacion: observacion.trim() || null,
       archivo_url: archivoUrl,
+      archivo_nombre: archivo?.name || null,
+      banco_origen: bancoOrigen.trim() || null,
+      cuenta_origen: cuentaOrigen.trim() || null,
+      titular_origen: titularOrigen.trim() || null,
+      referencia_pago: referenciaPago.trim() || numero.trim() || null,
+      tarjeta_marca: tarjetaMarca || null,
+      tarjeta_ultimos4: tarjetaUltimos4 || null,
       creado_por: uid,
     } as never);
     setGuardando(false);
@@ -617,16 +638,34 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
           <div className="grid grid-cols-2 gap-3">
             <Campo label="Método de pago *">
               <select value={tipoPago} onChange={(e) => setTipoPago(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm">
-                <option value="transferencia">Transferencia</option>
-                <option value="deposito">Depósito</option>
-                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia bancaria</option>
+                <option value="deposito">Depósito bancario</option>
+                <option value="tarjeta">Tarjeta crédito / débito</option>
+                <option value="efectivo">Efectivo / pago directo</option>
                 <option value="cheque">Cheque</option>
                 <option value="otro">Otro</option>
               </select>
             </Campo>
             <Campo label="N.º de comprobante"><input value={numero} onChange={(e) => setNumero(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm" placeholder="Opcional" /></Campo>
           </div>
-          <Campo label="Observación"><textarea rows={3} value={observacion} onChange={(e) => setObservacion(e.target.value.slice(0, 300))} maxLength={300} className="w-full px-3 py-2 rounded-lg border bg-background text-sm" placeholder="Opcional" /></Campo>
+
+          {(tipoPago === "transferencia" || tipoPago === "deposito") && (
+            <div className="grid grid-cols-2 gap-3">
+              <Campo label="Banco de origen *"><input value={bancoOrigen} onChange={(e) => setBancoOrigen(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm" placeholder="Ej. Banco Pichincha" /></Campo>
+              <Campo label="Cuenta de origen"><input value={cuentaOrigen} onChange={(e) => setCuentaOrigen(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm" placeholder="Número de cuenta" /></Campo>
+              <Campo label="Titular de la cuenta"><input value={titularOrigen} onChange={(e) => setTitularOrigen(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm" placeholder="Titular que realizó el pago" /></Campo>
+              <Campo label="Referencia bancaria"><input value={referenciaPago} onChange={(e) => setReferenciaPago(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm" placeholder="Código o referencia" /></Campo>
+            </div>
+          )}
+
+          {tipoPago === "tarjeta" && (
+            <div className="grid grid-cols-2 gap-3">
+              <Campo label="Marca de tarjeta"><select value={tarjetaMarca} onChange={(e) => setTarjetaMarca(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm"><option value="">Seleccionar…</option><option value="visa">Visa</option><option value="mastercard">Mastercard</option><option value="amex">American Express</option><option value="otra">Otra</option></select></Campo>
+              <Campo label="Últimos 4 dígitos"><input inputMode="numeric" maxLength={4} value={tarjetaUltimos4} onChange={(e) => setTarjetaUltimos4(e.target.value.replace(/\D/g, "").slice(0, 4))} className="w-full px-3 py-2 rounded-lg border bg-background text-sm" placeholder="1234" /></Campo>
+            </div>
+          )}
+
+          <Campo label="Observación"><textarea rows={3} value={observacion} onChange={(e) => setObservacion(e.target.value.slice(0, 300))} maxLength={300} className="w-full px-3 py-2 rounded-lg border bg-background text-sm" placeholder="Nota adicional, concepto o medio usado" /></Campo>
 
           <div className="grid grid-cols-3 gap-2 pt-1">
             <MiniTotal label="Total" value={dinero(fila.total)} />
@@ -688,7 +727,13 @@ function ComprobantesModal({ fila, onClose }: { fila: FilaAlumna; onClose: () =>
                 <div className="flex-1 min-w-[180px]">
                   <div className="font-semibold text-sm">{dinero(a.monto)} · {a.tipo_pago}</div>
                   <div className="text-xs text-muted-foreground">{new Date(`${a.fecha_pago}T00:00:00`).toLocaleDateString("es-EC")}{a.numero_comprobante ? ` · N.º ${a.numero_comprobante}` : ""}</div>
-                  {a.observacion && <div className="text-xs text-muted-foreground mt-1">{a.observacion}</div>}
+                  {(a.banco_origen || a.cuenta_origen || a.titular_origen || a.referencia_pago) && (
+                    <div className="text-[11px] text-muted-foreground mt-1">
+                      {[a.banco_origen, a.cuenta_origen ? `Cuenta ${a.cuenta_origen}` : null, a.titular_origen ? `Titular: ${a.titular_origen}` : null, a.referencia_pago ? `Ref: ${a.referencia_pago}` : null].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+                  {(a.tarjeta_marca || a.tarjeta_ultimos4) && <div className="text-[11px] text-muted-foreground mt-1">Tarjeta: {[a.tarjeta_marca, a.tarjeta_ultimos4 ? `•••• ${a.tarjeta_ultimos4}` : null].filter(Boolean).join(" · ")}</div>}
+                  {a.observacion && <div className="text-xs text-muted-foreground mt-1">{a.observacion}</div>
                 </div>
                 <button onClick={() => void abrirComprobante(a)} disabled={!a.archivo_url} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 disabled:opacity-40">
                   <Eye className="w-3.5 h-3.5" /> {a.archivo_url ? "Abrir comprobante" : "Sin archivo"}
