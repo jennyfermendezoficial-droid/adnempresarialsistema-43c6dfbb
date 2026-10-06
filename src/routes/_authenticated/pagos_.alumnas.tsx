@@ -7,9 +7,13 @@ import {
   CheckCircle2,
   Eye,
   FileImage,
+  FileText,
   Loader2,
   ReceiptText,
   Search,
+  ShieldCheck,
+  UserRound,
+  Users,
   Upload,
   X,
 } from "lucide-react";
@@ -17,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { puedeVerPagos } from "@/lib/roles";
 import { formatNombre } from "@/lib/nombres";
-import { listaMeses } from "@/lib/pagos-export";
+import { generarInformeAlumnasPDF, listaMeses } from "@/lib/pagos-export";
 import { subirImagen, esUrlAbsoluta } from "@/lib/cloudinary";
 import { leerComprobante } from "@/lib/comprobante-ocr.functions";
 import { toast } from "sonner";
@@ -29,6 +33,10 @@ interface AlumnaBasica {
   nombre_completo: string | null;
   email: string | null;
   avatar_url?: string | null;
+  estado?: string | null;
+  seleccionada?: boolean;
+  cuenta_bancaria_completa?: boolean;
+  acompanantes_count?: number;
 }
 
 interface TotalMentoria {
@@ -53,6 +61,13 @@ interface AbonoMentoria {
   numero_comprobante: string | null;
   observacion: string | null;
   archivo_url: string | null;
+  banco_origen?: string | null;
+  cuenta_origen?: string | null;
+  titular_origen?: string | null;
+  referencia_pago?: string | null;
+  tarjeta_marca?: string | null;
+  tarjeta_ultimos4?: string | null;
+  archivo_nombre?: string | null;
   creado_por: string | null;
   created_at: string;
 }
@@ -108,33 +123,28 @@ function Page() {
   const [totalesDe, setTotalesDe] = useState<FilaAlumna | null>(null);
   const [abonoDe, setAbonoDe] = useState<FilaAlumna | null>(null);
   const [comprobantesDe, setComprobantesDe] = useState<FilaAlumna | null>(null);
+  const [todosUsuarios, setTodosUsuarios] = useState<AlumnaBasica[]>([]);
+  const [seleccionAlumnasOpen, setSeleccionAlumnasOpen] = useState(false);
+  const [gestionDe, setGestionDe] = useState<FilaAlumna | null>(null);
 
   const cargar = useCallback(async () => {
     if (!puedeGestionar) {
       setLoading(false);
       return;
     }
-
     setLoading(true);
     setInfraError(null);
     try {
-      const { data: rolesData, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "usuario");
+      const { data: usuariosData, error: usuariosError } = await supabase.rpc("listar_usuarios_para_mentoria");
+      if (usuariosError) throw usuariosError;
 
-      if (rolesError) throw rolesError;
+      const usuarios = ((usuariosData ?? []) as unknown) as AlumnaBasica[];
+      const seleccionadas = usuarios
+        .filter((u) => Boolean(u.seleccionada))
+        .sort((a, b) => nombreAlumna(a).localeCompare(nombreAlumna(b), "es"));
 
-      const ids = Array.from(new Set(((rolesData ?? []) as Array<{ user_id: string }>).map((r) => r.user_id)));
-      let perfiles: AlumnaBasica[] = [];
-
-      if (ids.length) {
-        const { data: perfilesData, error: perfilesError } = await supabase.rpc("perfiles_pagos", { _ids: ids });
-        if (perfilesError) throw perfilesError;
-        perfiles = (((perfilesData ?? []) as unknown) as AlumnaBasica[])
-          .filter((p) => ids.includes(p.id))
-          .sort((a, b) => nombreAlumna(a).localeCompare(nombreAlumna(b), "es"));
-      }
+      setTodosUsuarios(usuarios);
+      setAlumnas(seleccionadas);
 
       const [totalesRes, abonosRes] = await Promise.all([
         tablaTotales().select("*").eq("mes", mes).eq("anio", anio),
@@ -143,18 +153,21 @@ function Page() {
 
       if (totalesRes.error || abonosRes.error) {
         const err = totalesRes.error ?? abonosRes.error;
-        setAlumnas(perfiles);
         setTotales([]);
         setAbonos([]);
         setInfraError(err?.message || "No se pudo cargar la estructura de pagos de alumnas.");
         return;
       }
 
-      setAlumnas(perfiles);
       setTotales(((totalesRes.data ?? []) as unknown) as TotalMentoria[]);
       setAbonos(((abonosRes.data ?? []) as unknown) as AbonoMentoria[]);
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : "No se pudieron cargar los pagos de alumnas.";
+      setTodosUsuarios([]);
+      setAlumnas([]);
+      setTotales([]);
+      setAbonos([]);
+      setInfraError(mensaje);
       toast.error(mensaje);
     } finally {
       setLoading(false);
@@ -220,6 +233,57 @@ function Page() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div>
+          <h1 className="text-xl font-semibold">Pagos e informes · Alumnas</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Solo aparecen aquí las cuentas que fueron seleccionadas como alumnas de mentoría.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setSeleccionAlumnasOpen(true)} className="px-3 py-2 rounded-lg border bg-card text-sm font-semibold inline-flex items-center gap-2 hover:bg-muted/40">
+            <Users className="w-4 h-4" /> Seleccionar alumnas
+          </button>
+          <button
+            onClick={() => {
+              generarInformeAlumnasPDF({
+                mes,
+                anio,
+                totalAlumnas: todosUsuarios.length,
+                seleccionadas: filas.length,
+                pagadas: resumen.alDia,
+                pendientes: resumen.pendientes,
+                totalFacturado: filas.reduce((s, f) => s + f.total, 0),
+                totalAbonado: resumen.abonado,
+                totalFalta: resumen.cobrar,
+                filas: filas.map((f) => ({
+                  nombre: nombreAlumna(f),
+                  email: f.email || "",
+                  total: f.total,
+                  pagado: f.pagado,
+                  falta: f.falta,
+                  estado: f.estado,
+                  cuentaCompleta: Boolean(f.cuenta_bancaria_completa),
+                  acompanantes: Number(f.acompanantes_count || 0),
+                  abonos: f.abonos.map((a) => ({
+                    fecha: a.fecha_pago,
+                    monto: Number(a.monto),
+                    tipo: a.tipo_pago,
+                    bancoOrigen: a.banco_origen,
+                    cuentaOrigen: a.cuenta_origen,
+                    titularOrigen: a.titular_origen,
+                    referencia: a.referencia_pago,
+                    numeroComprobante: a.numero_comprobante,
+                    observacion: a.observacion,
+                  })),
+                })),
+              });
+            }}
+            className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold inline-flex items-center gap-2"
+          >
+            <FileText className="w-4 h-4" /> Informe PDF
+          </button>
+        </div>
+      </div>
+
       {infraError && (
         <div className="mb-5 rounded-2xl border border-amber-300/60 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm">
           <div className="font-semibold flex items-center gap-2 text-amber-800 dark:text-amber-300">
@@ -237,8 +301,9 @@ function Page() {
           <div className="text-xs opacity-80 mt-1">{resumen.pendientes} alumna{resumen.pendientes === 1 ? "" : "s"} · debe</div>
         </div>
         <KPI label="Total abonado" value={dinero(resumen.abonado)} sub="registrado en el periodo" />
-        <KPI label="Alumnas pendientes" value={String(resumen.pendientes)} sub={`de ${filas.length} alumnas`} />
-        <KPI label="Alumnas al día" value={String(resumen.alDia)} sub={`de ${filas.length} alumnas`} />
+        <KPI label="Alumnas que deben" value={String(resumen.pendientes)} sub={`de ${filas.length} seleccionadas`} />
+        <KPI label="Alumnas al día" value={String(resumen.alDia)} sub={`de ${filas.length} seleccionadas`} />
+        <KPI label="Cuentas seleccionables" value={String(todosUsuarios.length)} sub="usuarios con rol Alumno" />
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3 px-1">
@@ -266,15 +331,17 @@ function Page() {
               <th className="text-right px-3 py-3 font-semibold">Pagado</th>
               <th className="text-right px-3 py-3 font-semibold">Falta</th>
               <th className="text-left px-3 py-3 font-semibold">Estado</th>
+              <th className="text-left px-3 py-3 font-semibold">Cuenta bancaria</th>
+              <th className="text-left px-3 py-3 font-semibold">Acompañantes</th>
               <th className="text-right px-4 py-3 font-semibold">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={6} className="text-center py-10 text-muted-foreground">Cargando alumnas…</td></tr>
+              <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Cargando alumnas…</td></tr>
             )}
             {!loading && filtradas.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-10 text-muted-foreground">No hay alumnas para mostrar.</td></tr>
+              <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">No hay alumnas seleccionadas. Usa “Seleccionar alumnas” para agregar cuentas existentes.</td></tr>
             )}
             {!loading && filtradas.map((f) => (
               <tr key={f.id} className="border-t hover:bg-muted/30 transition">
@@ -305,8 +372,19 @@ function Page() {
                     <span className="px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">Debe</span>
                   )}
                 </td>
+                <td className="px-3 py-3">
+                  {f.cuenta_bancaria_completa ? (
+                    <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Completa</span>
+                  ) : (
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300 inline-flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" /> Pendiente</span>
+                  )}
+                </td>
+                <td className="px-3 py-3 text-xs font-medium">{Number(f.acompanantes_count || 0)} / 2</td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">
+                    <button onClick={() => setGestionDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
+                      <UserRound className="w-3.5 h-3.5" /> Ficha
+                    </button>
                     <button onClick={() => setTotalesDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
                       <Calculator className="w-3.5 h-3.5" /> Totales
                     </button>
@@ -357,6 +435,20 @@ function Page() {
 
       {comprobantesDe && (
         <ComprobantesModal fila={comprobantesDe} onClose={() => setComprobantesDe(null)} />
+      )}
+      {seleccionAlumnasOpen && (
+        <SeleccionAlumnasModal
+          usuarios={todosUsuarios}
+          onClose={() => setSeleccionAlumnasOpen(false)}
+          onSaved={async () => { await cargar(); }}
+        />
+      )}
+      {gestionDe && (
+        <GestionAlumnaModal
+          fila={gestionDe}
+          onClose={() => setGestionDe(null)}
+          onSaved={async () => { setGestionDe(null); await cargar(); }}
+        />
       )}
     </div>
   );
@@ -644,5 +736,182 @@ function MiniTotal({ label, value, positivo = false, alerta = false }: { label: 
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={`font-bold tabular-nums mt-1 ${positivo ? "text-emerald-600" : alerta ? "text-red-600" : ""}`}>{value}</div>
     </div>
+  );
+}
+
+
+function SeleccionAlumnasModal({ usuarios, onClose, onSaved }: {
+  usuarios: AlumnaBasica[];
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+}) {
+  const [q, setQ] = useState("");
+  const [guardando, setGuardando] = useState<string | null>(null);
+  const [rows, setRows] = useState<AlumnaBasica[]>(usuarios);
+  useEffect(() => setRows(usuarios), [usuarios]);
+
+  const filtradas = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((u) => `${nombreAlumna(u)} ${u.email || ""}`.toLowerCase().includes(needle));
+  }, [rows, q]);
+
+  const toggle = async (u: AlumnaBasica) => {
+    setGuardando(u.id);
+    const { error } = await supabase.rpc("guardar_alumna_mentoria", { _alumna_id: u.id, _activo: !u.seleccionada });
+    setGuardando(null);
+    if (error) return toast.error(error.message);
+    setRows((prev) => prev.map((x) => x.id === u.id ? { ...x, seleccionada: !u.seleccionada } : x));
+    toast.success(!u.seleccionada ? "Alumna agregada a mentoría" : "Alumna retirada de mentoría");
+    await onSaved();
+  };
+
+  return (
+    <ModalBase title="Seleccionar alumnas de mentoría" subtitle={`${rows.filter((r) => r.seleccionada).length} seleccionadas · ${rows.length} cuentas existentes`} onClose={onClose} wide>
+      <div className="p-5">
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o correo…" className="w-full pl-9 pr-3 py-2.5 rounded-lg border bg-background text-sm" />
+        </div>
+        <div className="border rounded-xl overflow-hidden max-h-[60vh] overflow-y-auto">
+          {filtradas.length === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">No hay cuentas que coincidan.</div>
+          ) : filtradas.map((u) => (
+            <div key={u.id} className="flex items-center gap-3 p-3 border-b last:border-b-0">
+              {u.avatar_url ? <img src={u.avatar_url} className="w-9 h-9 rounded-full object-cover" alt="" /> : (
+                <div className="w-9 h-9 rounded-full bg-muted grid place-items-center text-xs font-bold">{nombreAlumna(u).slice(0,2).toUpperCase()}</div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-sm truncate">{nombreAlumna(u)}</div>
+                <div className="text-[11px] text-muted-foreground truncate">{u.email || "Sin correo"} · {u.estado || "sin estado"}</div>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span>{u.cuenta_bancaria_completa ? "Banco registrado" : "Banco pendiente"}</span>
+                <span>·</span><span>{Number(u.acompanantes_count || 0)}/2 acompañantes</span>
+              </div>
+              <button disabled={guardando === u.id} onClick={() => void toggle(u)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${u.seleccionada ? "bg-foreground text-background border-transparent" : "bg-card hover:bg-muted"}`}>
+                {guardando === u.id ? "Guardando…" : u.seleccionada ? "Seleccionada" : "Seleccionar"}
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end mt-4"><button onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cerrar</button></div>
+      </div>
+    </ModalBase>
+  );
+}
+
+function GestionAlumnaModal({ fila, onClose, onSaved }: {
+  fila: FilaAlumna;
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+}) {
+  const [acompanantes, setAcompanantes] = useState<Array<{ id: string; nombre_completo: string | null; email: string | null; avatar_url?: string | null }>>([]);
+  const [seleccionados, setSeleccionados] = useState<string[]>([]);
+  const [guardando, setGuardando] = useState(false);
+  const [cuenta, setCuenta] = useState<{ banco: string | null; tipo_cuenta: string | null; numero_cuenta: string | null; titular_cuenta: string | null; cedula_titular: string | null; completo: boolean } | null>(null);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    let activo = true;
+    (async () => {
+      try {
+        const [acRes, cuentaRes] = await Promise.all([
+          supabase.rpc("listar_acompanantes_mentoria", { _alumna_id: fila.id }),
+          supabase.rpc("obtener_datos_pago_alumna", { _alumna_id: fila.id }),
+        ]);
+        if (acRes.error) throw acRes.error;
+        if (cuentaRes.error) throw cuentaRes.error;
+        if (!activo) return;
+        const ac = ((acRes.data ?? []) as Array<{ id: string; nombre_completo: string | null; email: string | null; avatar_url?: string | null; orden: number }>).sort((a,b) => a.orden - b.orden);
+        setAcompanantes(ac);
+        setSeleccionados(ac.map((a) => a.id));
+        const row = (cuentaRes.data?.[0] ?? null) as { banco: string | null; tipo_cuenta: string | null; numero_cuenta: string | null; titular_cuenta: string | null; cedula_titular: string | null; completo: boolean } | null;
+        setCuenta(row);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "No se pudo cargar la ficha de la alumna.");
+      } finally {
+        if (activo) setCargando(false);
+      }
+    })();
+    return () => { activo = false; };
+  }, [fila.id]);
+
+  const guardarAcompanantes = async () => {
+    if (new Set(seleccionados.filter(Boolean)).size !== seleccionados.filter(Boolean).length) return toast.error("No puedes repetir un acompañante.");
+    if (seleccionados.length > 2) return toast.error("Máximo 2 acompañantes.");
+    setGuardando(true);
+    const { error } = await supabase.rpc("guardar_acompanantes_mentoria", { _alumna_id: fila.id, _acompanantes: seleccionados.filter(Boolean) });
+    setGuardando(false);
+    if (error) return toast.error(error.message);
+    toast.success("Acompañantes guardados");
+    await onSaved();
+  };
+
+  const añadirSlot = (index: number, value: string) => {
+    setSeleccionados((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  };
+
+  const opciones = acompanantes.filter((a) => !seleccionados.some((id, idx) => id === a.id && idx !== seleccionados.indexOf(a.id)));
+
+  return (
+    <ModalBase title={`Ficha de mentoría · ${nombreAlumna(fila)}`} subtitle={`${fila.email || "Sin correo"}`} onClose={onClose} wide>
+      <div className="p-5 space-y-5">
+        {cargando ? <div className="py-8 text-center text-sm text-muted-foreground">Cargando ficha…</div> : (
+          <>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="rounded-xl border p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Cuenta bancaria de la alumna</div>
+                {cuenta?.completo ? (
+                  <div className="mt-2 space-y-1.5 text-sm">
+                    <div><span className="text-muted-foreground">Banco:</span> {cuenta.banco}</div>
+                    <div><span className="text-muted-foreground">Tipo:</span> {cuenta.tipo_cuenta}</div>
+                    <div><span className="text-muted-foreground">Número:</span> {cuenta.numero_cuenta}</div>
+                    <div><span className="text-muted-foreground">Titular:</span> {cuenta.titular_cuenta}</div>
+                    {cuenta.cedula_titular && <div><span className="text-muted-foreground">Cédula:</span> {cuenta.cedula_titular}</div>}
+                  </div>
+                ) : <div className="mt-2 text-sm text-amber-700 dark:text-amber-300">La alumna todavía no registra una cuenta bancaria completa.</div>}
+              </div>
+              <div className="rounded-xl border p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Resumen mensual</div>
+                <div className="mt-2 text-sm"><strong>{fila.estado === "pagado" ? "Pagado" : "Debe"}</strong> · {dinero(fila.falta)} pendiente.</div>
+                <div className="text-xs text-muted-foreground mt-1">{fila.abonos.length} abono{fila.abonos.length === 1 ? "" : "s"} registrados.</div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Acompañantes de mentoría</div>
+                  <div className="text-xs text-muted-foreground mt-1">Se seleccionan de las cuentas existentes con rol Alumno. Máximo 2.</div>
+                </div>
+                <Users className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {[0,1].map((index) => (
+                  <select key={index} value={seleccionados[index] || ""} onChange={(e) => añadirSlot(index, e.target.value)} className="px-3 py-2 rounded-lg border bg-background text-sm">
+                    <option value="">{index === 0 ? "Acompañante 1 · Ninguno" : "Acompañante 2 · Ninguno"}</option>
+                    {opciones.map((a) => <option key={a.id} value={a.id}>{nombreAlumna(a)}</option>)}
+                  </select>
+                ))}
+              </div>
+              <div className="flex justify-end mt-3">
+                <button disabled={guardando} onClick={() => void guardarAcompanantes()} className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold">{guardando ? "Guardando…" : "Guardar acompañantes"}</button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border p-4 bg-muted/20 flex items-start gap-3 text-xs text-muted-foreground">
+              <Landmark className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>Los datos bancarios los registra la propia alumna desde su perfil. El gestor puede comprobar aquí si ya están completos.</span>
+            </div>
+          </>
+        )}
+        <div className="flex justify-end"><button onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cerrar</button></div>
+      </div>
+    </ModalBase>
   );
 }
