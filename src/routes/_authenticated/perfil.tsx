@@ -248,7 +248,7 @@ function MentoriaDatosPagoPanel({ uid }: { uid?: string }) {
       _tipo_cuenta: tipoCuenta,
       _numero_cuenta: numeroCuenta,
       _titular_cuenta: titular,
-      _cedula_titular: cedula || null,
+      _cedula_titular: cedula || undefined,
     });
     setGuardandoCuenta(false);
     if (error) return toast.error(error.message);

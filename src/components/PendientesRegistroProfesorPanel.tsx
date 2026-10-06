@@ -126,7 +126,7 @@ export function PendientesRegistroProfesorPanel() {
     setPendientes(todos);
 
     const idsAlumnas = Array.from(new Set(
-      sesiones.map((p) => p.sesion.alumna_id).filter(Boolean),
+      sesiones.flatMap((p) => (p.tipo === "1a1" ? [p.sesion.alumna_id] : [])).filter(Boolean),
     ));
     if (idsAlumnas.length) {
       const perfiles = await fetchPerfiles(idsAlumnas);
