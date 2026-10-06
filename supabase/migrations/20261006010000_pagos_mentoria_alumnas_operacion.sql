@@ -61,24 +61,78 @@ WITH CHECK (public.puede_pagos(auth.uid()));
 DROP POLICY IF EXISTS pagos_mentoria_acompanantes_gestion ON public.pagos_mentoria_acompanantes;
 CREATE POLICY pagos_mentoria_acompanantes_gestion
 ON public.pagos_mentoria_acompanantes FOR ALL TO authenticated
-USING (public.puede_pagos(auth.uid()) OR alumna_id = auth.uid())
-WITH CHECK (public.puede_pagos(auth.uid()) OR alumna_id = auth.uid());
+USING (
+  public.puede_pagos(auth.uid())
+  OR (
+    alumna_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM public.pagos_mentoria_alumnas a
+      WHERE a.alumna_id = auth.uid() AND a.activo = true
+    )
+  )
+)
+WITH CHECK (
+  public.puede_pagos(auth.uid())
+  OR (
+    alumna_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM public.pagos_mentoria_alumnas a
+      WHERE a.alumna_id = auth.uid() AND a.activo = true
+    )
+  )
+);
 
 DROP POLICY IF EXISTS pagos_mentoria_cuenta_select ON public.pagos_mentoria_cuentas_bancarias;
 CREATE POLICY pagos_mentoria_cuenta_select
 ON public.pagos_mentoria_cuentas_bancarias FOR SELECT TO authenticated
-USING (public.puede_pagos(auth.uid()) OR alumna_id = auth.uid());
+USING (
+  public.puede_pagos(auth.uid())
+  OR (
+    alumna_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM public.pagos_mentoria_alumnas a
+      WHERE a.alumna_id = auth.uid() AND a.activo = true
+    )
+  )
+);
 
 DROP POLICY IF EXISTS pagos_mentoria_cuenta_write ON public.pagos_mentoria_cuentas_bancarias;
 CREATE POLICY pagos_mentoria_cuenta_write
 ON public.pagos_mentoria_cuentas_bancarias FOR INSERT TO authenticated
-WITH CHECK (public.puede_pagos(auth.uid()) OR alumna_id = auth.uid());
+WITH CHECK (
+  public.puede_pagos(auth.uid())
+  OR (
+    alumna_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM public.pagos_mentoria_alumnas a
+      WHERE a.alumna_id = auth.uid() AND a.activo = true
+    )
+  )
+);
 
 DROP POLICY IF EXISTS pagos_mentoria_cuenta_update ON public.pagos_mentoria_cuentas_bancarias;
 CREATE POLICY pagos_mentoria_cuenta_update
 ON public.pagos_mentoria_cuentas_bancarias FOR UPDATE TO authenticated
-USING (public.puede_pagos(auth.uid()) OR alumna_id = auth.uid())
-WITH CHECK (public.puede_pagos(auth.uid()) OR alumna_id = auth.uid());
+USING (
+  public.puede_pagos(auth.uid())
+  OR (
+    alumna_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM public.pagos_mentoria_alumnas a
+      WHERE a.alumna_id = auth.uid() AND a.activo = true
+    )
+  )
+)
+WITH CHECK (
+  public.puede_pagos(auth.uid())
+  OR (
+    alumna_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM public.pagos_mentoria_alumnas a
+      WHERE a.alumna_id = auth.uid() AND a.activo = true
+    )
+  )
+);
 
 DROP TRIGGER IF EXISTS pagos_mentoria_alumnas_updated_at ON public.pagos_mentoria_alumnas;
 CREATE TRIGGER pagos_mentoria_alumnas_updated_at
