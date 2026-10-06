@@ -9,55 +9,46 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as AuthenticatedAccesoClasesEnVivoRouteImport } from './routes/_authenticated/acceso-clases-en-vivo'
-import { Route as AuthenticatedAccesoCursosRouteImport } from './routes/_authenticated/acceso-cursos'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
-import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
-import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
-import { Route as AuthenticatedChatProfesoresRouteImport } from './routes/_authenticated/chat-profesores'
-import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
-import { Route as AuthenticatedClasesEnVivoRouteImport } from './routes/_authenticated/clases-en-vivo'
-import { Route as AuthenticatedCursosYClasesEquipoRouteImport } from './routes/_authenticated/cursos-y-clases-equipo'
-import { Route as AuthenticatedDatosPagoRouteImport } from './routes/_authenticated/datos-pago'
-import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
-import { Route as AuthenticatedMiAgendaRouteImport } from './routes/_authenticated/mi-agenda'
-import { Route as AuthenticatedMiCalendarioRouteImport } from './routes/_authenticated/mi-calendario'
-import { Route as AuthenticatedMiCasaRouteImport } from './routes/_authenticated/mi-casa'
-import { Route as AuthenticatedMiNegocioRouteImport } from './routes/_authenticated/mi-negocio'
-import { Route as AuthenticatedMiembrosRouteImport } from './routes/_authenticated/miembros'
-import { Route as AuthenticatedMisClasesAsignadasRouteImport } from './routes/_authenticated/mis-clases-asignadas'
-import { Route as AuthenticatedMisCuentasBancariasRouteImport } from './routes/_authenticated/mis-cuentas-bancarias'
-import { Route as AuthenticatedMisReportesRouteImport } from './routes/_authenticated/mis-reportes'
-import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/pagos'
-import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
-import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticated/permisos'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTareasRouteImport } from './routes/_authenticated/tareas'
-import { Route as AuthenticatedComunidadIndexRouteImport } from './routes/_authenticated/comunidad.index'
-import { Route as AuthenticatedComunidadPostIdRouteImport } from './routes/_authenticated/comunidad.$postId'
+import { Route as AuthenticatedPermisosRouteImport } from './routes/_authenticated/permisos'
+import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
+import { Route as AuthenticatedPagosRouteImport } from './routes/_authenticated/pagos'
+import { Route as AuthenticatedMisReportesRouteImport } from './routes/_authenticated/mis-reportes'
+import { Route as AuthenticatedMisCuentasBancariasRouteImport } from './routes/_authenticated/mis-cuentas-bancarias'
+import { Route as AuthenticatedMisClasesAsignadasRouteImport } from './routes/_authenticated/mis-clases-asignadas'
+import { Route as AuthenticatedMiembrosRouteImport } from './routes/_authenticated/miembros'
+import { Route as AuthenticatedMiNegocioRouteImport } from './routes/_authenticated/mi-negocio'
+import { Route as AuthenticatedMiCasaRouteImport } from './routes/_authenticated/mi-casa'
+import { Route as AuthenticatedMiCalendarioRouteImport } from './routes/_authenticated/mi-calendario'
+import { Route as AuthenticatedMiAgendaRouteImport } from './routes/_authenticated/mi-agenda'
+import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
+import { Route as AuthenticatedDatosPagoRouteImport } from './routes/_authenticated/datos-pago'
+import { Route as AuthenticatedCursosYClasesEquipoRouteImport } from './routes/_authenticated/cursos-y-clases-equipo'
+import { Route as AuthenticatedClasesEnVivoRouteImport } from './routes/_authenticated/clases-en-vivo'
+import { Route as AuthenticatedChatsRouteImport } from './routes/_authenticated/chats'
+import { Route as AuthenticatedChatProfesoresRouteImport } from './routes/_authenticated/chat-profesores'
+import { Route as AuthenticatedCalendarioClasesRouteImport } from './routes/_authenticated/calendario-clases'
+import { Route as AuthenticatedBonosRouteImport } from './routes/_authenticated/bonos'
+import { Route as AuthenticatedAgenda1a1RouteImport } from './routes/_authenticated/agenda-1a1'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedAccesoCursosRouteImport } from './routes/_authenticated/acceso-cursos'
+import { Route as AuthenticatedAccesoClasesEnVivoRouteImport } from './routes/_authenticated/acceso-clases-en-vivo'
 import { Route as AuthenticatedCursosIndexRouteImport } from './routes/_authenticated/cursos.index'
-import { Route as AuthenticatedCursosCursoIdRouteImport } from './routes/_authenticated/cursos.$cursoId'
-import { Route as AuthenticatedMiembroUserIdRouteImport } from './routes/_authenticated/miembro.$userId'
-import { Route as AuthenticatedPagosAlumnasRouteImport } from './routes/_authenticated/pagos_.alumnas'
+import { Route as AuthenticatedComunidadIndexRouteImport } from './routes/_authenticated/comunidad.index'
 import { Route as ApiPublicZoomWebhookRouteImport } from './routes/api/public/zoom-webhook'
+import { Route as AuthenticatedPagosAlumnasRouteImport } from './routes/_authenticated/pagos_.alumnas'
+import { Route as AuthenticatedMiembroUserIdRouteImport } from './routes/_authenticated/miembro.$userId'
+import { Route as AuthenticatedCursosCursoIdRouteImport } from './routes/_authenticated/cursos.$cursoId'
+import { Route as AuthenticatedComunidadPostIdRouteImport } from './routes/_authenticated/comunidad.$postId'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -65,107 +56,44 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAccesoClasesEnVivoRoute =
-  AuthenticatedAccesoClasesEnVivoRouteImport.update({
-    id: '/acceso-clases-en-vivo',
-    path: '/acceso-clases-en-vivo',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAccesoCursosRoute =
-  AuthenticatedAccesoCursosRouteImport.update({
-    id: '/acceso-cursos',
-    path: '/acceso-cursos',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTareasRoute = AuthenticatedTareasRouteImport.update({
+  id: '/tareas',
+  path: '/tareas',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAgenda1a1Route = AuthenticatedAgenda1a1RouteImport.update({
-  id: '/agenda-1a1',
-  path: '/agenda-1a1',
+const AuthenticatedPermisosRoute = AuthenticatedPermisosRouteImport.update({
+  id: '/permisos',
+  path: '/permisos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedBonosRoute = AuthenticatedBonosRouteImport.update({
-  id: '/bonos',
-  path: '/bonos',
+const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedCalendarioClasesRoute =
-  AuthenticatedCalendarioClasesRouteImport.update({
-    id: '/calendario-clases',
-    path: '/calendario-clases',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedChatProfesoresRoute =
-  AuthenticatedChatProfesoresRouteImport.update({
-    id: '/chat-profesores',
-    path: '/chat-profesores',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedChatsRoute = AuthenticatedChatsRouteImport.update({
-  id: '/chats',
-  path: '/chats',
+const AuthenticatedPagosRoute = AuthenticatedPagosRouteImport.update({
+  id: '/pagos',
+  path: '/pagos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedClasesEnVivoRoute =
-  AuthenticatedClasesEnVivoRouteImport.update({
-    id: '/clases-en-vivo',
-    path: '/clases-en-vivo',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedCursosYClasesEquipoRoute =
-  AuthenticatedCursosYClasesEquipoRouteImport.update({
-    id: '/cursos-y-clases-equipo',
-    path: '/cursos-y-clases-equipo',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedDatosPagoRoute = AuthenticatedDatosPagoRouteImport.update({
-  id: '/datos-pago',
-  path: '/datos-pago',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
-  id: '/inicio',
-  path: '/inicio',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedMiAgendaRoute = AuthenticatedMiAgendaRouteImport.update({
-  id: '/mi-agenda',
-  path: '/mi-agenda',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedMiCalendarioRoute =
-  AuthenticatedMiCalendarioRouteImport.update({
-    id: '/mi-calendario',
-    path: '/mi-calendario',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedMiCasaRoute = AuthenticatedMiCasaRouteImport.update({
-  id: '/mi-casa',
-  path: '/mi-casa',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedMiNegocioRoute = AuthenticatedMiNegocioRouteImport.update({
-  id: '/mi-negocio',
-  path: '/mi-negocio',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedMiembrosRoute = AuthenticatedMiembrosRouteImport.update({
-  id: '/miembros',
-  path: '/miembros',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedMisClasesAsignadasRoute =
-  AuthenticatedMisClasesAsignadasRouteImport.update({
-    id: '/mis-clases-asignadas',
-    path: '/mis-clases-asignadas',
+const AuthenticatedMisReportesRoute =
+  AuthenticatedMisReportesRouteImport.update({
+    id: '/mis-reportes',
+    path: '/mis-reportes',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedMisCuentasBancariasRoute =
@@ -174,42 +102,102 @@ const AuthenticatedMisCuentasBancariasRoute =
     path: '/mis-cuentas-bancarias',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedMisReportesRoute =
-  AuthenticatedMisReportesRouteImport.update({
-    id: '/mis-reportes',
-    path: '/mis-reportes',
+const AuthenticatedMisClasesAsignadasRoute =
+  AuthenticatedMisClasesAsignadasRouteImport.update({
+    id: '/mis-clases-asignadas',
+    path: '/mis-clases-asignadas',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedPagosRoute = AuthenticatedPagosRouteImport.update({
-  id: '/pagos',
-  path: '/pagos',
+const AuthenticatedMiembrosRoute = AuthenticatedMiembrosRouteImport.update({
+  id: '/miembros',
+  path: '/miembros',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({
-  id: '/perfil',
-  path: '/perfil',
+const AuthenticatedMiNegocioRoute = AuthenticatedMiNegocioRouteImport.update({
+  id: '/mi-negocio',
+  path: '/mi-negocio',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedPermisosRoute = AuthenticatedPermisosRouteImport.update({
-  id: '/permisos',
-  path: '/permisos',
+const AuthenticatedMiCasaRoute = AuthenticatedMiCasaRouteImport.update({
+  id: '/mi-casa',
+  path: '/mi-casa',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedTareasRoute = AuthenticatedTareasRouteImport.update({
-  id: '/tareas',
-  path: '/tareas',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedComunidadIndexRoute =
-  AuthenticatedComunidadIndexRouteImport.update({
-    id: '/comunidad/',
-    path: '/comunidad/',
+const AuthenticatedMiCalendarioRoute =
+  AuthenticatedMiCalendarioRouteImport.update({
+    id: '/mi-calendario',
+    path: '/mi-calendario',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedComunidadPostIdRoute =
-  AuthenticatedComunidadPostIdRouteImport.update({
-    id: '/comunidad/$postId',
-    path: '/comunidad/$postId',
+const AuthenticatedMiAgendaRoute = AuthenticatedMiAgendaRouteImport.update({
+  id: '/mi-agenda',
+  path: '/mi-agenda',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
+  id: '/inicio',
+  path: '/inicio',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDatosPagoRoute = AuthenticatedDatosPagoRouteImport.update({
+  id: '/datos-pago',
+  path: '/datos-pago',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedCursosYClasesEquipoRoute =
+  AuthenticatedCursosYClasesEquipoRouteImport.update({
+    id: '/cursos-y-clases-equipo',
+    path: '/cursos-y-clases-equipo',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedClasesEnVivoRoute =
+  AuthenticatedClasesEnVivoRouteImport.update({
+    id: '/clases-en-vivo',
+    path: '/clases-en-vivo',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedChatsRoute = AuthenticatedChatsRouteImport.update({
+  id: '/chats',
+  path: '/chats',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedChatProfesoresRoute =
+  AuthenticatedChatProfesoresRouteImport.update({
+    id: '/chat-profesores',
+    path: '/chat-profesores',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCalendarioClasesRoute =
+  AuthenticatedCalendarioClasesRouteImport.update({
+    id: '/calendario-clases',
+    path: '/calendario-clases',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedBonosRoute = AuthenticatedBonosRouteImport.update({
+  id: '/bonos',
+  path: '/bonos',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAgenda1a1Route = AuthenticatedAgenda1a1RouteImport.update({
+  id: '/agenda-1a1',
+  path: '/agenda-1a1',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAccesoCursosRoute =
+  AuthenticatedAccesoCursosRouteImport.update({
+    id: '/acceso-cursos',
+    path: '/acceso-cursos',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAccesoClasesEnVivoRoute =
+  AuthenticatedAccesoClasesEnVivoRouteImport.update({
+    id: '/acceso-clases-en-vivo',
+    path: '/acceso-clases-en-vivo',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedCursosIndexRoute =
@@ -218,10 +206,21 @@ const AuthenticatedCursosIndexRoute =
     path: '/cursos/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedCursosCursoIdRoute =
-  AuthenticatedCursosCursoIdRouteImport.update({
-    id: '/cursos/$cursoId',
-    path: '/cursos/$cursoId',
+const AuthenticatedComunidadIndexRoute =
+  AuthenticatedComunidadIndexRouteImport.update({
+    id: '/comunidad/',
+    path: '/comunidad/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const ApiPublicZoomWebhookRoute = ApiPublicZoomWebhookRouteImport.update({
+  id: '/api/public/zoom-webhook',
+  path: '/api/public/zoom-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedPagosAlumnasRoute =
+  AuthenticatedPagosAlumnasRouteImport.update({
+    id: '/pagos_/alumnas',
+    path: '/pagos/alumnas',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedMiembroUserIdRoute =
@@ -230,17 +229,18 @@ const AuthenticatedMiembroUserIdRoute =
     path: '/miembro/$userId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedPagosAlumnasRoute =
-  AuthenticatedPagosAlumnasRouteImport.update({
-    id: '/pagos_/alumnas',
-    path: '/pagos/alumnas',
+const AuthenticatedCursosCursoIdRoute =
+  AuthenticatedCursosCursoIdRouteImport.update({
+    id: '/cursos/$cursoId',
+    path: '/cursos/$cursoId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const ApiPublicZoomWebhookRoute = ApiPublicZoomWebhookRouteImport.update({
-  id: '/api/public/zoom-webhook',
-  path: '/api/public/zoom-webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedComunidadPostIdRoute =
+  AuthenticatedComunidadPostIdRouteImport.update({
+    id: '/comunidad/$postId',
+    path: '/comunidad/$postId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -481,25 +481,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -509,165 +495,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/acceso-clases-en-vivo': {
-      id: '/_authenticated/acceso-clases-en-vivo'
-      path: '/acceso-clases-en-vivo'
-      fullPath: '/acceso-clases-en-vivo'
-      preLoaderRoute: typeof AuthenticatedAccesoClasesEnVivoRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/acceso-cursos': {
-      id: '/_authenticated/acceso-cursos'
-      path: '/acceso-cursos'
-      fullPath: '/acceso-cursos'
-      preLoaderRoute: typeof AuthenticatedAccesoCursosRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/agenda-1a1': {
-      id: '/_authenticated/agenda-1a1'
-      path: '/agenda-1a1'
-      fullPath: '/agenda-1a1'
-      preLoaderRoute: typeof AuthenticatedAgenda1a1RouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/bonos': {
-      id: '/_authenticated/bonos'
-      path: '/bonos'
-      fullPath: '/bonos'
-      preLoaderRoute: typeof AuthenticatedBonosRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/calendario-clases': {
-      id: '/_authenticated/calendario-clases'
-      path: '/calendario-clases'
-      fullPath: '/calendario-clases'
-      preLoaderRoute: typeof AuthenticatedCalendarioClasesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/chat-profesores': {
-      id: '/_authenticated/chat-profesores'
-      path: '/chat-profesores'
-      fullPath: '/chat-profesores'
-      preLoaderRoute: typeof AuthenticatedChatProfesoresRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/chats': {
-      id: '/_authenticated/chats'
-      path: '/chats'
-      fullPath: '/chats'
-      preLoaderRoute: typeof AuthenticatedChatsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/clases-en-vivo': {
-      id: '/_authenticated/clases-en-vivo'
-      path: '/clases-en-vivo'
-      fullPath: '/clases-en-vivo'
-      preLoaderRoute: typeof AuthenticatedClasesEnVivoRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/cursos-y-clases-equipo': {
-      id: '/_authenticated/cursos-y-clases-equipo'
-      path: '/cursos-y-clases-equipo'
-      fullPath: '/cursos-y-clases-equipo'
-      preLoaderRoute: typeof AuthenticatedCursosYClasesEquipoRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/datos-pago': {
-      id: '/_authenticated/datos-pago'
-      path: '/datos-pago'
-      fullPath: '/datos-pago'
-      preLoaderRoute: typeof AuthenticatedDatosPagoRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/inicio': {
-      id: '/_authenticated/inicio'
-      path: '/inicio'
-      fullPath: '/inicio'
-      preLoaderRoute: typeof AuthenticatedInicioRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mi-agenda': {
-      id: '/_authenticated/mi-agenda'
-      path: '/mi-agenda'
-      fullPath: '/mi-agenda'
-      preLoaderRoute: typeof AuthenticatedMiAgendaRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mi-calendario': {
-      id: '/_authenticated/mi-calendario'
-      path: '/mi-calendario'
-      fullPath: '/mi-calendario'
-      preLoaderRoute: typeof AuthenticatedMiCalendarioRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mi-casa': {
-      id: '/_authenticated/mi-casa'
-      path: '/mi-casa'
-      fullPath: '/mi-casa'
-      preLoaderRoute: typeof AuthenticatedMiCasaRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mi-negocio': {
-      id: '/_authenticated/mi-negocio'
-      path: '/mi-negocio'
-      fullPath: '/mi-negocio'
-      preLoaderRoute: typeof AuthenticatedMiNegocioRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/miembros': {
-      id: '/_authenticated/miembros'
-      path: '/miembros'
-      fullPath: '/miembros'
-      preLoaderRoute: typeof AuthenticatedMiembrosRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mis-clases-asignadas': {
-      id: '/_authenticated/mis-clases-asignadas'
-      path: '/mis-clases-asignadas'
-      fullPath: '/mis-clases-asignadas'
-      preLoaderRoute: typeof AuthenticatedMisClasesAsignadasRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mis-cuentas-bancarias': {
-      id: '/_authenticated/mis-cuentas-bancarias'
-      path: '/mis-cuentas-bancarias'
-      fullPath: '/mis-cuentas-bancarias'
-      preLoaderRoute: typeof AuthenticatedMisCuentasBancariasRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/mis-reportes': {
-      id: '/_authenticated/mis-reportes'
-      path: '/mis-reportes'
-      fullPath: '/mis-reportes'
-      preLoaderRoute: typeof AuthenticatedMisReportesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/pagos': {
-      id: '/_authenticated/pagos'
-      path: '/pagos'
-      fullPath: '/pagos'
-      preLoaderRoute: typeof AuthenticatedPagosRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/perfil': {
-      id: '/_authenticated/perfil'
-      path: '/perfil'
-      fullPath: '/perfil'
-      preLoaderRoute: typeof AuthenticatedPerfilRouteImport
+    '/_authenticated/tareas': {
+      id: '/_authenticated/tareas'
+      path: '/tareas'
+      fullPath: '/tareas'
+      preLoaderRoute: typeof AuthenticatedTareasRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/permisos': {
@@ -677,25 +530,158 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPermisosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/tareas': {
-      id: '/_authenticated/tareas'
-      path: '/tareas'
-      fullPath: '/tareas'
-      preLoaderRoute: typeof AuthenticatedTareasRouteImport
+    '/_authenticated/perfil': {
+      id: '/_authenticated/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof AuthenticatedPerfilRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/comunidad/': {
-      id: '/_authenticated/comunidad/'
-      path: '/comunidad'
-      fullPath: '/comunidad/'
-      preLoaderRoute: typeof AuthenticatedComunidadIndexRouteImport
+    '/_authenticated/pagos': {
+      id: '/_authenticated/pagos'
+      path: '/pagos'
+      fullPath: '/pagos'
+      preLoaderRoute: typeof AuthenticatedPagosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/comunidad/$postId': {
-      id: '/_authenticated/comunidad/$postId'
-      path: '/comunidad/$postId'
-      fullPath: '/comunidad/$postId'
-      preLoaderRoute: typeof AuthenticatedComunidadPostIdRouteImport
+    '/_authenticated/mis-reportes': {
+      id: '/_authenticated/mis-reportes'
+      path: '/mis-reportes'
+      fullPath: '/mis-reportes'
+      preLoaderRoute: typeof AuthenticatedMisReportesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mis-cuentas-bancarias': {
+      id: '/_authenticated/mis-cuentas-bancarias'
+      path: '/mis-cuentas-bancarias'
+      fullPath: '/mis-cuentas-bancarias'
+      preLoaderRoute: typeof AuthenticatedMisCuentasBancariasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mis-clases-asignadas': {
+      id: '/_authenticated/mis-clases-asignadas'
+      path: '/mis-clases-asignadas'
+      fullPath: '/mis-clases-asignadas'
+      preLoaderRoute: typeof AuthenticatedMisClasesAsignadasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/miembros': {
+      id: '/_authenticated/miembros'
+      path: '/miembros'
+      fullPath: '/miembros'
+      preLoaderRoute: typeof AuthenticatedMiembrosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-negocio': {
+      id: '/_authenticated/mi-negocio'
+      path: '/mi-negocio'
+      fullPath: '/mi-negocio'
+      preLoaderRoute: typeof AuthenticatedMiNegocioRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-casa': {
+      id: '/_authenticated/mi-casa'
+      path: '/mi-casa'
+      fullPath: '/mi-casa'
+      preLoaderRoute: typeof AuthenticatedMiCasaRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-calendario': {
+      id: '/_authenticated/mi-calendario'
+      path: '/mi-calendario'
+      fullPath: '/mi-calendario'
+      preLoaderRoute: typeof AuthenticatedMiCalendarioRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mi-agenda': {
+      id: '/_authenticated/mi-agenda'
+      path: '/mi-agenda'
+      fullPath: '/mi-agenda'
+      preLoaderRoute: typeof AuthenticatedMiAgendaRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inicio': {
+      id: '/_authenticated/inicio'
+      path: '/inicio'
+      fullPath: '/inicio'
+      preLoaderRoute: typeof AuthenticatedInicioRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/datos-pago': {
+      id: '/_authenticated/datos-pago'
+      path: '/datos-pago'
+      fullPath: '/datos-pago'
+      preLoaderRoute: typeof AuthenticatedDatosPagoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/cursos-y-clases-equipo': {
+      id: '/_authenticated/cursos-y-clases-equipo'
+      path: '/cursos-y-clases-equipo'
+      fullPath: '/cursos-y-clases-equipo'
+      preLoaderRoute: typeof AuthenticatedCursosYClasesEquipoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/clases-en-vivo': {
+      id: '/_authenticated/clases-en-vivo'
+      path: '/clases-en-vivo'
+      fullPath: '/clases-en-vivo'
+      preLoaderRoute: typeof AuthenticatedClasesEnVivoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/chats': {
+      id: '/_authenticated/chats'
+      path: '/chats'
+      fullPath: '/chats'
+      preLoaderRoute: typeof AuthenticatedChatsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/chat-profesores': {
+      id: '/_authenticated/chat-profesores'
+      path: '/chat-profesores'
+      fullPath: '/chat-profesores'
+      preLoaderRoute: typeof AuthenticatedChatProfesoresRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/calendario-clases': {
+      id: '/_authenticated/calendario-clases'
+      path: '/calendario-clases'
+      fullPath: '/calendario-clases'
+      preLoaderRoute: typeof AuthenticatedCalendarioClasesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/bonos': {
+      id: '/_authenticated/bonos'
+      path: '/bonos'
+      fullPath: '/bonos'
+      preLoaderRoute: typeof AuthenticatedBonosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/agenda-1a1': {
+      id: '/_authenticated/agenda-1a1'
+      path: '/agenda-1a1'
+      fullPath: '/agenda-1a1'
+      preLoaderRoute: typeof AuthenticatedAgenda1a1RouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/acceso-cursos': {
+      id: '/_authenticated/acceso-cursos'
+      path: '/acceso-cursos'
+      fullPath: '/acceso-cursos'
+      preLoaderRoute: typeof AuthenticatedAccesoCursosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/acceso-clases-en-vivo': {
+      id: '/_authenticated/acceso-clases-en-vivo'
+      path: '/acceso-clases-en-vivo'
+      fullPath: '/acceso-clases-en-vivo'
+      preLoaderRoute: typeof AuthenticatedAccesoClasesEnVivoRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/cursos/': {
@@ -705,11 +691,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCursosIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/cursos/$cursoId': {
-      id: '/_authenticated/cursos/$cursoId'
-      path: '/cursos/$cursoId'
-      fullPath: '/cursos/$cursoId'
-      preLoaderRoute: typeof AuthenticatedCursosCursoIdRouteImport
+    '/_authenticated/comunidad/': {
+      id: '/_authenticated/comunidad/'
+      path: '/comunidad'
+      fullPath: '/comunidad/'
+      preLoaderRoute: typeof AuthenticatedComunidadIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/zoom-webhook': {
+      id: '/api/public/zoom-webhook'
+      path: '/api/public/zoom-webhook'
+      fullPath: '/api/public/zoom-webhook'
+      preLoaderRoute: typeof ApiPublicZoomWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/pagos_/alumnas': {
+      id: '/_authenticated/pagos_/alumnas'
+      path: '/pagos/alumnas'
+      fullPath: '/pagos/alumnas'
+      preLoaderRoute: typeof AuthenticatedPagosAlumnasRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/miembro/$userId': {
@@ -719,19 +719,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMiembroUserIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/pagos_/alumnas': {
-      id: '/_authenticated/pagos_/alumnas'
-      path: '/pagos/alumnas'
-      fullPath: '/pagos/alumnas'
-      preLoaderRoute: typeof AuthenticatedPagosAlumnasRouteImport
+    '/_authenticated/cursos/$cursoId': {
+      id: '/_authenticated/cursos/$cursoId'
+      path: '/cursos/$cursoId'
+      fullPath: '/cursos/$cursoId'
+      preLoaderRoute: typeof AuthenticatedCursosCursoIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/api/public/zoom-webhook': {
-      id: '/api/public/zoom-webhook'
-      path: '/api/public/zoom-webhook'
-      fullPath: '/api/public/zoom-webhook'
-      preLoaderRoute: typeof ApiPublicZoomWebhookRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/comunidad/$postId': {
+      id: '/_authenticated/comunidad/$postId'
+      path: '/comunidad/$postId'
+      fullPath: '/comunidad/$postId'
+      preLoaderRoute: typeof AuthenticatedComunidadPostIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
