@@ -154,6 +154,7 @@ function Page() {
 
 
 type MentoriaCuenta = {
+  seleccionada: boolean;
   banco: string | null;
   tipo_cuenta: string | null;
   numero_cuenta: string | null;
@@ -202,7 +203,7 @@ function MentoriaDatosPagoPanel({ uid }: { uid?: string }) {
         const cuentaRow = (cuentaRes.data?.[0] ?? null) as MentoriaCuenta | null;
         if (!activo) return;
         setCuenta(cuentaRow);
-        setSeleccionada(Boolean(cuentaRow?.seleccionada ?? (cuentaRow as unknown as { seleccionada?: boolean })?.seleccionada));
+        setSeleccionada(Boolean(cuentaRow?.seleccionada));
         if (cuentaRow) {
           setBanco(cuentaRow.banco ?? "");
           setTipoCuenta(cuentaRow.tipo_cuenta ?? "ahorros");
