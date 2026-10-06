@@ -539,13 +539,13 @@ export function generarInformeAlumnasPDF(input: InformeAlumnaPDFInput) {
       y += 8;
       autoTable(doc, {
         startY: y + 10,
-        head: [["Fecha", "Monto", "Método", "Banco origen", "Cuenta origen", "Referencia", "Comprobante", "Observación"]],
+        head: [["Fecha", "Monto", "Método", "Banco origen", "Cuenta / titular", "Referencia", "Comprobante", "Observación"]],
         body: f.abonos.map((a) => [
           a.fecha,
-          `$${Number(a.monto).toFixed(2)}`,
+          `${Number(a.monto).toFixed(2)}`,
           a.tipo || "-",
           a.bancoOrigen || "-",
-          a.cuentaOrigen || "-",
+          [a.cuentaOrigen, a.titularOrigen ? `Tit. ${a.titularOrigen}` : null].filter(Boolean).join(" · ") || "-",
           a.referencia || a.numeroComprobante || "-",
           a.numeroComprobante || "-",
           a.observacion || "-",
