@@ -861,8 +861,10 @@ export type Database = {
           hora_inicio: string | null
           horas: number
           id: string
+          observacion_lider: string | null
           titulo: string
           usuario_id: string
+          valor: number | null
         }
         Insert: {
           archivo_nombre?: string | null
@@ -875,8 +877,10 @@ export type Database = {
           hora_inicio?: string | null
           horas?: number
           id?: string
+          observacion_lider?: string | null
           titulo: string
           usuario_id: string
+          valor?: number | null
         }
         Update: {
           archivo_nombre?: string | null
@@ -889,8 +893,10 @@ export type Database = {
           hora_inicio?: string | null
           horas?: number
           id?: string
+          observacion_lider?: string | null
           titulo?: string
           usuario_id?: string
+          valor?: number | null
         }
         Relationships: []
       }
@@ -972,6 +978,7 @@ export type Database = {
           created_at: string
           modalidad: string
           monto_fijo: number
+          tarifa_actividad: number
           tarifa_hora: number
           usuario_id: string
         }
@@ -981,6 +988,7 @@ export type Database = {
           created_at?: string
           modalidad?: string
           monto_fijo?: number
+          tarifa_actividad?: number
           tarifa_hora?: number
           usuario_id: string
         }
@@ -990,6 +998,7 @@ export type Database = {
           created_at?: string
           modalidad?: string
           monto_fijo?: number
+          tarifa_actividad?: number
           tarifa_hora?: number
           usuario_id?: string
         }
@@ -1009,6 +1018,7 @@ export type Database = {
           archivo_url: string | null
           banco: string | null
           created_at: string
+          cuenta_origen: string | null
           fecha_pago: string
           id: string
           mes: number
@@ -1017,6 +1027,7 @@ export type Database = {
           observacion: string | null
           referencia: string | null
           tipo_pago: string
+          titular_cuenta: string | null
           usuario_id: string
         }
         Insert: {
@@ -1024,6 +1035,7 @@ export type Database = {
           archivo_url?: string | null
           banco?: string | null
           created_at?: string
+          cuenta_origen?: string | null
           fecha_pago: string
           id?: string
           mes: number
@@ -1032,6 +1044,7 @@ export type Database = {
           observacion?: string | null
           referencia?: string | null
           tipo_pago: string
+          titular_cuenta?: string | null
           usuario_id: string
         }
         Update: {
@@ -1039,6 +1052,7 @@ export type Database = {
           archivo_url?: string | null
           banco?: string | null
           created_at?: string
+          cuenta_origen?: string | null
           fecha_pago?: string
           id?: string
           mes?: number
@@ -1047,6 +1061,7 @@ export type Database = {
           observacion?: string | null
           referencia?: string | null
           tipo_pago?: string
+          titular_cuenta?: string | null
           usuario_id?: string
         }
         Relationships: []
