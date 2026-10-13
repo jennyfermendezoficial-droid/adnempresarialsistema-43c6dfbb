@@ -11,7 +11,7 @@ import { listaMeses } from "@/lib/pagos-export";
 import { formatNombre } from "@/lib/nombres";
 import { generarResumenFreelance, leerComprobanteGratis } from "@/lib/freelance-ia.functions";
 
-export const Route = createFileRoute("/_authenticated/pagos/freelance")({
+export const Route = createFileRoute("/_authenticated/pagos_/freelance")({
   head: () => ({ meta: [
     { title: "Pagos freelance · ADN Empresarial" },
     { name: "description", content: "Actividades, pagos e informes mensuales de los freelancers." },
