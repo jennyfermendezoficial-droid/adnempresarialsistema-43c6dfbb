@@ -113,7 +113,7 @@ export function FreelancePanel({ embebido = false }: { embebido?: boolean }) {
     return { m, a, j, p, c: calcular(m, a, j, p) };
   }).sort((x, y) => nombre(x.m.usuario_id).localeCompare(nombre(y.m.usuario_id), "es")), [miembros, acts, ajustes, pagos, nombre]);
 
-  if (!permitido) return <div className="p-8 text-center text-muted-foreground">No tienes permiso para ver Pagos e informes.</div>;
+  if (!permitido) return embebido ? null : <div className="p-8 text-center text-muted-foreground">No tienes permiso para ver Pagos e informes.</div>;
 
   const fila = detalle ? filas.find((f) => f.m.usuario_id === detalle) : null;
   if (fila) {
