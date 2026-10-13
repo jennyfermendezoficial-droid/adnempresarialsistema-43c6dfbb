@@ -31,6 +31,7 @@ import { Route as AuthenticatedMiCalendarioRouteImport } from './routes/_authent
 import { Route as AuthenticatedMiCasaRouteImport } from './routes/_authenticated/mi-casa'
 import { Route as AuthenticatedMiNegocioRouteImport } from './routes/_authenticated/mi-negocio'
 import { Route as AuthenticatedMiembrosRouteImport } from './routes/_authenticated/miembros'
+import { Route as AuthenticatedMisActividadesFreelanceRouteImport } from './routes/_authenticated/mis-actividades-freelance'
 import { Route as AuthenticatedMisClasesAsignadasRouteImport } from './routes/_authenticated/mis-clases-asignadas'
 import { Route as AuthenticatedMisCuentasBancariasRouteImport } from './routes/_authenticated/mis-cuentas-bancarias'
 import { Route as AuthenticatedMisReportesRouteImport } from './routes/_authenticated/mis-reportes'
@@ -163,6 +164,12 @@ const AuthenticatedMiembrosRoute = AuthenticatedMiembrosRouteImport.update({
   path: '/miembros',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMisActividadesFreelanceRoute =
+  AuthenticatedMisActividadesFreelanceRouteImport.update({
+    id: '/mis-actividades-freelance',
+    path: '/mis-actividades-freelance',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMisClasesAsignadasRoute =
   AuthenticatedMisClasesAsignadasRouteImport.update({
     id: '/mis-clases-asignadas',
@@ -271,6 +278,7 @@ export interface FileRoutesByFullPath {
   '/mi-casa': typeof AuthenticatedMiCasaRoute
   '/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
+  '/mis-actividades-freelance': typeof AuthenticatedMisActividadesFreelanceRoute
   '/mis-clases-asignadas': typeof AuthenticatedMisClasesAsignadasRoute
   '/mis-cuentas-bancarias': typeof AuthenticatedMisCuentasBancariasRoute
   '/mis-reportes': typeof AuthenticatedMisReportesRoute
@@ -309,6 +317,7 @@ export interface FileRoutesByTo {
   '/mi-casa': typeof AuthenticatedMiCasaRoute
   '/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/miembros': typeof AuthenticatedMiembrosRoute
+  '/mis-actividades-freelance': typeof AuthenticatedMisActividadesFreelanceRoute
   '/mis-clases-asignadas': typeof AuthenticatedMisClasesAsignadasRoute
   '/mis-cuentas-bancarias': typeof AuthenticatedMisCuentasBancariasRoute
   '/mis-reportes': typeof AuthenticatedMisReportesRoute
@@ -349,6 +358,7 @@ export interface FileRoutesById {
   '/_authenticated/mi-casa': typeof AuthenticatedMiCasaRoute
   '/_authenticated/mi-negocio': typeof AuthenticatedMiNegocioRoute
   '/_authenticated/miembros': typeof AuthenticatedMiembrosRoute
+  '/_authenticated/mis-actividades-freelance': typeof AuthenticatedMisActividadesFreelanceRoute
   '/_authenticated/mis-clases-asignadas': typeof AuthenticatedMisClasesAsignadasRoute
   '/_authenticated/mis-cuentas-bancarias': typeof AuthenticatedMisCuentasBancariasRoute
   '/_authenticated/mis-reportes': typeof AuthenticatedMisReportesRoute
@@ -389,6 +399,7 @@ export interface FileRouteTypes {
     | '/mi-casa'
     | '/mi-negocio'
     | '/miembros'
+    | '/mis-actividades-freelance'
     | '/mis-clases-asignadas'
     | '/mis-cuentas-bancarias'
     | '/mis-reportes'
@@ -427,6 +438,7 @@ export interface FileRouteTypes {
     | '/mi-casa'
     | '/mi-negocio'
     | '/miembros'
+    | '/mis-actividades-freelance'
     | '/mis-clases-asignadas'
     | '/mis-cuentas-bancarias'
     | '/mis-reportes'
@@ -466,6 +478,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mi-casa'
     | '/_authenticated/mi-negocio'
     | '/_authenticated/miembros'
+    | '/_authenticated/mis-actividades-freelance'
     | '/_authenticated/mis-clases-asignadas'
     | '/_authenticated/mis-cuentas-bancarias'
     | '/_authenticated/mis-reportes'
@@ -648,6 +661,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMiembrosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/mis-actividades-freelance': {
+      id: '/_authenticated/mis-actividades-freelance'
+      path: '/mis-actividades-freelance'
+      fullPath: '/mis-actividades-freelance'
+      preLoaderRoute: typeof AuthenticatedMisActividadesFreelanceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/mis-clases-asignadas': {
       id: '/_authenticated/mis-clases-asignadas'
       path: '/mis-clases-asignadas'
@@ -785,6 +805,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMiCasaRoute: typeof AuthenticatedMiCasaRoute
   AuthenticatedMiNegocioRoute: typeof AuthenticatedMiNegocioRoute
   AuthenticatedMiembrosRoute: typeof AuthenticatedMiembrosRoute
+  AuthenticatedMisActividadesFreelanceRoute: typeof AuthenticatedMisActividadesFreelanceRoute
   AuthenticatedMisClasesAsignadasRoute: typeof AuthenticatedMisClasesAsignadasRoute
   AuthenticatedMisCuentasBancariasRoute: typeof AuthenticatedMisCuentasBancariasRoute
   AuthenticatedMisReportesRoute: typeof AuthenticatedMisReportesRoute
@@ -818,6 +839,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMiCasaRoute: AuthenticatedMiCasaRoute,
   AuthenticatedMiNegocioRoute: AuthenticatedMiNegocioRoute,
   AuthenticatedMiembrosRoute: AuthenticatedMiembrosRoute,
+  AuthenticatedMisActividadesFreelanceRoute:
+    AuthenticatedMisActividadesFreelanceRoute,
   AuthenticatedMisClasesAsignadasRoute: AuthenticatedMisClasesAsignadasRoute,
   AuthenticatedMisCuentasBancariasRoute: AuthenticatedMisCuentasBancariasRoute,
   AuthenticatedMisReportesRoute: AuthenticatedMisReportesRoute,
