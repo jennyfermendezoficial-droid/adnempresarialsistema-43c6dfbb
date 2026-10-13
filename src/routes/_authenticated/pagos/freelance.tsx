@@ -1,48 +1,394 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus, Upload, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowLeft, FileText, Loader2, Plus, Sparkles, Trash2, Upload, Users, X } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { puedeVerPagos } from "@/lib/roles";
+import { listaMeses } from "@/lib/pagos-export";
+import { formatNombre } from "@/lib/nombres";
+import { generarResumenFreelance, leerComprobanteGratis } from "@/lib/freelance-ia.functions";
 
-export const Route = createFileRoute("/_authenticated/pagos/freelance")({ component: Page });
-type Freelance={id:string;nombre:string;area:string;tarifa_hora:number;banco:string|null;tipo_cuenta:string|null;numero_cuenta:string|null;titular_cuenta:string|null};
-type Actividad={id:string;freelance_id:string;fecha:string;actividad:string;descripcion:string|null;horas:number;observaciones:string|null;informe_pdf_path:string|null;informe_tipo:"diario"|"semanal"};
-type Ajuste={id:string;freelance_id:string;fecha:string|null;tipo:"bonificacion"|"deduccion"|"multa"|"correccion";monto:number;motivo:string};
-const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const money=(n:number)=>`$${Number(n||0).toFixed(2)}`;
-const cls="w-full px-3 py-2 rounded-lg border bg-background text-sm";
-const today=()=>new Date().toISOString().slice(0,10);
+export const Route = createFileRoute("/_authenticated/pagos/freelance")({
+  head: () => ({ meta: [
+    { title: "Pagos freelance · ADN Empresarial" },
+    { name: "description", content: "Actividades, pagos e informes mensuales de los freelancers." },
+    { property: "og:title", content: "Pagos freelance · ADN Empresarial" },
+    { property: "og:description", content: "Actividades, pagos e informes mensuales de los freelancers." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
+  component: Page,
+});
 
-function Page(){
- const {role,session}=useAuth(); const permitido=puedeVerPagos(role,session?.user.id);
- const [items,setItems]=useState<Freelance[]>([]),[sel,setSel]=useState<Freelance|null>(null),[loading,setLoading]=useState(true),[form,setForm]=useState(false);
- const cargar=useCallback(async()=>{if(!permitido)return;setLoading(true);const r=await supabase.from("freelancers").select("*").eq("activo",true).order("nombre");if(r.error)toast.error(r.error.message);setItems((r.data as Freelance[])||[]);setLoading(false)},[permitido]);
- useEffect(()=>{void cargar()},[cargar]);
- if(!permitido)return <div className="p-8 text-center text-muted-foreground">No tienes permiso para ver Pagos e informes.</div>;
- if(sel)return <Detalle freelance={sel} onBack={()=>setSel(null)}/>;
- return <div className="p-4 md:p-6 max-w-7xl mx-auto"><div className="flex justify-between items-center mb-5"><div><h1 className="text-2xl font-bold">Freelance</h1><p className="text-sm text-muted-foreground mt-1">Trabajos, informes y pagos.</p></div><button onClick={()=>setForm(true)} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold inline-flex gap-2 items-center"><Plus className="w-4 h-4"/>Nuevo freelance</button></div>
- {loading?<div className="py-12 text-center text-muted-foreground">Cargando…</div>:items.length===0?<div className="rounded-2xl border bg-card p-10 text-center text-sm text-muted-foreground">Todavía no hay freelancers registrados.</div>:<div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">{items.map(f=><Card key={f.id} f={f} open={()=>setSel(f)}/>)}</div>}
- {form&&<FreelanceForm close={()=>setForm(false)} saved={async()=>{setForm(false);await cargar()}}/>}</div>;
+type Usuario = { id: string; nombre_completo: string | null; email: string | null; avatar_url: string | null; seleccionado: boolean };
+type Miembro = { usuario_id: string; area: string | null; modalidad: string; tarifa_hora: number; monto_fijo: number; activo: boolean };
+type Cuenta = { usuario_id: string; banco: string | null; tipo_cuenta: string | null; numero_cuenta: string | null; titular_cuenta: string | null; cedula_titular: string | null };
+type Act = { id: string; usuario_id: string; fecha: string; titulo: string; descripcion: string | null; horas: number; archivo_path: string | null; archivo_nombre: string | null };
+type Ajuste = { id: string; usuario_id: string; tipo: "bono" | "descuento"; monto: number; motivo: string };
+type Pago = { id: string; usuario_id: string; fecha_pago: string; monto: number; tipo_pago: string; numero_comprobante: string | null; banco: string | null; referencia: string | null; observacion: string | null; archivo_url: string | null };
+
+const money = (n: number) => `$${Number(n || 0).toFixed(2)}`;
+const cls = "w-full px-3 py-2 rounded-lg border bg-background text-sm";
+
+function calcular(m: Miembro, acts: Act[], aj: Ajuste[], pagos: Pago[]) {
+  const horas = acts.reduce((s, a) => s + Number(a.horas), 0);
+  const base = m.modalidad === "fijo" ? Number(m.monto_fijo) : horas * Number(m.tarifa_hora);
+  const bonos = aj.filter((x) => x.tipo === "bono").reduce((s, x) => s + Number(x.monto), 0);
+  const desc = aj.filter((x) => x.tipo === "descuento").reduce((s, x) => s + Number(x.monto), 0);
+  const total = Math.max(0, base + bonos - desc);
+  const pagado = pagos.reduce((s, p) => s + Number(p.monto), 0);
+  return { horas, base, bonos, desc, total, pagado, saldo: Math.max(0, total - pagado) };
 }
-function Card({f,open}:{f:Freelance;open:()=>void}){const [pend,setPend]=useState(0);useEffect(()=>{(async()=>{const [a,j]=await Promise.all([supabase.from("freelance_actividades").select("horas").eq("freelance_id",f.id),supabase.from("freelance_ajustes").select("tipo,monto").eq("freelance_id",f.id)]);const gen=(a.data||[]).reduce((s,x)=>s+Number(x.horas)*Number(f.tarifa_hora),0);const aj=(j.data||[]).reduce((s,x)=>s+(x.tipo==="bonificacion"?1:-1)*Number(x.monto),0);setPend(Math.max(0,gen+aj))})()},[f]);return <div className="rounded-2xl border bg-card p-5"><div className="font-semibold text-lg">{f.nombre}</div><div className="text-sm text-muted-foreground mt-1">Área: {f.area||"Sin área"}</div><div className="mt-4 text-sm">Tarifa: <b>{money(f.tarifa_hora)}/hora</b></div><div className="mt-1 text-sm">Pendiente de pago: <b>{money(pend)}</b></div><button onClick={open} className="mt-4 w-full px-3 py-2 rounded-lg border text-sm font-semibold">Ver informes</button></div>}
-function FreelanceForm({close,saved}:{close:()=>void;saved:()=>Promise<void>}){const [v,setV]=useState({nombre:"",area:"",tarifa:"",banco:"",tipo:"",numero:"",titular:""});const [busy,setBusy]=useState(false);const save=async()=>{if(!v.nombre.trim())return toast.error("Escribe el nombre.");setBusy(true);const r=await supabase.from("freelancers").insert({nombre:v.nombre.trim(),area:v.area.trim(),tarifa_hora:Number(v.tarifa||0),banco:v.banco||null,tipo_cuenta:v.tipo||null,numero_cuenta:v.numero||null,titular_cuenta:v.titular||null});setBusy(false);if(r.error)return toast.error(r.error.message);toast.success("Freelance creado");await saved()};return <Modal title="Nuevo freelance" close={close}><div className="p-5 grid md:grid-cols-2 gap-3">{(["nombre","area","tarifa","banco","tipo","numero","titular"] as const).map(k=><Field key={k} label={{nombre:"Nombre",area:"Área de trabajo",tarifa:"Tarifa ($/hora)",banco:"Banco",tipo:"Tipo de cuenta",numero:"Número de cuenta",titular:"Titular"}[k]}><input type={k==="tarifa"?"number":"text"} value={v[k]} onChange={e=>setV({...v,[k]:e.target.value})} className={cls}/></Field>)}</div><Foot close={close} save={save} busy={busy}/></Modal>}
-function Detalle({freelance:f,onBack}:{freelance:Freelance;onBack:()=>void}){const [cursor,setCursor]=useState(new Date()),[acts,setActs]=useState<Actividad[]>([]),[aj,setAj]=useState<Ajuste[]>([]),[day,setDay]=useState<string|null>(null),[ajOpen,setAjOpen]=useState(false);
- const start=new Date(cursor.getFullYear(),cursor.getMonth(),1),end=new Date(cursor.getFullYear(),cursor.getMonth()+1,0);
- const load=useCallback(async()=>{const ini=start.toISOString().slice(0,10),fin=end.toISOString().slice(0,10);const [a,j]=await Promise.all([supabase.from("freelance_actividades").select("*").eq("freelance_id",f.id).gte("fecha",ini).lte("fecha",fin).order("fecha"),supabase.from("freelance_ajustes").select("*").eq("freelance_id",f.id).gte("fecha",ini).lte("fecha",fin)]);if(a.error||j.error)toast.error((a.error||j.error)?.message||"No se pudo cargar");setActs((a.data as Actividad[])||[]);setAj((j.data as Ajuste[])||[])},[f.id,cursor]);
- useEffect(()=>{void load()},[load]); const horas=acts.reduce((s,a)=>s+Number(a.horas),0),generado=horas*Number(f.tarifa_hora),bon=aj.filter(x=>x.tipo==="bonificacion").reduce((s,x)=>s+Number(x.monto),0),ded=aj.filter(x=>x.tipo!=="bonificacion").reduce((s,x)=>s+Number(x.monto),0),total=Math.max(0,generado+bon-ded);
- const first=(start.getDay()+6)%7; const days=Array.from({length:end.getDate()},(_,i)=>i+1);
- return <div className="p-4 md:p-6 max-w-7xl mx-auto"><button onClick={onBack} className="mb-4 inline-flex gap-2 items-center text-sm text-muted-foreground"><ArrowLeft className="w-4 h-4"/>Volver a Freelance</button>
- <div className="rounded-2xl border bg-card p-5 mb-4"><div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-2xl font-bold">{f.nombre}</h1><div className="text-sm text-muted-foreground">{f.area} · {money(f.tarifa_hora)}/hora</div></div><div className="text-right"><div className="text-xs text-muted-foreground">Total a pagar</div><div className="text-2xl font-bold">{money(total)}</div></div></div><div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4"><Kpi l="Horas" v={horas.toFixed(2)}/><Kpi l="Generado" v={money(generado)}/><Kpi l="Bonificaciones" v={money(bon)}/><Kpi l="Deducciones" v={money(ded)}/></div></div>
- <div className="rounded-2xl border bg-card overflow-hidden"><div className="px-5 py-4 border-b flex justify-between items-center"><div><b>{MESES[cursor.getMonth()]} {cursor.getFullYear()}</b><div className="text-xs text-muted-foreground">Calendario de trabajo</div></div><div className="flex gap-1"><button className="p-2 rounded-lg border" onClick={()=>setCursor(new Date(cursor.getFullYear(),cursor.getMonth()-1,1))}><ChevronLeft className="w-4 h-4"/></button><button className="p-2 rounded-lg border" onClick={()=>setCursor(new Date(cursor.getFullYear(),cursor.getMonth()+1,1))}><ChevronRight className="w-4 h-4"/></button></div></div><div className="grid grid-cols-7 text-[10px] uppercase text-muted-foreground border-b">{["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map(x=><div key={x} className="p-2 text-center">{x}</div>)}</div><div className="grid grid-cols-7">{Array.from({length:first}).map((_,i)=><div key={"e"+i} className="min-h-28 border-r border-b bg-muted/10"/>)}{days.map(d=>{const iso=`${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`,rows=acts.filter(a=>a.fecha===iso);return <button key={iso} onClick={()=>setDay(iso)} className="min-h-28 border-r border-b p-2 text-left hover:bg-muted/20"><div className="text-xs font-semibold">{d}</div>{rows.slice(0,3).map(a=><div key={a.id} className="mt-1 rounded-md bg-muted px-1.5 py-1 text-[10px] truncate">{a.actividad} · {a.horas}h</div>)}</button>})}</div></div>
- <div className="mt-4 rounded-2xl border bg-card p-5"><div className="font-semibold mb-3">Datos bancarios</div><div className="grid md:grid-cols-4 gap-3 text-sm"><Info l="Banco" v={f.banco}/><Info l="Tipo" v={f.tipo_cuenta}/><Info l="Número" v={f.numero_cuenta}/><Info l="Titular" v={f.titular_cuenta}/></div></div>
- <div className="mt-4 rounded-2xl border bg-card p-5"><div className="flex justify-between items-center mb-3"><b>Ajustes de pago</b><button onClick={()=>setAjOpen(true)} className="px-3 py-1.5 rounded-lg border text-xs font-semibold">Agregar ajuste</button></div>{aj.length===0?<div className="text-sm text-muted-foreground">Sin ajustes en este mes.</div>:<div className="space-y-2">{aj.map(x=><div key={x.id} className="flex justify-between border rounded-lg p-3 text-sm"><span>{x.tipo} · {x.motivo}</span><b>{x.tipo==="bonificacion"?"+":"-"}{money(x.monto)}</b></div>)}</div>}</div>
- {day&&<ActividadModal f={f} fecha={day} close={()=>setDay(null)} saved={async()=>{setDay(null);await load()}}/>}{ajOpen&&<AjusteModal f={f} close={()=>setAjOpen(false)} saved={async()=>{setAjOpen(false);await load()}}/>}</div>}
-function ActividadModal({f,fecha,close,saved}:{f:Freelance;fecha:string;close:()=>void;saved:()=>Promise<void>}){const [v,setV]=useState({actividad:"",descripcion:"",horas:"",observaciones:"",tipo:"diario" as "diario"|"semanal"}),[file,setFile]=useState<File|null>(null),[busy,setBusy]=useState(false);const input=useRef<HTMLInputElement>(null);const save=async()=>{if(!v.actividad.trim())return toast.error("Escribe la actividad.");setBusy(true);let path:string|null=null;if(file){if(file.type!=="application/pdf"){setBusy(false);return toast.error("El informe debe ser PDF.");}path=`${f.nombre.replace(/[^a-zA-Z0-9_-]+/g,"_")}/${fecha}-${Date.now()}.pdf`;const u=await supabase.storage.from("freelance-informes").upload(path,file,{contentType:"application/pdf",upsert:false});if(u.error){setBusy(false);return toast.error(u.error.message)}}const r=await supabase.from("freelance_actividades").insert({freelance_id:f.id,fecha,actividad:v.actividad.trim(),descripcion:v.descripcion.trim()||null,horas:Number(v.horas||0),observaciones:v.observaciones.trim()||null,informe_pdf_path:path,informe_tipo:v.tipo});setBusy(false);if(r.error)return toast.error(r.error.message);toast.success("Actividad guardada");await saved()};return <Modal title={`Actividad · ${fecha}`} close={close}><div className="p-5 space-y-3"><Field label="Actividad"><input value={v.actividad} onChange={e=>setV({...v,actividad:e.target.value})} className={cls}/></Field><Field label="Descripción"><textarea rows={3} value={v.descripcion} onChange={e=>setV({...v,descripcion:e.target.value})} className={cls}/></Field><div className="grid grid-cols-2 gap-3"><Field label="Horas trabajadas"><input type="number" min="0" step="0.25" value={v.horas} onChange={e=>setV({...v,horas:e.target.value})} className={cls}/></Field><Field label="Informe"><select value={v.tipo} onChange={e=>setV({...v,tipo:e.target.value as "diario"|"semanal"})} className={cls}><option value="diario">Diario</option><option value="semanal">Semanal</option></select></Field></div><Field label="Observaciones"><textarea rows={2} value={v.observaciones} onChange={e=>setV({...v,observaciones:e.target.value})} className={cls}/></Field><div><button type="button" onClick={()=>input.current?.click()} className="px-3 py-2 rounded-lg border text-sm inline-flex gap-2 items-center"><Upload className="w-4 h-4"/>{file?file.name:"Subir informe PDF"}</button><input ref={input} type="file" accept="application/pdf,.pdf" className="hidden" onChange={e=>setFile(e.target.files?.[0]||null)}/></div></div><Foot close={close} save={save} busy={busy}/></Modal>}
-function AjusteModal({f,close,saved}:{f:Freelance;close:()=>void;saved:()=>Promise<void>}){const [v,setV]=useState({tipo:"bonificacion",monto:"",motivo:""}),[busy,setBusy]=useState(false);const save=async()=>{if(Number(v.monto)<=0||!v.motivo.trim())return toast.error("Completa monto y motivo.");setBusy(true);const r=await supabase.from("freelance_ajustes").insert({freelance_id:f.id,fecha:today(),tipo:v.tipo,monto:Number(v.monto),motivo:v.motivo.trim()});setBusy(false);if(r.error)return toast.error(r.error.message);toast.success("Ajuste guardado");await saved()};return <Modal title="Ajuste de pago" close={close}><div className="p-5 space-y-3"><Field label="Tipo"><select value={v.tipo} onChange={e=>setV({...v,tipo:e.target.value})} className={cls}><option value="bonificacion">Bonificación</option><option value="deduccion">Deducción</option><option value="multa">Multa</option><option value="correccion">Corrección de pago</option></select></Field><Field label="Monto"><input type="number" min="0" step="0.01" value={v.monto} onChange={e=>setV({...v,monto:e.target.value})} className={cls}/></Field><Field label="Motivo"><textarea rows={3} value={v.motivo} onChange={e=>setV({...v,motivo:e.target.value})} className={cls}/></Field></div><Foot close={close} save={save} busy={busy}/></Modal>}
-function Modal({title,close,children}:{title:string;close:()=>void;children:ReactNode}){return <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-3 overflow-y-auto" onMouseDown={e=>{if(e.target===e.currentTarget)close()}}><div className="w-full max-w-2xl rounded-2xl bg-card border shadow-xl"><div className="px-5 py-3 bg-violet-gradient text-white rounded-t-2xl flex justify-between items-center"><b>{title}</b><button onClick={close}><X className="w-5 h-5"/></button></div>{children}</div></div>}
-function Foot({close,save,busy}:{close:()=>void;save:()=>void;busy:boolean}){return <div className="px-5 pb-5 flex justify-end gap-2"><button onClick={close} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button><button disabled={busy} onClick={save} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold">{busy?"Guardando…":"Guardar"}</button></div>}
-function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="block"><span className="block text-[11px] font-semibold text-muted-foreground mb-1">{label}</span>{children}</label>}
-function Kpi({l,v}:{l:string;v:string}){return <div className="rounded-xl border p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{l}</div><div className="font-bold mt-1 tabular-nums">{v}</div></div>}
-function Info({l,v}:{l:string;v:string|null}){return <div><div className="text-[10px] uppercase text-muted-foreground">{l}</div><div className="font-medium mt-1 break-all">{v||"No registrado"}</div></div>}
+
+function Page() {
+  const { role, session } = useAuth();
+  const permitido = puedeVerPagos(role, session?.user.id);
+  const hoy = new Date();
+  const [mes, setMes] = useState(hoy.getMonth() + 1);
+  const [anio, setAnio] = useState(hoy.getFullYear());
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [miembros, setMiembros] = useState<Miembro[]>([]);
+  const [cuentas, setCuentas] = useState<Record<string, Cuenta>>({});
+  const [acts, setActs] = useState<Act[]>([]);
+  const [ajustes, setAjustes] = useState<Ajuste[]>([]);
+  const [pagos, setPagos] = useState<Pago[]>([]);
+  const [resumenes, setResumenes] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [selOpen, setSelOpen] = useState(false);
+  const [detalle, setDetalle] = useState<string | null>(null);
+
+  const cargar = useCallback(async () => {
+    if (!permitido) return;
+    setLoading(true);
+    const ini = `${anio}-${String(mes).padStart(2, "0")}-01`;
+    const fin = new Date(anio, mes, 0).toISOString().slice(0, 10);
+    const [u, m, c, a, j, p, r] = await Promise.all([
+      supabase.rpc("listar_usuarios_freelance"),
+      supabase.from("freelance_miembros").select("*").eq("activo", true),
+      supabase.from("freelance_datos_pago").select("*"),
+      supabase.from("freelance_actividades").select("*").gte("fecha", ini).lte("fecha", fin).order("fecha"),
+      supabase.from("freelance_ajustes").select("*").eq("mes", mes).eq("anio", anio),
+      supabase.from("freelance_pagos").select("*").eq("mes", mes).eq("anio", anio).order("fecha_pago", { ascending: false }),
+      supabase.from("freelance_resumenes").select("*").eq("mes", mes).eq("anio", anio),
+    ]);
+    const err = u.error || m.error || a.error;
+    if (err) toast.error(err.message);
+    setUsuarios((u.data ?? []) as Usuario[]);
+    setMiembros((m.data ?? []) as Miembro[]);
+    const cm: Record<string, Cuenta> = {}; (c.data ?? []).forEach((x) => { cm[x.usuario_id] = x as Cuenta; }); setCuentas(cm);
+    setActs((a.data ?? []) as Act[]); setAjustes((j.data ?? []) as Ajuste[]); setPagos((p.data ?? []) as Pago[]);
+    const rm: Record<string, string> = {}; (r.data ?? []).forEach((x) => { rm[x.usuario_id] = x.resumen; }); setResumenes(rm);
+    setLoading(false);
+  }, [permitido, mes, anio]);
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  const nombre = useCallback((id: string) => {
+    const u = usuarios.find((x) => x.id === id);
+    return formatNombre(u?.nombre_completo) || u?.email || "Freelance";
+  }, [usuarios]);
+
+  const filas = useMemo(() => miembros.map((m) => {
+    const a = acts.filter((x) => x.usuario_id === m.usuario_id);
+    const j = ajustes.filter((x) => x.usuario_id === m.usuario_id);
+    const p = pagos.filter((x) => x.usuario_id === m.usuario_id);
+    return { m, a, j, p, c: calcular(m, a, j, p) };
+  }).sort((x, y) => nombre(x.m.usuario_id).localeCompare(nombre(y.m.usuario_id), "es")), [miembros, acts, ajustes, pagos, nombre]);
+
+  if (!permitido) return <div className="p-8 text-center text-muted-foreground">No tienes permiso para ver Pagos e informes.</div>;
+
+  const fila = detalle ? filas.find((f) => f.m.usuario_id === detalle) : null;
+  if (fila) {
+    return <Detalle fila={fila} nombre={nombre(fila.m.usuario_id)} cuenta={cuentas[fila.m.usuario_id]} resumen={resumenes[fila.m.usuario_id]} mes={mes} anio={anio} onBack={() => setDetalle(null)} recargar={cargar} />;
+  }
+
+  const tot = filas.reduce((s, f) => ({ total: s.total + f.c.total, pagado: s.pagado + f.c.pagado, saldo: s.saldo + f.c.saldo }), { total: 0, pagado: 0, saldo: 0 });
+
+  return (
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
+        <div><h1 className="text-2xl font-bold">Pagos e informes · Freelance</h1><p className="text-sm text-muted-foreground mt-1">Actividades, bonos, descuentos y pagos de cada freelance.</p></div>
+        <div className="flex gap-2">
+          <select value={`${anio}-${mes}`} onChange={(e) => { const [a, m] = e.target.value.split("-").map(Number); setAnio(a); setMes(m); }} className="px-3 py-2 rounded-lg border bg-card text-sm">
+            {listaMeses().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <button onClick={() => setSelOpen(true)} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold inline-flex gap-2 items-center"><Users className="w-4 h-4" />Seleccionar freelancers</button>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3 mb-5"><Kpi l="Total del mes" v={money(tot.total)} /><Kpi l="Pagado" v={money(tot.pagado)} /><Kpi l="Saldo pendiente" v={money(tot.saldo)} /></div>
+      {loading ? <div className="py-12 text-center text-muted-foreground">Cargando…</div> : filas.length === 0 ? (
+        <div className="rounded-2xl border bg-card p-10 text-center text-sm text-muted-foreground">Aún no hay freelancers. Usa "Seleccionar freelancers".</div>
+      ) : (
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filas.map((f) => (
+            <div key={f.m.usuario_id} className="rounded-2xl border bg-card p-5">
+              <div className="font-semibold text-lg">{nombre(f.m.usuario_id)}</div>
+              <div className="text-sm text-muted-foreground">{f.m.area || "Sin área"} · {f.m.modalidad === "fijo" ? `${money(f.m.monto_fijo)} fijo/mes` : `${money(f.m.tarifa_hora)}/hora`}</div>
+              <div className="grid grid-cols-3 gap-2 mt-3 text-xs"><Mini l="Horas" v={f.c.horas.toFixed(2)} /><Mini l="Total" v={money(f.c.total)} /><Mini l="Saldo" v={money(f.c.saldo)} /></div>
+              <div className="text-xs mt-2">{cuentas[f.m.usuario_id]?.numero_cuenta ? <span className="text-emerald-600">Cuenta bancaria registrada</span> : <span className="text-amber-600">Cuenta bancaria pendiente</span>} · {f.a.length} actividades</div>
+              <button onClick={() => setDetalle(f.m.usuario_id)} className="mt-4 w-full px-3 py-2 rounded-lg border text-sm font-semibold">Abrir</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {selOpen && <SeleccionModal usuarios={usuarios} close={() => setSelOpen(false)} saved={cargar} />}
+    </div>
+  );
+}
+
+function SeleccionModal({ usuarios, close, saved }: { usuarios: Usuario[]; close: () => void; saved: () => Promise<void> }) {
+  const [q, setQ] = useState("");
+  const toggle = async (u: Usuario) => {
+    const { error } = u.seleccionado
+      ? await supabase.from("freelance_miembros").update({ activo: false }).eq("usuario_id", u.id)
+      : await supabase.from("freelance_miembros").upsert({ usuario_id: u.id, activo: true });
+    if (error) return toast.error(error.message);
+    await saved();
+  };
+  const lista = usuarios.filter((u) => `${u.nombre_completo} ${u.email}`.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <Modal title="Seleccionar freelancers" close={close}>
+      <div className="p-5 space-y-3">
+        <input placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} className={cls} />
+        <div className="max-h-[60vh] overflow-y-auto divide-y border rounded-xl">
+          {lista.map((u) => (
+            <label key={u.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm cursor-pointer">
+              <span><b>{formatNombre(u.nombre_completo) || u.email}</b><span className="block text-xs text-muted-foreground">{u.email}</span></span>
+              <input type="checkbox" checked={u.seleccionado} onChange={() => toggle(u)} />
+            </label>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+type FilaF = { m: Miembro; a: Act[]; j: Ajuste[]; p: Pago[]; c: ReturnType<typeof calcular> };
+
+function Detalle({ fila, nombre, cuenta, resumen, mes, anio, onBack, recargar }: {
+  fila: FilaF; nombre: string; cuenta?: Cuenta; resumen?: string; mes: number; anio: number; onBack: () => void; recargar: () => Promise<void>;
+}) {
+  const { m, a, j, p, c } = fila;
+  const [tarifa, setTarifa] = useState({ area: m.area ?? "", modalidad: m.modalidad, tarifa: String(m.tarifa_hora), fijo: String(m.monto_fijo) });
+  const [ajOpen, setAjOpen] = useState(false);
+  const [pagoOpen, setPagoOpen] = useState(false);
+  const [iaBusy, setIaBusy] = useState(false);
+  const resumir = useServerFn(generarResumenFreelance);
+
+  const guardarTarifa = async () => {
+    const { error } = await supabase.from("freelance_miembros").update({
+      area: tarifa.area.trim() || null, modalidad: tarifa.modalidad, tarifa_hora: Number(tarifa.tarifa || 0), monto_fijo: Number(tarifa.fijo || 0),
+    }).eq("usuario_id", m.usuario_id);
+    if (error) return toast.error(error.message);
+    toast.success("Valor acordado guardado"); await recargar();
+  };
+  const ver = async (path: string) => {
+    const { data } = await supabase.storage.from("freelance").createSignedUrl(path, 3600);
+    if (data) window.open(data.signedUrl, "_blank", "noreferrer");
+  };
+  const generarIA = async () => {
+    setIaBusy(true);
+    try { await resumir({ data: { usuario_id: m.usuario_id, mes, anio } }); toast.success("Resumen generado"); await recargar(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo generar el resumen"); }
+    finally { setIaBusy(false); }
+  };
+  const borrar = async (tabla: "freelance_ajustes" | "freelance_pagos", id: string) => {
+    if (!confirm("¿Borrar este registro?")) return;
+    await supabase.from(tabla).delete().eq("id", id); await recargar();
+  };
+
+  const pdf = () => {
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    let y = 50; const W = doc.internal.pageSize.getWidth();
+    const line = (t: string, bold = false, size = 10) => {
+      doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size);
+      doc.splitTextToSize(t, W - 80).forEach((l: string) => { if (y > 790) { doc.addPage(); y = 50; } doc.text(l, 40, y); y += size + 4; });
+    };
+    line("ADN Empresarial · Informe freelance", true, 16);
+    line(`${nombre} · ${String(mes).padStart(2, "0")}/${anio}`, true, 12); y += 6;
+    line(`Área: ${m.area || "—"}   Modalidad: ${m.modalidad === "fijo" ? `Fijo ${money(m.monto_fijo)}` : `${money(m.tarifa_hora)}/hora`}`);
+    line(`Cuenta: ${cuenta ? `${cuenta.banco ?? ""} · ${cuenta.tipo_cuenta ?? ""} · ${cuenta.numero_cuenta ?? ""} · ${cuenta.titular_cuenta ?? ""}` : "No registrada"}`); y += 6;
+    line(`Horas: ${c.horas.toFixed(2)}   Base: ${money(c.base)}   Bonos: ${money(c.bonos)}   Descuentos: ${money(c.desc)}`, true);
+    line(`Total: ${money(c.total)}   Pagado: ${money(c.pagado)}   Saldo: ${money(c.saldo)}`, true); y += 8;
+    if (resumen) { line("Lo importante del mes", true, 12); line(resumen); y += 8; }
+    line("Actividades", true, 12); a.forEach((x) => line(`${x.fecha} · ${x.titulo} · ${x.horas} h${x.descripcion ? ` — ${x.descripcion}` : ""}`)); if (!a.length) line("Sin actividades.");
+    y += 6; line("Bonos y descuentos", true, 12); j.forEach((x) => line(`${x.tipo === "bono" ? "+" : "-"}${money(x.monto)} · ${x.motivo}`)); if (!j.length) line("Ninguno.");
+    y += 6; line("Pagos", true, 12); p.forEach((x) => line(`${x.fecha_pago} · ${money(x.monto)} · ${x.tipo_pago} · ${x.banco ?? ""} · N° ${x.numero_comprobante ?? "—"} · Ref ${x.referencia ?? "—"}`)); if (!p.length) line("Sin pagos.");
+    doc.save(`informe-freelance-${nombre.replace(/\s+/g, "_")}-${anio}-${mes}.pdf`);
+  };
+
+  return (
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
+      <button onClick={onBack} className="inline-flex gap-2 items-center text-sm text-muted-foreground"><ArrowLeft className="w-4 h-4" />Volver a Freelance</button>
+      <div className="rounded-2xl border bg-card p-5">
+        <div className="flex flex-wrap justify-between gap-3">
+          <div><h1 className="text-2xl font-bold">{nombre}</h1><div className="text-sm text-muted-foreground">{String(mes).padStart(2, "0")}/{anio}</div></div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setAjOpen(true)} className="px-3 py-2 rounded-lg border text-sm font-semibold inline-flex gap-2 items-center"><Plus className="w-4 h-4" />Bono / descuento</button>
+            <button onClick={() => setPagoOpen(true)} className="px-3 py-2 rounded-lg border text-sm font-semibold inline-flex gap-2 items-center"><Plus className="w-4 h-4" />Registrar pago</button>
+            <button onClick={pdf} className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold inline-flex gap-2 items-center"><FileText className="w-4 h-4" />Informe PDF</button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mt-4">
+          <Kpi l="Horas" v={c.horas.toFixed(2)} /><Kpi l="Base" v={money(c.base)} /><Kpi l="Bonos" v={money(c.bonos)} /><Kpi l="Descuentos" v={money(c.desc)} /><Kpi l="Pagado" v={money(c.pagado)} /><Kpi l="Saldo" v={money(c.saldo)} />
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="rounded-2xl border bg-card p-5 space-y-3">
+          <b>Valor acordado</b>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Área"><input value={tarifa.area} onChange={(e) => setTarifa({ ...tarifa, area: e.target.value })} className={cls} /></Field>
+            <Field label="Modalidad"><select value={tarifa.modalidad} onChange={(e) => setTarifa({ ...tarifa, modalidad: e.target.value })} className={cls}><option value="hora">Por hora</option><option value="fijo">Monto fijo mensual</option></select></Field>
+            {tarifa.modalidad === "hora"
+              ? <Field label="Valor por hora ($)"><input type="number" min="0" step="0.01" value={tarifa.tarifa} onChange={(e) => setTarifa({ ...tarifa, tarifa: e.target.value })} className={cls} /></Field>
+              : <Field label="Monto fijo ($)"><input type="number" min="0" step="0.01" value={tarifa.fijo} onChange={(e) => setTarifa({ ...tarifa, fijo: e.target.value })} className={cls} /></Field>}
+          </div>
+          <button onClick={guardarTarifa} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold">Guardar</button>
+        </div>
+        <div className="rounded-2xl border bg-card p-5">
+          <b>Datos bancarios</b>
+          {cuenta?.numero_cuenta ? (
+            <div className="grid grid-cols-2 gap-3 text-sm mt-3"><Info l="Banco" v={cuenta.banco} /><Info l="Tipo" v={cuenta.tipo_cuenta} /><Info l="Número" v={cuenta.numero_cuenta} /><Info l="Titular" v={cuenta.titular_cuenta} /><Info l="Cédula" v={cuenta.cedula_titular} /></div>
+          ) : <div className="text-sm text-amber-600 mt-3">El freelance aún no registra su cuenta (se le pide al entrar).</div>}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-card p-5">
+        <div className="flex justify-between items-center mb-2">
+          <b>Lo importante del mes (resumen con IA gratuita)</b>
+          <button disabled={iaBusy} onClick={generarIA} className="px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex gap-2 items-center">{iaBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}{resumen ? "Regenerar" : "Generar resumen"}</button>
+        </div>
+        <div className="text-sm whitespace-pre-wrap text-muted-foreground">{resumen || "Aún no hay resumen. Se genera leyendo las actividades y PDFs del mes."}</div>
+      </div>
+
+      <Lista titulo={`Actividades (${a.length})`}>
+        {a.map((x) => (
+          <div key={x.id} className="px-5 py-3 border-t flex justify-between gap-3 text-sm">
+            <div><b>{x.titulo}</b> · {x.horas} h<div className="text-xs text-muted-foreground">{x.fecha}{x.descripcion ? ` · ${x.descripcion}` : ""}</div></div>
+            {x.archivo_path && <button onClick={() => ver(x.archivo_path!)} className="text-xs font-semibold underline shrink-0">Ver archivo</button>}
+          </div>
+        ))}
+      </Lista>
+      <Lista titulo="Bonos y descuentos">
+        {j.map((x) => (
+          <div key={x.id} className="px-5 py-3 border-t flex justify-between text-sm">
+            <span>{x.tipo === "bono" ? "Bono" : "Descuento"} · {x.motivo}</span>
+            <span className="flex gap-3 items-center"><b className={x.tipo === "bono" ? "text-emerald-600" : "text-red-600"}>{x.tipo === "bono" ? "+" : "-"}{money(x.monto)}</b><button onClick={() => borrar("freelance_ajustes", x.id)}><Trash2 className="w-4 h-4" /></button></span>
+          </div>
+        ))}
+      </Lista>
+      <Lista titulo="Pagos realizados">
+        {p.map((x) => (
+          <div key={x.id} className="px-5 py-3 border-t flex justify-between gap-3 text-sm">
+            <span>{x.fecha_pago} · {x.tipo_pago} · {x.banco ?? "—"} · N° {x.numero_comprobante ?? "—"} · Ref {x.referencia ?? "—"}</span>
+            <span className="flex gap-3 items-center"><b>{money(x.monto)}</b>{x.archivo_url && <a href={x.archivo_url} target="_blank" rel="noreferrer" className="text-xs underline">Ver</a>}<button onClick={() => borrar("freelance_pagos", x.id)}><Trash2 className="w-4 h-4" /></button></span>
+          </div>
+        ))}
+      </Lista>
+
+      {ajOpen && <AjusteModal uid={m.usuario_id} mes={mes} anio={anio} close={() => setAjOpen(false)} saved={async () => { setAjOpen(false); await recargar(); }} />}
+      {pagoOpen && <PagoModal uid={m.usuario_id} mes={mes} anio={anio} saldo={c.saldo} close={() => setPagoOpen(false)} saved={async () => { setPagoOpen(false); await recargar(); }} />}
+    </div>
+  );
+}
+
+function AjusteModal({ uid, mes, anio, close, saved }: { uid: string; mes: number; anio: number; close: () => void; saved: () => Promise<void> }) {
+  const [v, setV] = useState({ tipo: "bono", monto: "", motivo: "" });
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    if (Number(v.monto) <= 0 || !v.motivo.trim()) return toast.error("Completa monto y motivo.");
+    setBusy(true);
+    const { error } = await supabase.from("freelance_ajustes").insert({ usuario_id: uid, mes, anio, tipo: v.tipo, monto: Number(v.monto), motivo: v.motivo.trim() });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    await saved();
+  };
+  return (
+    <Modal title="Bono o descuento" close={close}>
+      <div className="p-5 space-y-3">
+        <Field label="Tipo"><select value={v.tipo} onChange={(e) => setV({ ...v, tipo: e.target.value })} className={cls}><option value="bono">Bono</option><option value="descuento">Descuento</option></select></Field>
+        <Field label="Monto ($)"><input type="number" min="0" step="0.01" value={v.monto} onChange={(e) => setV({ ...v, monto: e.target.value })} className={cls} /></Field>
+        <Field label="Motivo (obligatorio)"><textarea rows={3} value={v.motivo} onChange={(e) => setV({ ...v, motivo: e.target.value })} className={cls} /></Field>
+      </div>
+      <Foot close={close} save={save} busy={busy} />
+    </Modal>
+  );
+}
+
+function PagoModal({ uid, mes, anio, saldo, close, saved }: { uid: string; mes: number; anio: number; saldo: number; close: () => void; saved: () => Promise<void> }) {
+  const leer = useServerFn(leerComprobanteGratis);
+  const [v, setV] = useState({ fecha: new Date().toISOString().slice(0, 10), monto: saldo ? saldo.toFixed(2) : "", tipo: "transferencia", numero: "", banco: "", referencia: "", observacion: "" });
+  const [file, setFile] = useState<File | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+
+  const cargarImagen = async (f: File) => {
+    if (!f.type.startsWith("image/")) return toast.error("Sube una imagen del comprobante.");
+    setFile(f); setLeyendo(true);
+    try {
+      const b64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(f); });
+      const d = await leer({ data: { imagenBase64: b64 } });
+      setV((x) => ({ ...x, monto: d.monto ? String(d.monto) : x.monto, fecha: d.fecha ?? x.fecha, numero: d.numero_comprobante ?? x.numero, banco: d.banco ?? x.banco, referencia: d.referencia ?? x.referencia, tipo: d.tipo_pago ?? x.tipo }));
+      toast.success("Comprobante leído");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo leer el comprobante"); }
+    finally { setLeyendo(false); }
+  };
+
+  const save = async () => {
+    if (Number(v.monto) <= 0) return toast.error("Escribe el monto.");
+    setBusy(true);
+    let url: string | null = null;
+    if (file) {
+      const path = `${uid}/pagos/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g, "_")}`;
+      const up = await supabase.storage.from("comprobantes").upload(path, file, { contentType: file.type });
+      if (!up.error) { const s = await supabase.storage.from("comprobantes").createSignedUrl(path, 60 * 60 * 24 * 365 * 5); url = s.data?.signedUrl ?? null; }
+    }
+    const { error } = await supabase.from("freelance_pagos").insert({
+      usuario_id: uid, mes, anio, fecha_pago: v.fecha, monto: Number(v.monto), tipo_pago: v.tipo,
+      numero_comprobante: v.numero || null, banco: v.banco || null, referencia: v.referencia || null, observacion: v.observacion || null, archivo_url: url,
+    });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    await saved();
+  };
+
+  return (
+    <Modal title="Registrar pago" close={close}>
+      <div className="p-5 grid sm:grid-cols-2 gap-3" onPaste={(e) => { const f = e.clipboardData.files?.[0]; if (f) void cargarImagen(f); }}>
+        <div className="sm:col-span-2">
+          <button type="button" onClick={() => ref.current?.click()} className="w-full aspect-[3/1] rounded-xl border-2 border-dashed grid place-items-center text-sm text-muted-foreground">
+            {leyendo ? <span className="inline-flex gap-2 items-center"><Loader2 className="w-4 h-4 animate-spin" />Leyendo comprobante…</span> : file ? file.name : <span className="inline-flex gap-2 items-center"><Upload className="w-4 h-4" />Sube o pega (Ctrl+V) la imagen del comprobante</span>}
+          </button>
+          <input ref={ref} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void cargarImagen(f); }} />
+        </div>
+        <Field label="Fecha"><input type="date" value={v.fecha} onChange={(e) => setV({ ...v, fecha: e.target.value })} className={cls} /></Field>
+        <Field label="Monto ($)"><input type="number" min="0" step="0.01" value={v.monto} onChange={(e) => setV({ ...v, monto: e.target.value })} className={cls} /></Field>
+        <Field label="Método"><select value={v.tipo} onChange={(e) => setV({ ...v, tipo: e.target.value })} className={cls}><option value="transferencia">Transferencia</option><option value="deposito">Depósito</option><option value="cheque">Cheque</option><option value="otro">Otro</option></select></Field>
+        <Field label="Banco"><input value={v.banco} onChange={(e) => setV({ ...v, banco: e.target.value })} className={cls} /></Field>
+        <Field label="N° comprobante"><input value={v.numero} onChange={(e) => setV({ ...v, numero: e.target.value })} className={cls} /></Field>
+        <Field label="Referencia"><input value={v.referencia} onChange={(e) => setV({ ...v, referencia: e.target.value })} className={cls} /></Field>
+        <div className="sm:col-span-2"><Field label="Observación"><input value={v.observacion} onChange={(e) => setV({ ...v, observacion: e.target.value })} className={cls} /></Field></div>
+      </div>
+      <Foot close={close} save={save} busy={busy} />
+    </Modal>
+  );
+}
+
+function Lista({ titulo, children }: { titulo: string; children: ReactNode[] }) {
+  return <div className="rounded-2xl border bg-card"><div className="px-5 py-3 font-semibold">{titulo}</div>{children.length ? children : <div className="px-5 pb-4 text-sm text-muted-foreground">Nada registrado este mes.</div>}</div>;
+}
+function Modal({ title, close, children }: { title: string; close: () => void; children: ReactNode }) {
+  return <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-3 overflow-y-auto" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}><div className="w-full max-w-2xl rounded-2xl bg-card border shadow-xl"><div className="px-5 py-3 bg-violet-gradient text-white rounded-t-2xl flex justify-between items-center"><b>{title}</b><button onClick={close}><X className="w-5 h-5" /></button></div>{children}</div></div>;
+}
+function Foot({ close, save, busy }: { close: () => void; save: () => void; busy: boolean }) {
+  return <div className="px-5 pb-5 flex justify-end gap-2"><button onClick={close} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button><button disabled={busy} onClick={save} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold">{busy ? "Guardando…" : "Guardar"}</button></div>;
+}
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return <label className="block"><span className="block text-[11px] font-semibold text-muted-foreground mb-1">{label}</span>{children}</label>;
+}
+function Kpi({ l, v }: { l: string; v: string }) { return <div className="rounded-xl border bg-card p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{l}</div><div className="font-bold mt-1 tabular-nums">{v}</div></div>; }
+function Mini({ l, v }: { l: string; v: string }) { return <div className="rounded-lg border p-2"><div className="text-[10px] text-muted-foreground">{l}</div><b className="tabular-nums">{v}</b></div>; }
+function Info({ l, v }: { l: string; v: string | null }) { return <div><div className="text-[10px] uppercase text-muted-foreground">{l}</div><div className="font-medium mt-1 break-all">{v || "No registrado"}</div></div>; }
