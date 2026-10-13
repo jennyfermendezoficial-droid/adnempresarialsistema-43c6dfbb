@@ -149,6 +149,8 @@ function Page() {
   const [gestionDe, setGestionDe] = useState<FilaAlumna | null>(null);
   const [cursos, setCursos] = useState<Record<string, CursoMentoria>>({});
   const [cursoDe, setCursoDe] = useState<FilaAlumna | null>(null);
+  const [detalleId, setDetalleId] = useState<string | null>(null);
+  const [filtroEstado, setFiltroEstado] = useState("todas");
 
   const cargar = useCallback(async () => {
     if (!puedeGestionar) {
@@ -232,9 +234,9 @@ function Page() {
 
   const filtradas = useMemo(() => {
     const q = buscar.trim().toLowerCase();
-    if (!q) return filas;
-    return filas.filter((f) => `${nombreAlumna(f)} ${f.email ?? ""}`.toLowerCase().includes(q));
-  }, [filas, buscar]);
+    return filas.filter((f) => (!q || `${nombreAlumna(f)} ${f.email ?? ""}`.toLowerCase().includes(q)) &&
+      (filtroEstado === "todas" || (filtroEstado === "cuenta" ? !f.cuenta_bancaria_completa : f.estado === filtroEstado)));
+  }, [filas, buscar, filtroEstado]);
 
   const resumen = useMemo(() => ({
     cobrar: filas.reduce((s, f) => s + f.falta, 0),
@@ -267,7 +269,7 @@ function Page() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
           <h1 className="text-xl font-semibold">Pagos e informes · Alumnas</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Solo aparecen aquí las cuentas que fueron seleccionadas como alumnas de mentoría.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{MESES[mes - 1]} {anio} · {filas.length} alumnas seleccionadas</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setSeleccionAlumnasOpen(true)} className="px-3 py-2 rounded-lg border bg-card text-sm font-semibold inline-flex items-center gap-2 hover:bg-muted/40">
@@ -327,16 +329,15 @@ function Page() {
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-        <div className="rounded-2xl p-5 text-white shadow-lg relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0F1431,#1B1F4A)" }}>
-          <div aria-hidden className="absolute -top-10 -right-10 w-40 h-40 rounded-full" style={{ background: "radial-gradient(circle, rgba(124,107,255,.5), transparent 70%)" }} />
-          <div className="text-[10px] uppercase tracking-wider opacity-70">Deuda total · {MESES[mes - 1]}</div>
+        <div className="rounded-lg p-5 bg-primary text-primary-foreground">
+          <div className="text-[10px] uppercase opacity-70">Pendiente del mes · {MESES[mes - 1]}</div>
           <div className="text-3xl font-bold mt-1 tabular-nums">{dinero(resumen.cobrar)}</div>
           <div className="text-xs opacity-80 mt-1">{resumen.pendientes} alumna{resumen.pendientes === 1 ? "" : "s"} · debe</div>
         </div>
         <KPI label="Total abonado" value={dinero(resumen.abonado)} sub="registrado en el periodo" />
         <KPI label="Alumnas que deben" value={String(resumen.pendientes)} sub={`de ${filas.length} seleccionadas`} />
         <KPI label="Alumnas al día" value={String(resumen.alDia)} sub={`de ${filas.length} seleccionadas`} />
-        <KPI label="Cuentas seleccionables" value={String(todosUsuarios.length)} sub="usuarios con rol Alumno" />
+        <KPI label="Saldo de cursos" value={dinero(filas.reduce((s, f) => s + (f.saldoCurso ?? 0), 0))} sub="pendiente de todos los cursos" />
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3 px-1">
@@ -353,6 +354,15 @@ function Page() {
             className="w-full pl-9 pr-3 py-2 rounded-lg border bg-card text-sm"
           />
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-y py-3 mb-4">
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar alumnas">
+          {[{ id: "todas", label: "Todas" }, { id: "debe", label: "Pendientes" }, { id: "pagado", label: "Al día" }, { id: "sin_total", label: "Sin valor" }, { id: "cuenta", label: "Cuenta pendiente" }].map((o) => (
+            <Button key={o.id} variant={filtroEstado === o.id ? "secondary" : "ghost"} size="sm" aria-pressed={filtroEstado === o.id} onClick={() => setFiltroEstado(o.id)}>{o.label}</Button>
+          ))}
+        </div>
+        <div className="text-xs text-muted-foreground">Cobrado este mes: <strong className="text-foreground">{resumen.abonado + resumen.cobrar > 0 ? Math.round(resumen.abonado / (resumen.abonado + resumen.cobrar) * 100) : 0}%</strong> · {filtradas.length} alumnas</div>
       </div>
 
       <div className="rounded-2xl border bg-card overflow-x-auto">
@@ -374,7 +384,7 @@ function Page() {
               <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Cargando alumnas…</td></tr>
             )}
             {!loading && filtradas.length === 0 && (
-              <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">No hay alumnas seleccionadas. Usa “Seleccionar alumnas” para agregar cuentas existentes.</td></tr>
+              <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">{filas.length ? "No hay alumnas que coincidan con esta búsqueda o filtro." : "Aún no hay alumnas seleccionadas."}</td></tr>
             )}
             {!loading && filtradas.map((f) => (
               <tr key={f.id} className="border-t hover:bg-muted/30 transition">
@@ -425,6 +435,7 @@ function Page() {
                 <td className="px-3 py-3 text-xs font-medium">{Number(f.acompanantes_count || 0)} / 2</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap justify-end gap-2 min-w-[290px]">
+                    <Button variant="secondary" size="sm" onClick={() => setDetalleId(f.id)}><Eye className="w-3.5 h-3.5" /> Abrir</Button>
                     <Button variant="outline" onClick={() => setCursoDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
                       <Landmark className="w-3.5 h-3.5" /> {cursos[f.id] ? "Editar valor del curso" : "Valor del curso"}
                     </Button>
@@ -474,6 +485,12 @@ function Page() {
           )}
         </table>
       </div>
+
+      {detalleId && filas.find((f) => f.id === detalleId) && (
+        <EstadoCuentaAlumna fila={filas.find((f) => f.id === detalleId) ?? filas[0]} curso={cursos[detalleId]} mes={mes} anio={anio} onClose={() => setDetalleId(null)}
+          onCurso={(f) => { setDetalleId(null); setCursoDe(f); }} onTotal={(f) => { setDetalleId(null); setTotalesDe(f); }}
+          onAbono={(f) => { setDetalleId(null); setAbonoDe(f); }} onCuenta={(f) => { setDetalleId(null); setGestionDe(f); }} />
+      )}
 
       {totalesDe && (
         <TotalesModal
@@ -534,6 +551,55 @@ function KPI({ label, value, sub }: { label: string; value: string; sub: string 
       <div className="text-xs text-emerald-600 mt-1">{sub}</div>
     </div>
   );
+}
+
+function EstadoCuentaAlumna({ fila, curso, mes, anio, onClose, onCurso, onTotal, onAbono, onCuenta }: {
+  fila: FilaAlumna; curso?: CursoMentoria; mes: number; anio: number; onClose: () => void;
+  onCurso: (f: FilaAlumna) => void; onTotal: (f: FilaAlumna) => void; onAbono: (f: FilaAlumna) => void; onCuenta: (f: FilaAlumna) => void;
+}) {
+  const [historial, setHistorial] = useState<AbonoMentoria[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(false);
+  const [vista, setVista] = useState("mes");
+  useEffect(() => {
+    let activo = true;
+    void supabase.from("pagos_mentoria_abonos").select("*").eq("alumna_id", fila.id).order("fecha_pago", { ascending: false }).then(({ data, error: fallo }) => {
+      if (!activo) return;
+      setHistorial((data ?? []) as AbonoMentoria[]); setError(Boolean(fallo)); setCargando(false);
+    });
+    return () => { activo = false; };
+  }, [fila.id]);
+  const pagos = vista === "mes" ? fila.abonos : historial;
+  const ver = async (a: AbonoMentoria) => {
+    if (!a.archivo_url) return;
+    if (esUrlAbsoluta(a.archivo_url)) { window.open(a.archivo_url, "_blank", "noreferrer"); return; }
+    const { data, error: fallo } = await supabase.storage.from("comprobantes").createSignedUrl(a.archivo_url, 3600);
+    if (fallo || !data) return toast.error("No se pudo abrir el comprobante");
+    window.open(data.signedUrl, "_blank", "noreferrer");
+  };
+  const pdf = () => generarInformeAlumnasPDF({ mes, anio, totalAlumnas: 1, seleccionadas: 1, pagadas: fila.estado === "pagado" ? 1 : 0, pendientes: fila.estado === "debe" ? 1 : 0,
+    totalFacturado: fila.total, totalAbonado: fila.pagado, totalFalta: fila.falta,
+    filas: [{ nombre: nombreAlumna(fila), email: fila.email || "", total: fila.total, pagado: fila.pagado, falta: fila.falta, estado: fila.estado, cuentaCompleta: Boolean(fila.cuenta_bancaria_completa), acompanantes: Number(fila.acompanantes_count || 0), curso,
+      abonos: fila.abonos.map((a) => ({ fecha: a.fecha_pago, monto: Number(a.monto), tipo: a.tipo_pago, bancoOrigen: a.banco_origen, cuentaOrigen: a.cuenta_origen, titularOrigen: a.titular_origen, referencia: a.referencia_pago, numeroComprobante: a.numero_comprobante, observacion: a.observacion, archivoUrl: a.archivo_url })) }] });
+  return <ModalBase title={`Estado de cuenta · ${nombreAlumna(fila)}`} subtitle={`${MESES[mes - 1]} ${anio}`} onClose={onClose} wide>
+    <div className="p-5 space-y-5">
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">Valor y saldo del curso</h3><Button variant="outline" size="sm" onClick={() => onCurso(fila)}>{curso ? "Editar valor del curso" : "Valor del curso"}</Button></div>
+        {curso ? <><dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[{ l: "Valor del curso", v: curso.valor_total }, { l: "Ya pagado antes", v: curso.pagado_inicial }, { l: "Abonos acumulados", v: curso.abonado_total }, { l: "Saldo del curso", v: fila.saldoCurso ?? 0 }].map((x) => <div key={x.l}><dt className="text-xs text-muted-foreground">{x.l}</dt><dd className="font-semibold tabular-nums mt-1">{dinero(x.v)}</dd></div>)}</dl><div className="text-xs text-muted-foreground">Cuota mensual acordada: <strong className="text-foreground">{dinero(curso.cuota_mensual)}</strong></div></> : <p className="text-sm text-muted-foreground">Valor del curso y cuota mensual pendientes de registrar.</p>}
+      </section>
+      <section className="border-y py-4 space-y-3">
+        <h3 className="font-semibold">Cobro de {MESES[mes - 1].toLowerCase()}</h3>
+        <dl className="grid grid-cols-3 gap-3">{[{ l: "Total del mes", v: fila.total }, { l: "Abonado del mes", v: fila.pagado }, { l: "Pendiente del mes", v: fila.falta }].map((x) => <div key={x.l}><dt className="text-xs text-muted-foreground">{x.l}</dt><dd className="text-lg font-semibold tabular-nums mt-1">{dinero(x.v)}</dd></div>)}</dl>
+        <p className="text-sm text-muted-foreground">{fila.estado === "sin_total" ? "Este periodo no tiene un valor mensual por cobrar." : fila.falta > 0 ? `En ${MESES[mes - 1].toLowerCase()} se han abonado ${dinero(fila.pagado)} de ${dinero(fila.total)}; quedan ${dinero(fila.falta)} por pagar.` : `La cuota de ${MESES[mes - 1].toLowerCase()} está cubierta con ${dinero(fila.pagado)} en abonos.`}</p>
+        <div className="flex flex-wrap gap-2"><Button onClick={() => onAbono(fila)}><ReceiptText />Nuevo abono mensual</Button><Button variant="outline" onClick={() => onTotal(fila)}><Calculator />Totales del mes</Button><Button variant="outline" onClick={pdf}><FileText />Informe PDF del mes</Button></div>
+      </section>
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Abonos y comprobantes</h3><div className="flex gap-1" role="group" aria-label="Periodo del historial"><Button size="sm" variant={vista === "mes" ? "secondary" : "ghost"} aria-pressed={vista === "mes"} onClick={() => setVista("mes")}>Este mes</Button><Button size="sm" variant={vista === "todo" ? "secondary" : "ghost"} aria-pressed={vista === "todo"} onClick={() => setVista("todo")}>Todo el historial</Button></div></div>
+        {vista === "todo" && cargando ? <p className="text-sm text-muted-foreground">Cargando historial…</p> : vista === "todo" && error ? <p className="text-sm text-destructive">No se pudo cargar el historial.</p> : pagos.length ? <div className="divide-y">{pagos.map((a) => <div key={a.id} className="py-3 flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-sm font-semibold">{a.fecha_pago} · {dinero(Number(a.monto))}</div><div className="text-xs text-muted-foreground">Periodo {String(a.mes).padStart(2, "0")}/{a.anio} · {a.tipo_pago.replaceAll("_", " ")}{a.banco_origen ? ` · ${a.banco_origen}` : ""}{a.numero_comprobante ? ` · N.º ${a.numero_comprobante}` : ""}</div>{a.observacion && <p className="text-xs mt-1 whitespace-pre-wrap">{a.observacion}</p>}</div>{a.archivo_url ? <Button variant="outline" size="sm" onClick={() => void ver(a)}><Eye />Ver comprobante</Button> : <span className="text-xs text-muted-foreground shrink-0">Sin adjunto</span>}</div>)}</div> : <p className="text-sm text-muted-foreground">No hay abonos registrados {vista === "mes" ? "este mes" : "en el historial"}.</p>}
+      </section>
+      <div className="border-t pt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">Cuenta bancaria: {fila.cuenta_bancaria_completa ? "completa" : "pendiente"} · {Number(fila.acompanantes_count || 0)} / 2 acompañantes</p><Button variant="outline" size="sm" onClick={() => onCuenta(fila)}><Landmark />Cuenta y acompañantes</Button></div>
+    </div>
+  </ModalBase>;
 }
 
 function TotalesModal({ fila, mes, anio, uid, onClose, onSaved }: {
