@@ -845,6 +845,52 @@ function Campo({ label, children }: { label: string; children: ReactNode }) {
   return <label className="block"><span className="block text-[11px] font-semibold text-muted-foreground mb-1">{label}</span>{children}</label>;
 }
 
+function CursoModal({ fila, curso, onClose, onSaved }: {
+  fila: FilaAlumna; curso?: CursoMentoria; onClose: () => void; onSaved: () => Promise<void>;
+}) {
+  const [v, setV] = useState({
+    nombre: curso?.nombre_curso ?? "",
+    total: curso ? String(curso.valor_total) : "",
+    pagado: curso ? String(curso.pagado_inicial) : "",
+    cuota: curso ? String(curso.cuota_mensual) : "",
+  });
+  const [busy, setBusy] = useState(false);
+  const total = Number(v.total || 0), pagado = Number(v.pagado || 0) + Number(curso?.abonado_total || 0);
+  const guardar = async () => {
+    if (total <= 0) return toast.error("Escribe el valor total del curso.");
+    setBusy(true);
+    const { error } = await supabase.from("mentoria_cursos").upsert({
+      alumna_id: fila.id, nombre_curso: v.nombre.trim() || null, valor_total: total,
+      pagado_inicial: Number(v.pagado || 0), cuota_mensual: Number(v.cuota || 0), updated_at: new Date().toISOString(),
+    });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Valor del curso guardado");
+    await onSaved();
+  };
+  const cls = "w-full px-3 py-2 rounded-lg border bg-background text-sm";
+  return (
+    <ModalBase title={`Valor del curso · ${nombreAlumna(fila)}`} subtitle="Se llena una sola vez; puedes editarlo si te equivocas." onClose={onClose}>
+      <div className="p-5 space-y-3">
+        <Campo label="Nombre del curso / programa"><input value={v.nombre} onChange={(e) => setV({ ...v, nombre: e.target.value })} className={cls} /></Campo>
+        <div className="grid grid-cols-3 gap-3">
+          <Campo label="Valor total ($)"><input type="number" min="0" step="0.01" value={v.total} onChange={(e) => setV({ ...v, total: e.target.value })} className={cls} /></Campo>
+          <Campo label="Ya pagado antes ($)"><input type="number" min="0" step="0.01" value={v.pagado} onChange={(e) => setV({ ...v, pagado: e.target.value })} className={cls} /></Campo>
+          <Campo label="Cuota mensual ($)"><input type="number" min="0" step="0.01" value={v.cuota} onChange={(e) => setV({ ...v, cuota: e.target.value })} className={cls} /></Campo>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <MiniTotal label="Pagado (incluye abonos)" value={dinero(pagado)} positivo />
+          <MiniTotal label="Falta" value={dinero(Math.max(0, total - pagado))} alerta />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button>
+          <button disabled={busy} onClick={guardar} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold">{busy ? "Guardando…" : "Guardar"}</button>
+        </div>
+      </div>
+    </ModalBase>
+  );
+}
+
 function MiniTotal({ label, value, positivo = false, alerta = false }: { label: string; value: string; positivo?: boolean; alerta?: boolean }) {
   return (
     <div className="rounded-xl border p-3">
