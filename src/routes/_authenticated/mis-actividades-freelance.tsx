@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Download, FileText, ImagePlus, Loader2, Tras
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { FreelancePanel } from "./pagos_.freelance";
 
 export const Route = createFileRoute("/_authenticated/mis-actividades-freelance")({
   head: () => ({ meta: [
@@ -40,6 +41,7 @@ function Page() {
   const [verUid, setVerUid] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [finde, setFinde] = useState(false);
   const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
 
@@ -94,8 +96,9 @@ function Page() {
     } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
   };
 
-  const viendoOtro = !!verUid && verUid !== uid;
+  const viendoOtro = false;
   if (esFree === false && !esLider) return <div className="p-8 text-center text-muted-foreground">Tu cuenta no está habilitada como freelance.</div>;
+  const verFinde = finde || acts.some((a) => a.fecha === dias[5] || a.fecha === dias[6]) || hoyStr === dias[5] || hoyStr === dias[6];
   const horasSemana = acts.reduce((s, a) => s + Number(a.horas), 0);
   const rango = `${new Date(lunes).toLocaleDateString("es-EC", { day: "numeric", month: "short" })} – ${addDays(lunes, 6).toLocaleDateString("es-EC", { day: "numeric", month: "short", year: "numeric" })}`;
 
@@ -106,16 +109,6 @@ function Page() {
         <p className="text-sm text-muted-foreground">Registra cada actividad con sus horas y lo que hiciste. Abre cualquier día para ver el resumen, agregar imágenes y descargar el PDF.</p>
       </div>
 
-      {esLider && (
-        <div className="rounded-2xl border bg-card p-4 flex flex-wrap items-center gap-3">
-          <b className="text-sm">Revisar actividades de:</b>
-          <select value={verUid ?? uid ?? ""} onChange={(e) => setVerUid(e.target.value === uid ? null : e.target.value)} className="px-3 py-2 rounded-lg border bg-background text-sm">
-            {esFree && <option value={uid}>Mis actividades</option>}
-            {!esFree && !verUid && <option value="">Elige un freelancer</option>}
-            {frees.filter((f) => f.id !== uid).map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
-          </select>
-        </div>
-      )}
       {esFree && !viendoOtro && (
       <div className="rounded-2xl border bg-card p-5 grid sm:grid-cols-4 gap-3">
         <div className="sm:col-span-4 text-sm"><span className="text-muted-foreground">Fecha de la actividad: </span><b className="capitalize">{fechaLarga(hoyStr)}</b></div>
@@ -140,14 +133,16 @@ function Page() {
             <b className="text-sm">{rango}</b>
             <button onClick={() => setLunes(addDays(lunes, 7))} className="p-2 rounded-lg border" title="Semana siguiente"><ChevronRight className="w-4 h-4" /></button>
             <button onClick={() => setLunes(lunesDe(new Date()))} className="px-3 py-1.5 rounded-lg border text-xs">Esta semana</button>
+            <label className="text-xs inline-flex gap-1 items-center ml-2"><input type="checkbox" checked={verFinde} onChange={(e) => setFinde(e.target.checked)} />Sábado y domingo (opcional)</label>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <span>Total semana: <b>{horasSemana.toFixed(2)} h</b></span>
             <button onClick={() => void descargarPdf(acts, `Semana ${rango}`, (viendoOtro ? frees.find((f) => f.id === verUid)?.nombre ?? "" : session?.user.user_metadata?.full_name ?? session?.user.email ?? ""))} className="px-3 py-1.5 rounded-lg border text-xs inline-flex gap-1 items-center"><Download className="w-3.5 h-3.5" />PDF semana</button>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+        <div className={`grid grid-cols-2 sm:grid-cols-4 ${verFinde ? "lg:grid-cols-7" : "lg:grid-cols-5"} gap-2`}>
           {dias.map((d, i) => {
+            if (i >= 5 && !verFinde) return null;
             const del = acts.filter((a) => a.fecha === d);
             const h = del.reduce((s, a) => s + Number(a.horas), 0);
             return (
@@ -164,6 +159,8 @@ function Page() {
       </div>
 
       )}
+
+      {esLider && <div className="pt-4 border-t"><FreelancePanel embebido /></div>}
 
       {diaAbierto && (
         <DiaModal fecha={diaAbierto} acts={acts.filter((a) => a.fecha === diaAbierto)} uid={uid!} soloLectura={viendoOtro} nombre={(viendoOtro ? frees.find((f) => f.id === verUid)?.nombre ?? "" : session?.user.user_metadata?.full_name ?? session?.user.email ?? "")}

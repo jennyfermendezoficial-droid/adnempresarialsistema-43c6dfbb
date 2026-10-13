@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/pagos_/freelance")({
 type Usuario = { id: string; nombre_completo: string | null; email: string | null; avatar_url: string | null; seleccionado: boolean };
 type Miembro = { usuario_id: string; area: string | null; modalidad: string; tarifa_hora: number; monto_fijo: number; activo: boolean };
 type Cuenta = { usuario_id: string; banco: string | null; tipo_cuenta: string | null; numero_cuenta: string | null; titular_cuenta: string | null; cedula_titular: string | null };
-type Act = { id: string; usuario_id: string; fecha: string; titulo: string; descripcion: string | null; horas: number; archivo_path: string | null; archivo_nombre: string | null };
+type Act = { id: string; usuario_id: string; fecha: string; titulo: string; descripcion: string | null; horas: number; archivo_path: string | null; archivo_nombre: string | null; hora_inicio?: string | null; hora_fin?: string | null };
 type Ajuste = { id: string; usuario_id: string; tipo: "bono" | "descuento"; monto: number; motivo: string };
 type Pago = { id: string; usuario_id: string; fecha_pago: string; monto: number; tipo_pago: string; numero_comprobante: string | null; banco: string | null; referencia: string | null; observacion: string | null; archivo_url: string | null };
 
@@ -42,7 +42,9 @@ function calcular(m: Miembro, acts: Act[], aj: Ajuste[], pagos: Pago[]) {
   return { horas, base, bonos, desc, total, pagado, saldo: Math.max(0, total - pagado) };
 }
 
-function Page() {
+function Page() { return <FreelancePanel />; }
+
+export function FreelancePanel({ embebido = false }: { embebido?: boolean }) {
   const { role, session } = useAuth();
   const permitido = puedeVerPagos(role, session?.user.id);
   const hoy = new Date();
@@ -114,14 +116,14 @@ function Page() {
   const tot = filas.reduce((s, f) => ({ total: s.total + f.c.total, pagado: s.pagado + f.c.pagado, saldo: s.saldo + f.c.saldo }), { total: 0, pagado: 0, saldo: 0 });
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+    <div className={embebido ? "" : "p-4 md:p-6 max-w-7xl mx-auto"}>
       <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
-        <div><h1 className="text-2xl font-bold">Pagos e informes · Freelance</h1><p className="text-sm text-muted-foreground mt-1">Actividades, bonos, descuentos y pagos de cada freelance.</p></div>
+        <div><h1 className={embebido ? "text-xl font-bold" : "text-2xl font-bold"}>{embebido ? "Freelancers del equipo" : "Pagos e informes · Freelance"}</h1><p className="text-sm text-muted-foreground mt-1">Actividades, bonos, descuentos y pagos de cada freelance.</p></div>
         <div className="flex gap-2">
           <select value={`${anio}-${mes}`} onChange={(e) => { const [a, m] = e.target.value.split("-").map(Number); setAnio(a); setMes(m); }} className="px-3 py-2 rounded-lg border bg-card text-sm">
             {listaMeses().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          {miembros.some((x) => x.usuario_id === session?.user.id) && (
+          {!embebido && miembros.some((x) => x.usuario_id === session?.user.id) && (
             <Link to="/mis-actividades-freelance" className="px-4 py-2 rounded-lg border bg-card text-sm font-semibold inline-flex gap-2 items-center"><Upload className="w-4 h-4" />Subir mis actividades (PDF)</Link>
           )}
           <button onClick={() => setSelOpen(true)} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold inline-flex gap-2 items-center"><Users className="w-4 h-4" />Seleccionar freelancers</button>
@@ -223,7 +225,7 @@ function Detalle({ fila, nombre, cuenta, resumen, mes, anio, onBack, recargar }:
     line(`Horas: ${c.horas.toFixed(2)}   Base: ${money(c.base)}   Bonos: ${money(c.bonos)}   Descuentos: ${money(c.desc)}`, true);
     line(`Total: ${money(c.total)}   Pagado: ${money(c.pagado)}   Saldo: ${money(c.saldo)}`, true); y += 8;
     if (resumen) { line("Lo importante del mes", true, 12); line(resumen); y += 8; }
-    line("Actividades", true, 12); a.forEach((x) => line(`${x.fecha} · ${x.titulo} · ${x.horas} h${x.descripcion ? ` — ${x.descripcion}` : ""}`)); if (!a.length) line("Sin actividades.");
+    line("Actividades", true, 12); a.forEach((x) => line(`${x.fecha}${x.hora_inicio && x.hora_fin ? ` (${x.hora_inicio.slice(0, 5)}-${x.hora_fin.slice(0, 5)})` : ""} · ${x.titulo} · ${x.horas} h${x.descripcion ? ` — ${x.descripcion}` : ""}`)); if (!a.length) line("Sin actividades.");
     y += 6; line("Bonos y descuentos", true, 12); j.forEach((x) => line(`${x.tipo === "bono" ? "+" : "-"}${money(x.monto)} · ${x.motivo}`)); if (!j.length) line("Ninguno.");
     y += 6; line("Pagos", true, 12); p.forEach((x) => line(`${x.fecha_pago} · ${money(x.monto)} · ${x.tipo_pago} · ${x.banco ?? ""} · N° ${x.numero_comprobante ?? "—"} · Ref ${x.referencia ?? "—"}`)); if (!p.length) line("Sin pagos.");
     doc.save(`informe-freelance-${nombre.replace(/\s+/g, "_")}-${anio}-${mes}.pdf`);
