@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/mis-actividades-freelance"
   component: Page,
 });
 
-type Act = { id: string; fecha: string; titulo: string; descripcion: string | null; horas: number; archivo_path: string | null; archivo_nombre: string | null; archivo_tipo: string | null; hora_inicio: string | null; hora_fin: string | null };
+type Act = { id: string; fecha: string; titulo: string; descripcion: string | null; horas: number; archivo_path: string | null; archivo_nombre: string | null; archivo_tipo: string | null; hora_inicio: string | null; hora_fin: string | null; observacion_lider: string | null };
 const cls = "w-full px-3 py-2 rounded-lg border bg-background text-sm";
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -118,7 +118,7 @@ function Page() {
         <div className="sm:col-span-4 text-xs text-muted-foreground">{v.inicio && v.fin && horasEntre(v.inicio, v.fin) > 0 ? `Tiempo trabajado: ${horasEntre(v.inicio, v.fin)} h` : "Ej: de 07:00 a 10:00 = 3 h"}</div>
         <label className="sm:col-span-4"><span className="text-[11px] font-semibold text-muted-foreground">Resumen de lo que realizaste *</span><textarea rows={3} placeholder="Ej: Erwin me pidió reemplazarlo y grabar la pantalla de la clase de Excel. Incluye también tareas extra." value={v.descripcion} onChange={(e) => setV({ ...v, descripcion: e.target.value })} className={cls} /></label>
         <div className="sm:col-span-4 flex flex-wrap justify-between gap-2">
-          <button type="button" onClick={() => ref.current?.click()} className="px-3 py-2 rounded-lg border text-sm inline-flex gap-2 items-center"><Upload className="w-4 h-4" />{file ? file.name : "Adjuntar PDF o imagen (opcional)"}</button>
+          <button type="button" onClick={() => ref.current?.click()} className="px-3 py-2 rounded-lg border text-sm inline-flex gap-2 items-center"><Upload className="w-4 h-4" />{file ? file.name : "Adjuntar PDF o imagen de esta actividad (opcional)"}</button>
           <input ref={ref} type="file" accept="application/pdf,image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           <button disabled={busy} onClick={guardar} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex gap-2 items-center">{busy && <Loader2 className="w-4 h-4 animate-spin" />}Guardar actividad</button>
         </div>
@@ -208,7 +208,7 @@ function DiaModal({ fecha, acts, uid, nombre, subir, onClose, onChange, soloLect
         </div>
         {acts.length === 0 ? <div className="p-6 text-center text-sm text-muted-foreground">No hay actividades este día.</div> : acts.map((a) => (
           <div key={a.id} className="px-5 py-3 border-b flex items-start justify-between gap-3 text-sm">
-            <div><div className="font-semibold">{a.titulo}{a.hora_inicio && a.hora_fin && ` · ${a.hora_inicio.slice(0, 5)}–${a.hora_fin.slice(0, 5)}`}{Number(a.horas) > 0 && ` · ${a.horas} h`}</div>{a.descripcion && <div className="text-xs text-muted-foreground whitespace-pre-wrap">{a.descripcion}</div>}</div>
+            <div><div className="font-semibold">{a.titulo}{a.hora_inicio && a.hora_fin && ` · ${a.hora_inicio.slice(0, 5)}–${a.hora_fin.slice(0, 5)}`}{Number(a.horas) > 0 && ` · ${a.horas} h`}</div>{a.descripcion && <div className="text-xs text-muted-foreground whitespace-pre-wrap">{a.descripcion}</div>}{a.archivo_nombre && <div className="text-[11px] mt-1">Archivo de esta actividad: {a.archivo_nombre}</div>}{a.observacion_lider && <div className="text-xs rounded-lg bg-muted p-2 mt-1"><b>Observación del líder:</b> {a.observacion_lider}</div>}</div>
             <div className="flex gap-2 shrink-0">
               {a.archivo_path && <button onClick={() => ver(a)} className="p-2 rounded-lg border" title="Ver archivo"><FileText className="w-4 h-4" /></button>}
               {!soloLectura && <button onClick={() => borrar(a)} className="p-2 rounded-lg border" title="Borrar"><Trash2 className="w-4 h-4" /></button>}

@@ -23,12 +23,9 @@ export function CalendarioActividades({ acts, mes, anio, editable, porActividad,
     const first = new Date(anio, mes - 1, 1);
     const start = new Date(first); start.setDate(1 - ((first.getDay() + 6) % 7));
     const out: string[][] = [];
+    const last = new Date(anio, mes, 0);
     const cur = new Date(start);
-    while (cur.getMonth() <= mes - 1 && cur.getFullYear() <= anio || out.length === 0) {
-      const w: string[] = []; for (let i = 0; i < 7; i++) { w.push(ymd(cur)); cur.setDate(cur.getDate() + 1); }
-      out.push(w);
-      if (cur.getMonth() !== mes - 1) break;
-    }
+    while (cur <= last) { const w: string[] = []; for (let i = 0; i < 7; i++) { w.push(ymd(cur)); cur.setDate(cur.getDate() + 1); } out.push(w); }
     return out;
   }, [mes, anio]);
   const verFinde = finde || acts.some((a) => { const d = new Date(a.fecha + "T12:00"); return d.getDay() === 0 || d.getDay() === 6; });

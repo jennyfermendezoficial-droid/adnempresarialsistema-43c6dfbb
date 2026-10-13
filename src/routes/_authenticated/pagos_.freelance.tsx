@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { puedeVerPagos } from "@/lib/roles";
 import { listaMeses } from "@/lib/pagos-export";
 import { formatNombre } from "@/lib/nombres";
+import { CalendarioActividades } from "@/components/CalendarioActividades";
 import { generarResumenFreelance, leerComprobanteGratis } from "@/lib/freelance-ia.functions";
 
 export const Route = createFileRoute("/_authenticated/pagos_/freelance")({
@@ -23,9 +24,9 @@ export const Route = createFileRoute("/_authenticated/pagos_/freelance")({
 });
 
 type Usuario = { id: string; nombre_completo: string | null; email: string | null; avatar_url: string | null; seleccionado: boolean };
-type Miembro = { usuario_id: string; area: string | null; modalidad: string; tarifa_hora: number; monto_fijo: number; activo: boolean };
+type Miembro = { usuario_id: string; area: string | null; modalidad: string; tarifa_hora: number; monto_fijo: number; tarifa_actividad: number; activo: boolean };
 type Cuenta = { usuario_id: string; banco: string | null; tipo_cuenta: string | null; numero_cuenta: string | null; titular_cuenta: string | null; cedula_titular: string | null };
-type Act = { id: string; usuario_id: string; fecha: string; titulo: string; descripcion: string | null; horas: number; archivo_path: string | null; archivo_nombre: string | null; hora_inicio?: string | null; hora_fin?: string | null };
+type Act = { id: string; usuario_id: string; fecha: string; titulo: string; descripcion: string | null; horas: number; archivo_path: string | null; archivo_nombre: string | null; hora_inicio?: string | null; hora_fin?: string | null; archivo_tipo?: string | null; valor?: number | null; observacion_lider?: string | null };
 type Ajuste = { id: string; usuario_id: string; tipo: "bono" | "descuento"; monto: number; motivo: string };
 type Pago = { id: string; usuario_id: string; fecha_pago: string; monto: number; tipo_pago: string; numero_comprobante: string | null; banco: string | null; referencia: string | null; observacion: string | null; archivo_url: string | null };
 
@@ -34,7 +35,12 @@ const cls = "w-full px-3 py-2 rounded-lg border bg-background text-sm";
 
 function calcular(m: Miembro, acts: Act[], aj: Ajuste[], pagos: Pago[]) {
   const horas = acts.reduce((s, a) => s + Number(a.horas), 0);
-  const base = m.modalidad === "fijo" ? Number(m.monto_fijo) : horas * Number(m.tarifa_hora);
+  const reales = acts.filter((a) => Number(a.horas) > 0);
+  const porAct = reales.reduce((s, a) => s + Number(a.valor ?? m.tarifa_actividad ?? 0), 0);
+  const base = m.modalidad === "fijo" ? Number(m.monto_fijo)
+    : m.modalidad === "actividad" ? porAct
+    : m.modalidad === "fijo_hora" ? Number(m.monto_fijo) + horas * Number(m.tarifa_hora)
+    : horas * Number(m.tarifa_hora);
   const bonos = aj.filter((x) => x.tipo === "bono").reduce((s, x) => s + Number(x.monto), 0);
   const desc = aj.filter((x) => x.tipo === "descuento").reduce((s, x) => s + Number(x.monto), 0);
   const total = Math.max(0, base + bonos - desc);
@@ -137,7 +143,7 @@ export function FreelancePanel({ embebido = false }: { embebido?: boolean }) {
           {filas.map((f) => (
             <div key={f.m.usuario_id} className="rounded-2xl border bg-card p-5">
               <div className="font-semibold text-lg">{nombre(f.m.usuario_id)}</div>
-              <div className="text-sm text-muted-foreground">{f.m.area || "Sin área"} · {f.m.modalidad === "fijo" ? `${money(f.m.monto_fijo)} fijo/mes` : `${money(f.m.tarifa_hora)}/hora`}</div>
+              <div className="text-sm text-muted-foreground">{f.m.area || "Sin área"} · {f.m.modalidad === "fijo" ? `${money(f.m.monto_fijo)} fijo/mes` : f.m.modalidad === "actividad" ? `${money(f.m.tarifa_actividad)}/actividad` : f.m.modalidad === "fijo_hora" ? `${money(f.m.monto_fijo)} + ${money(f.m.tarifa_hora)}/h` : `${money(f.m.tarifa_hora)}/hora`}</div>
               <div className="grid grid-cols-3 gap-2 mt-3 text-xs"><Mini l="Horas" v={f.c.horas.toFixed(2)} /><Mini l="Total" v={money(f.c.total)} /><Mini l="Saldo" v={money(f.c.saldo)} /></div>
               <div className="text-xs mt-2">{cuentas[f.m.usuario_id]?.numero_cuenta ? <span className="text-emerald-600">Cuenta bancaria registrada</span> : <span className="text-amber-600">Cuenta bancaria pendiente</span>} · {f.a.length} actividades</div>
               <button onClick={() => setDetalle(f.m.usuario_id)} className="mt-4 w-full px-3 py-2 rounded-lg border text-sm font-semibold">Abrir</button>
@@ -183,7 +189,7 @@ function Detalle({ fila, nombre, cuenta, resumen, mes, anio, onBack, recargar }:
   fila: FilaF; nombre: string; cuenta?: Cuenta; resumen?: string; mes: number; anio: number; onBack: () => void; recargar: () => Promise<void>;
 }) {
   const { m, a, j, p, c } = fila;
-  const [tarifa, setTarifa] = useState({ area: m.area ?? "", modalidad: m.modalidad, tarifa: String(m.tarifa_hora), fijo: String(m.monto_fijo) });
+  const [tarifa, setTarifa] = useState({ area: m.area ?? "", modalidad: m.modalidad, tarifa: String(m.tarifa_hora), fijo: String(m.monto_fijo), act: String(m.tarifa_actividad ?? 0) });
   const [ajOpen, setAjOpen] = useState(false);
   const [pagoOpen, setPagoOpen] = useState(false);
   const [iaBusy, setIaBusy] = useState(false);
@@ -191,7 +197,7 @@ function Detalle({ fila, nombre, cuenta, resumen, mes, anio, onBack, recargar }:
 
   const guardarTarifa = async () => {
     const { error } = await supabase.from("freelance_miembros").update({
-      area: tarifa.area.trim() || null, modalidad: tarifa.modalidad, tarifa_hora: Number(tarifa.tarifa || 0), monto_fijo: Number(tarifa.fijo || 0),
+      area: tarifa.area.trim() || null, modalidad: tarifa.modalidad, tarifa_hora: Number(tarifa.tarifa || 0), monto_fijo: Number(tarifa.fijo || 0), tarifa_actividad: Number(tarifa.act || 0),
     }).eq("usuario_id", m.usuario_id);
     if (error) return toast.error(error.message);
     toast.success("Valor acordado guardado"); await recargar();
@@ -225,7 +231,7 @@ function Detalle({ fila, nombre, cuenta, resumen, mes, anio, onBack, recargar }:
     line(`Horas: ${c.horas.toFixed(2)}   Base: ${money(c.base)}   Bonos: ${money(c.bonos)}   Descuentos: ${money(c.desc)}`, true);
     line(`Total: ${money(c.total)}   Pagado: ${money(c.pagado)}   Saldo: ${money(c.saldo)}`, true); y += 8;
     if (resumen) { line("Lo importante del mes", true, 12); line(resumen); y += 8; }
-    line("Actividades", true, 12); a.forEach((x) => line(`${x.fecha}${x.hora_inicio && x.hora_fin ? ` (${x.hora_inicio.slice(0, 5)}-${x.hora_fin.slice(0, 5)})` : ""} · ${x.titulo} · ${x.horas} h${x.descripcion ? ` — ${x.descripcion}` : ""}`)); if (!a.length) line("Sin actividades.");
+    line("Actividades", true, 12); a.forEach((x) => line(`${x.fecha}${x.hora_inicio && x.hora_fin ? ` (${x.hora_inicio.slice(0, 5)}-${x.hora_fin.slice(0, 5)})` : ""} · ${x.titulo} · ${x.horas} h${x.descripcion ? ` — ${x.descripcion}` : ""}${x.observacion_lider ? ` [Obs. líder: ${x.observacion_lider}]` : ""}`)); if (!a.length) line("Sin actividades.");
     y += 6; line("Bonos y descuentos", true, 12); j.forEach((x) => line(`${x.tipo === "bono" ? "+" : "-"}${money(x.monto)} · ${x.motivo}`)); if (!j.length) line("Ninguno.");
     y += 6; line("Pagos", true, 12); p.forEach((x) => line(`${x.fecha_pago} · ${money(x.monto)} · ${x.tipo_pago} · ${x.banco ?? ""} · N° ${x.numero_comprobante ?? "—"} · Ref ${x.referencia ?? "—"}`)); if (!p.length) line("Sin pagos.");
     doc.save(`informe-freelance-${nombre.replace(/\s+/g, "_")}-${anio}-${mes}.pdf`);
@@ -251,12 +257,16 @@ function Detalle({ fila, nombre, cuenta, resumen, mes, anio, onBack, recargar }:
       <div className="grid md:grid-cols-2 gap-4">
         <div className="rounded-2xl border bg-card p-5 space-y-3">
           <b>Valor acordado</b>
+          <datalist id="areas-freelance">{["Programación", "Diseño gráfico", "Edición de video", "Grabación de pantalla", "Redes sociales", "Marketing", "Soporte técnico", "Contenido / redacción", "Asistente virtual"].map((x) => <option key={x} value={x} />)}</datalist>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Área"><input value={tarifa.area} onChange={(e) => setTarifa({ ...tarifa, area: e.target.value })} className={cls} /></Field>
-            <Field label="Modalidad"><select value={tarifa.modalidad} onChange={(e) => setTarifa({ ...tarifa, modalidad: e.target.value })} className={cls}><option value="hora">Por hora</option><option value="fijo">Monto fijo mensual</option></select></Field>
-            {tarifa.modalidad === "hora"
-              ? <Field label="Valor por hora ($)"><input type="number" min="0" step="0.01" value={tarifa.tarifa} onChange={(e) => setTarifa({ ...tarifa, tarifa: e.target.value })} className={cls} /></Field>
-              : <Field label="Monto fijo ($)"><input type="number" min="0" step="0.01" value={tarifa.fijo} onChange={(e) => setTarifa({ ...tarifa, fijo: e.target.value })} className={cls} /></Field>}
+            <Field label="Área"><input list="areas-freelance" placeholder="Ej: Programación" value={tarifa.area} onChange={(e) => setTarifa({ ...tarifa, area: e.target.value })} className={cls} /></Field>
+            <Field label="Modalidad"><select value={tarifa.modalidad} onChange={(e) => setTarifa({ ...tarifa, modalidad: e.target.value })} className={cls}>
+              <option value="hora">Por hora</option><option value="actividad">Por actividad</option><option value="fijo">Monto fijo mensual</option><option value="fijo_hora">Fijo mensual + horas extra</option>
+            </select></Field>
+            {(tarifa.modalidad === "hora" || tarifa.modalidad === "fijo_hora") && <Field label="Valor por hora ($)"><input type="number" min="0" step="0.01" value={tarifa.tarifa} onChange={(e) => setTarifa({ ...tarifa, tarifa: e.target.value })} className={cls} /></Field>}
+            {(tarifa.modalidad === "fijo" || tarifa.modalidad === "fijo_hora") && <Field label="Monto fijo mensual ($)"><input type="number" min="0" step="0.01" value={tarifa.fijo} onChange={(e) => setTarifa({ ...tarifa, fijo: e.target.value })} className={cls} /></Field>}
+            {tarifa.modalidad === "actividad" && <Field label="Valor base por actividad ($)"><input type="number" min="0" step="0.01" value={tarifa.act} onChange={(e) => setTarifa({ ...tarifa, act: e.target.value })} className={cls} /></Field>}
+            <div className="col-span-2 text-xs text-muted-foreground">{tarifa.modalidad === "actividad" ? "Puedes cambiar el valor de cada actividad abriendo el día en el calendario." : tarifa.modalidad === "fijo_hora" ? "Se paga el fijo del mes más cada hora registrada." : ""}</div>
           </div>
           <button onClick={guardarTarifa} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold">Guardar</button>
         </div>
@@ -276,14 +286,7 @@ function Detalle({ fila, nombre, cuenta, resumen, mes, anio, onBack, recargar }:
         <div className="text-sm whitespace-pre-wrap text-muted-foreground">{resumen || "Aún no hay resumen. Se genera leyendo las actividades y PDFs del mes."}</div>
       </div>
 
-      <Lista titulo={`Actividades (${a.length})`}>
-        {a.map((x) => (
-          <div key={x.id} className="px-5 py-3 border-t flex justify-between gap-3 text-sm">
-            <div><b>{x.titulo}</b> · {x.horas} h<div className="text-xs text-muted-foreground">{x.fecha}{x.descripcion ? ` · ${x.descripcion}` : ""}</div></div>
-            {x.archivo_path && <button onClick={() => ver(x.archivo_path!)} className="text-xs font-semibold underline shrink-0">Ver archivo</button>}
-          </div>
-        ))}
-      </Lista>
+      <CalendarioActividades acts={a} mes={mes} anio={anio} editable porActividad={m.modalidad === "actividad"} valorDefecto={Number(m.tarifa_actividad ?? 0)} onChange={recargar} />
       <Lista titulo="Bonos y descuentos">
         {j.map((x) => (
           <div key={x.id} className="px-5 py-3 border-t flex justify-between text-sm">
@@ -295,7 +298,7 @@ function Detalle({ fila, nombre, cuenta, resumen, mes, anio, onBack, recargar }:
       <Lista titulo="Pagos realizados">
         {p.map((x) => (
           <div key={x.id} className="px-5 py-3 border-t flex justify-between gap-3 text-sm">
-            <span>{x.fecha_pago} · {x.tipo_pago} · {x.banco ?? "—"} · N° {x.numero_comprobante ?? "—"} · Ref {x.referencia ?? "—"}</span>
+            <span>{x.fecha_pago} · {x.tipo_pago.replace("_", " ")} · {x.banco ?? "—"} · N° {x.numero_comprobante ?? "—"} · Ref {x.referencia ?? "—"}{x.observacion && <span className="block text-xs text-muted-foreground">Obs: {x.observacion}</span>}</span>
             <span className="flex gap-3 items-center"><b>{money(x.monto)}</b>{x.archivo_url && <a href={x.archivo_url} target="_blank" rel="noreferrer" className="text-xs underline">Ver</a>}<button onClick={() => borrar("freelance_pagos", x.id)}><Trash2 className="w-4 h-4" /></button></span>
           </div>
         ))}
@@ -332,7 +335,7 @@ function AjusteModal({ uid, mes, anio, close, saved }: { uid: string; mes: numbe
 
 function PagoModal({ uid, mes, anio, saldo, close, saved }: { uid: string; mes: number; anio: number; saldo: number; close: () => void; saved: () => Promise<void> }) {
   const leer = useServerFn(leerComprobanteGratis);
-  const [v, setV] = useState({ fecha: new Date().toISOString().slice(0, 10), monto: saldo ? saldo.toFixed(2) : "", tipo: "transferencia", numero: "", banco: "", referencia: "", observacion: "" });
+  const [v, setV] = useState({ fecha: new Date().toISOString().slice(0, 10), monto: saldo ? saldo.toFixed(2) : "", tipo: "transferencia", numero: "", banco: "", referencia: "", observacion: "", cuenta: "", titular: "" });
   const [file, setFile] = useState<File | null>(null);
   const [leyendo, setLeyendo] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -344,7 +347,7 @@ function PagoModal({ uid, mes, anio, saldo, close, saved }: { uid: string; mes: 
     try {
       const b64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(f); });
       const d = await leer({ data: { imagenBase64: b64 } });
-      setV((x) => ({ ...x, monto: d.monto ? String(d.monto) : x.monto, fecha: d.fecha ?? x.fecha, numero: d.numero_comprobante ?? x.numero, banco: d.banco ?? x.banco, referencia: d.referencia ?? x.referencia, tipo: d.tipo_pago ?? x.tipo }));
+      setV((x) => ({ ...x, monto: d.monto ? String(d.monto) : x.monto, fecha: d.fecha ?? x.fecha, numero: d.numero_comprobante ?? x.numero, banco: d.banco ?? x.banco, referencia: d.referencia ?? x.referencia, tipo: d.tipo_pago ?? x.tipo, cuenta: (d as { cuenta_origen?: string }).cuenta_origen ?? x.cuenta, titular: (d as { titular?: string }).titular ?? x.titular }));
       toast.success("Comprobante leído");
     } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo leer el comprobante"); }
     finally { setLeyendo(false); }
@@ -361,7 +364,7 @@ function PagoModal({ uid, mes, anio, saldo, close, saved }: { uid: string; mes: 
     }
     const { error } = await supabase.from("freelance_pagos").insert({
       usuario_id: uid, mes, anio, fecha_pago: v.fecha, monto: Number(v.monto), tipo_pago: v.tipo,
-      numero_comprobante: v.numero || null, banco: v.banco || null, referencia: v.referencia || null, observacion: v.observacion || null, archivo_url: url,
+      numero_comprobante: v.numero || null, banco: v.banco || null, referencia: v.referencia || null, observacion: v.observacion || null, archivo_url: url, cuenta_origen: v.cuenta || null, titular_cuenta: v.titular || null,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -379,11 +382,13 @@ function PagoModal({ uid, mes, anio, saldo, close, saved }: { uid: string; mes: 
         </div>
         <Field label="Fecha"><input type="date" value={v.fecha} onChange={(e) => setV({ ...v, fecha: e.target.value })} className={cls} /></Field>
         <Field label="Monto ($)"><input type="number" min="0" step="0.01" value={v.monto} onChange={(e) => setV({ ...v, monto: e.target.value })} className={cls} /></Field>
-        <Field label="Método"><select value={v.tipo} onChange={(e) => setV({ ...v, tipo: e.target.value })} className={cls}><option value="transferencia">Transferencia</option><option value="deposito">Depósito</option><option value="cheque">Cheque</option><option value="otro">Otro</option></select></Field>
+        <Field label="Método"><select value={v.tipo} onChange={(e) => setV({ ...v, tipo: e.target.value })} className={cls}>{[["transferencia", "Transferencia bancaria"], ["deposito", "Depósito bancario"], ["efectivo", "Efectivo"], ["cheque", "Cheque"], ["pago_directo", "Pago directo"], ["tarjeta_credito", "Tarjeta de crédito"], ["tarjeta_debito", "Tarjeta de débito"], ["otro", "Otro"]].map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
         <Field label="Banco"><input value={v.banco} onChange={(e) => setV({ ...v, banco: e.target.value })} className={cls} /></Field>
+        {v.tipo !== "efectivo" && <Field label="Cuenta de origen"><input value={v.cuenta} onChange={(e) => setV({ ...v, cuenta: e.target.value })} className={cls} /></Field>}
+        {v.tipo !== "efectivo" && <Field label="Titular de la cuenta"><input value={v.titular} onChange={(e) => setV({ ...v, titular: e.target.value })} className={cls} /></Field>}
         <Field label="N° comprobante"><input value={v.numero} onChange={(e) => setV({ ...v, numero: e.target.value })} className={cls} /></Field>
         <Field label="Referencia"><input value={v.referencia} onChange={(e) => setV({ ...v, referencia: e.target.value })} className={cls} /></Field>
-        <div className="sm:col-span-2"><Field label="Observación"><input value={v.observacion} onChange={(e) => setV({ ...v, observacion: e.target.value })} className={cls} /></Field></div>
+        <div className="sm:col-span-2"><Field label="Observación"><textarea rows={2} value={v.observacion} onChange={(e) => setV({ ...v, observacion: e.target.value })} className={cls} /></Field></div>
       </div>
       <Foot close={close} save={save} busy={busy} />
     </Modal>
