@@ -44,8 +44,8 @@ import { Route as AuthenticatedComunidadPostIdRouteImport } from './routes/_auth
 import { Route as AuthenticatedCursosIndexRouteImport } from './routes/_authenticated/cursos.index'
 import { Route as AuthenticatedCursosCursoIdRouteImport } from './routes/_authenticated/cursos.$cursoId'
 import { Route as AuthenticatedMiembroUserIdRouteImport } from './routes/_authenticated/miembro.$userId'
-import { Route as AuthenticatedPagosFreelanceRouteImport } from './routes/_authenticated/pagos/freelance'
 import { Route as AuthenticatedPagosAlumnasRouteImport } from './routes/_authenticated/pagos_.alumnas'
+import { Route as AuthenticatedPagosFreelanceRouteImport } from './routes/_authenticated/pagos_.freelance'
 import { Route as ApiPublicZoomWebhookRouteImport } from './routes/api/public/zoom-webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -238,16 +238,16 @@ const AuthenticatedMiembroUserIdRoute =
     path: '/miembro/$userId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedPagosFreelanceRoute =
-  AuthenticatedPagosFreelanceRouteImport.update({
-    id: '/freelance',
-    path: '/freelance',
-    getParentRoute: () => AuthenticatedPagosRoute,
-  } as any)
 const AuthenticatedPagosAlumnasRoute =
   AuthenticatedPagosAlumnasRouteImport.update({
     id: '/pagos_/alumnas',
     path: '/pagos/alumnas',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedPagosFreelanceRoute =
+  AuthenticatedPagosFreelanceRouteImport.update({
+    id: '/pagos_/freelance',
+    path: '/pagos/freelance',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const ApiPublicZoomWebhookRoute = ApiPublicZoomWebhookRouteImport.update({
@@ -282,15 +282,15 @@ export interface FileRoutesByFullPath {
   '/mis-clases-asignadas': typeof AuthenticatedMisClasesAsignadasRoute
   '/mis-cuentas-bancarias': typeof AuthenticatedMisCuentasBancariasRoute
   '/mis-reportes': typeof AuthenticatedMisReportesRoute
-  '/pagos': typeof AuthenticatedPagosRouteWithChildren
+  '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
   '/tareas': typeof AuthenticatedTareasRoute
   '/comunidad/$postId': typeof AuthenticatedComunidadPostIdRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
   '/miembro/$userId': typeof AuthenticatedMiembroUserIdRoute
-  '/pagos/freelance': typeof AuthenticatedPagosFreelanceRoute
   '/pagos/alumnas': typeof AuthenticatedPagosAlumnasRoute
+  '/pagos/freelance': typeof AuthenticatedPagosFreelanceRoute
   '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
   '/comunidad/': typeof AuthenticatedComunidadIndexRoute
   '/cursos/': typeof AuthenticatedCursosIndexRoute
@@ -321,15 +321,15 @@ export interface FileRoutesByTo {
   '/mis-clases-asignadas': typeof AuthenticatedMisClasesAsignadasRoute
   '/mis-cuentas-bancarias': typeof AuthenticatedMisCuentasBancariasRoute
   '/mis-reportes': typeof AuthenticatedMisReportesRoute
-  '/pagos': typeof AuthenticatedPagosRouteWithChildren
+  '/pagos': typeof AuthenticatedPagosRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/permisos': typeof AuthenticatedPermisosRoute
   '/tareas': typeof AuthenticatedTareasRoute
   '/comunidad/$postId': typeof AuthenticatedComunidadPostIdRoute
   '/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
   '/miembro/$userId': typeof AuthenticatedMiembroUserIdRoute
-  '/pagos/freelance': typeof AuthenticatedPagosFreelanceRoute
   '/pagos/alumnas': typeof AuthenticatedPagosAlumnasRoute
+  '/pagos/freelance': typeof AuthenticatedPagosFreelanceRoute
   '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
   '/comunidad': typeof AuthenticatedComunidadIndexRoute
   '/cursos': typeof AuthenticatedCursosIndexRoute
@@ -362,15 +362,15 @@ export interface FileRoutesById {
   '/_authenticated/mis-clases-asignadas': typeof AuthenticatedMisClasesAsignadasRoute
   '/_authenticated/mis-cuentas-bancarias': typeof AuthenticatedMisCuentasBancariasRoute
   '/_authenticated/mis-reportes': typeof AuthenticatedMisReportesRoute
-  '/_authenticated/pagos': typeof AuthenticatedPagosRouteWithChildren
+  '/_authenticated/pagos': typeof AuthenticatedPagosRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/permisos': typeof AuthenticatedPermisosRoute
   '/_authenticated/tareas': typeof AuthenticatedTareasRoute
   '/_authenticated/comunidad/$postId': typeof AuthenticatedComunidadPostIdRoute
   '/_authenticated/cursos/$cursoId': typeof AuthenticatedCursosCursoIdRoute
   '/_authenticated/miembro/$userId': typeof AuthenticatedMiembroUserIdRoute
-  '/_authenticated/pagos/freelance': typeof AuthenticatedPagosFreelanceRoute
   '/_authenticated/pagos_/alumnas': typeof AuthenticatedPagosAlumnasRoute
+  '/_authenticated/pagos_/freelance': typeof AuthenticatedPagosFreelanceRoute
   '/api/public/zoom-webhook': typeof ApiPublicZoomWebhookRoute
   '/_authenticated/comunidad/': typeof AuthenticatedComunidadIndexRoute
   '/_authenticated/cursos/': typeof AuthenticatedCursosIndexRoute
@@ -410,8 +410,8 @@ export interface FileRouteTypes {
     | '/comunidad/$postId'
     | '/cursos/$cursoId'
     | '/miembro/$userId'
-    | '/pagos/freelance'
     | '/pagos/alumnas'
+    | '/pagos/freelance'
     | '/api/public/zoom-webhook'
     | '/comunidad/'
     | '/cursos/'
@@ -449,8 +449,8 @@ export interface FileRouteTypes {
     | '/comunidad/$postId'
     | '/cursos/$cursoId'
     | '/miembro/$userId'
-    | '/pagos/freelance'
     | '/pagos/alumnas'
+    | '/pagos/freelance'
     | '/api/public/zoom-webhook'
     | '/comunidad'
     | '/cursos'
@@ -489,8 +489,8 @@ export interface FileRouteTypes {
     | '/_authenticated/comunidad/$postId'
     | '/_authenticated/cursos/$cursoId'
     | '/_authenticated/miembro/$userId'
-    | '/_authenticated/pagos/freelance'
     | '/_authenticated/pagos_/alumnas'
+    | '/_authenticated/pagos_/freelance'
     | '/api/public/zoom-webhook'
     | '/_authenticated/comunidad/'
     | '/_authenticated/cursos/'
@@ -752,18 +752,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMiembroUserIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/pagos/freelance': {
-      id: '/_authenticated/pagos/freelance'
-      path: '/freelance'
-      fullPath: '/pagos/freelance'
-      preLoaderRoute: typeof AuthenticatedPagosFreelanceRouteImport
-      parentRoute: typeof AuthenticatedPagosRoute
-    }
     '/_authenticated/pagos_/alumnas': {
       id: '/_authenticated/pagos_/alumnas'
       path: '/pagos/alumnas'
       fullPath: '/pagos/alumnas'
       preLoaderRoute: typeof AuthenticatedPagosAlumnasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/pagos_/freelance': {
+      id: '/_authenticated/pagos_/freelance'
+      path: '/pagos/freelance'
+      fullPath: '/pagos/freelance'
+      preLoaderRoute: typeof AuthenticatedPagosFreelanceRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/api/public/zoom-webhook': {
@@ -775,17 +775,6 @@ declare module '@tanstack/react-router' {
     }
   }
 }
-
-interface AuthenticatedPagosRouteChildren {
-  AuthenticatedPagosFreelanceRoute: typeof AuthenticatedPagosFreelanceRoute
-}
-
-const AuthenticatedPagosRouteChildren: AuthenticatedPagosRouteChildren = {
-  AuthenticatedPagosFreelanceRoute: AuthenticatedPagosFreelanceRoute,
-}
-
-const AuthenticatedPagosRouteWithChildren =
-  AuthenticatedPagosRoute._addFileChildren(AuthenticatedPagosRouteChildren)
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAccesoClasesEnVivoRoute: typeof AuthenticatedAccesoClasesEnVivoRoute
@@ -809,7 +798,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMisClasesAsignadasRoute: typeof AuthenticatedMisClasesAsignadasRoute
   AuthenticatedMisCuentasBancariasRoute: typeof AuthenticatedMisCuentasBancariasRoute
   AuthenticatedMisReportesRoute: typeof AuthenticatedMisReportesRoute
-  AuthenticatedPagosRoute: typeof AuthenticatedPagosRouteWithChildren
+  AuthenticatedPagosRoute: typeof AuthenticatedPagosRoute
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedPermisosRoute: typeof AuthenticatedPermisosRoute
   AuthenticatedTareasRoute: typeof AuthenticatedTareasRoute
@@ -817,6 +806,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCursosCursoIdRoute: typeof AuthenticatedCursosCursoIdRoute
   AuthenticatedMiembroUserIdRoute: typeof AuthenticatedMiembroUserIdRoute
   AuthenticatedPagosAlumnasRoute: typeof AuthenticatedPagosAlumnasRoute
+  AuthenticatedPagosFreelanceRoute: typeof AuthenticatedPagosFreelanceRoute
   AuthenticatedComunidadIndexRoute: typeof AuthenticatedComunidadIndexRoute
   AuthenticatedCursosIndexRoute: typeof AuthenticatedCursosIndexRoute
 }
@@ -844,7 +834,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMisClasesAsignadasRoute: AuthenticatedMisClasesAsignadasRoute,
   AuthenticatedMisCuentasBancariasRoute: AuthenticatedMisCuentasBancariasRoute,
   AuthenticatedMisReportesRoute: AuthenticatedMisReportesRoute,
-  AuthenticatedPagosRoute: AuthenticatedPagosRouteWithChildren,
+  AuthenticatedPagosRoute: AuthenticatedPagosRoute,
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedPermisosRoute: AuthenticatedPermisosRoute,
   AuthenticatedTareasRoute: AuthenticatedTareasRoute,
@@ -852,6 +842,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCursosCursoIdRoute: AuthenticatedCursosCursoIdRoute,
   AuthenticatedMiembroUserIdRoute: AuthenticatedMiembroUserIdRoute,
   AuthenticatedPagosAlumnasRoute: AuthenticatedPagosAlumnasRoute,
+  AuthenticatedPagosFreelanceRoute: AuthenticatedPagosFreelanceRoute,
   AuthenticatedComunidadIndexRoute: AuthenticatedComunidadIndexRoute,
   AuthenticatedCursosIndexRoute: AuthenticatedCursosIndexRoute,
 }
