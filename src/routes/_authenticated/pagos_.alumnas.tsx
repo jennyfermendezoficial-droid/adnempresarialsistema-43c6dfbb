@@ -13,7 +13,6 @@ import {
   ReceiptText,
   Search,
   ShieldCheck,
-  UserRound,
   Users,
   Upload,
   X,
@@ -26,8 +25,20 @@ import { generarInformeAlumnasPDF, listaMeses } from "@/lib/pagos-export";
 import { subirImagen, esUrlAbsoluta } from "@/lib/cloudinary";
 import { leerComprobante } from "@/lib/comprobante-ocr.functions";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { calcularCobroMensual } from "@/lib/alumnas-saldo";
 
-export const Route = createFileRoute("/_authenticated/pagos_/alumnas")({ component: Page });
+export const Route = createFileRoute("/_authenticated/pagos_/alumnas")({
+  component: Page,
+  head: () => ({ meta: [
+    { title: "Alumnas · Pagos e informes | ADN Empresarial" },
+    { name: "description", content: "Costo del curso, cuotas mensuales, abonos, comprobantes e informes de alumnas en ADN Empresarial." },
+    { property: "og:title", content: "Alumnas · Pagos e informes | ADN Empresarial" },
+    { property: "og:description", content: "Control de cuotas, saldos y comprobantes de alumnas." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary_large_image" },
+  ] }),
+});
 
 interface AlumnaBasica {
   id: string;
@@ -79,6 +90,7 @@ interface FilaAlumna extends AlumnaBasica {
   falta: number;
   estado: "pagado" | "debe" | "sin_total";
   abonos: AbonoMentoria[];
+  saldoCurso?: number;
 }
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -100,17 +112,10 @@ function nombreAlumna(a: AlumnaBasica) {
 
 interface CursoMentoria {
   alumna_id: string;
-  nombre_curso: string | null;
   valor_total: number;
   pagado_inicial: number;
   cuota_mensual: number;
   abonado_total: number;
-}
-
-function saldoCurso(c?: CursoMentoria) {
-  if (!c) return null;
-  const pagado = Number(c.pagado_inicial || 0) + Number(c.abonado_total || 0);
-  return { pagado, falta: Math.max(0, Math.round((Number(c.valor_total) - pagado) * 100) / 100) };
 }
 
 // Tablas creadas previamente para la gestión mensual de mentoría de alumnas.
@@ -171,8 +176,8 @@ function Page() {
         supabase.from("pagos_mentoria_abonos").select("alumna_id,monto"),
       ]);
 
-      if (totalesRes.error || abonosRes.error) {
-        const err = totalesRes.error ?? abonosRes.error;
+      if (totalesRes.error || abonosRes.error || cursosRes.error || todosAbonosRes.error) {
+        const err = totalesRes.error ?? abonosRes.error ?? cursosRes.error ?? todosAbonosRes.error;
         setTotales([]);
         setAbonos([]);
         setInfraError(err?.message || "No se pudo cargar la estructura de pagos de alumnas.");
@@ -212,14 +217,18 @@ function Page() {
     });
 
     return alumnas.map((alumna) => {
-      const total = totalPorAlumna.get(alumna.id) ?? 0;
       const lista = abonosPorAlumna.get(alumna.id) ?? [];
       const pagado = Math.round(lista.reduce((s, a) => s + Number(a.monto || 0), 0) * 100) / 100;
-      const falta = Math.max(0, Math.round((total - pagado) * 100) / 100);
+      const curso = cursos[alumna.id];
+      const { total, falta, saldoCurso } = calcularCobroMensual({
+        totalManual: totalPorAlumna.get(alumna.id), cuota: curso?.cuota_mensual,
+        valorCurso: curso?.valor_total, pagadoInicial: curso?.pagado_inicial,
+        abonadoTotal: curso?.abonado_total, abonadoMes: pagado,
+      });
       const estado: FilaAlumna["estado"] = total <= 0 ? "sin_total" : pagado + 0.001 >= total ? "pagado" : "debe";
-      return { ...alumna, total, pagado, falta, estado, abonos: lista };
+      return { ...alumna, total, pagado, falta, estado, abonos: lista, saldoCurso };
     });
-  }, [alumnas, totales, abonos]);
+  }, [alumnas, totales, abonos, cursos]);
 
   const filtradas = useMemo(() => {
     const q = buscar.trim().toLowerCase();
@@ -252,9 +261,7 @@ function Page() {
         >
           {listaMeses().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <div className="text-xs text-muted-foreground">
-          Usa <strong className="text-foreground">Totales</strong> para fijar el valor de mentoría; Pagado y Falta se calculan automáticamente con los abonos.
-        </div>
+
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -263,10 +270,10 @@ function Page() {
           <p className="text-xs text-muted-foreground mt-0.5">Solo aparecen aquí las cuentas que fueron seleccionadas como alumnas de mentoría.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setSeleccionAlumnasOpen(true)} className="px-3 py-2 rounded-lg border bg-card text-sm font-semibold inline-flex items-center gap-2 hover:bg-muted/40">
+          <Button variant="outline" onClick={() => setSeleccionAlumnasOpen(true)} className="px-3 py-2 rounded-lg border bg-card text-sm font-semibold inline-flex items-center gap-2 hover:bg-muted/40">
             <Users className="w-4 h-4" /> Seleccionar alumnas
-          </button>
-          <button
+          </Button>
+          <Button variant="outline"
             onClick={() => {
               generarInformeAlumnasPDF({
                 mes,
@@ -287,6 +294,7 @@ function Page() {
                   estado: f.estado === "sin_total" ? "sin_total" : f.estado,
                   cuentaCompleta: Boolean(f.cuenta_bancaria_completa),
                   acompanantes: Number(f.acompanantes_count || 0),
+                  curso: cursos[f.id],
                   abonos: f.abonos.map((a) => ({
                     fecha: a.fecha_pago,
                     monto: Number(a.monto),
@@ -297,14 +305,15 @@ function Page() {
                     referencia: a.referencia_pago,
                     numeroComprobante: a.numero_comprobante,
                     observacion: a.observacion,
+                    archivoUrl: a.archivo_url,
                   })),
                 })),
               });
             }}
-            className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold inline-flex items-center gap-2"
+            className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2"
           >
             <FileText className="w-4 h-4" /> Informe PDF
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -333,7 +342,7 @@ function Page() {
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3 px-1">
         <div>
           <h2 className="text-lg font-semibold">Resumen de alumnas · {MESES[mes - 1]} {anio}</h2>
-          <p className="text-xs text-muted-foreground">Control mensual de la mentoría. El total mensual se fija por alumna y Pagado/Falta se calculan desde los abonos.</p>
+          <p className="text-xs text-muted-foreground">Cuotas, abonos del mes y saldo pendiente del curso.</p>
         </div>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -351,9 +360,9 @@ function Page() {
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b">
               <th className="text-left px-4 py-3 font-semibold">Alumna</th>
-              <th className="text-right px-3 py-3 font-semibold">Total</th>
-              <th className="text-right px-3 py-3 font-semibold">Pagado</th>
-              <th className="text-right px-3 py-3 font-semibold">Falta</th>
+              <th className="text-right px-3 py-3 font-semibold">Total del mes</th>
+              <th className="text-right px-3 py-3 font-semibold">Abonado del mes</th>
+              <th className="text-right px-3 py-3 font-semibold">Pendiente del mes</th>
               <th className="text-left px-3 py-3 font-semibold">Estado</th>
               <th className="text-left px-3 py-3 font-semibold">Cuenta bancaria</th>
               <th className="text-left px-3 py-3 font-semibold">Acompañantes</th>
@@ -381,9 +390,12 @@ function Page() {
                     <div className="min-w-0">
                       <div className="font-semibold truncate">{nombreAlumna(f)}</div>
                       <div className="text-[11px] text-muted-foreground truncate">{f.email || "Sin correo"}</div>
-                      {cursos[f.id] && (() => { const c = cursos[f.id]; const s = saldoCurso(c)!; return (
-                        <div className="text-[11px] mt-0.5">Curso {dinero(c.valor_total)} · pagado <b className="text-emerald-600">{dinero(s.pagado)}</b> · falta <b className="text-red-600">{dinero(s.falta)}</b> · cuota {dinero(c.cuota_mensual)}/mes</div>
-                      ); })()}
+                      {cursos[f.id] && (
+                        <div className="text-[11px] mt-1 space-y-0.5 text-muted-foreground">
+                          <div>Valor del curso: {dinero(cursos[f.id].valor_total)} · Ya pagado antes: {dinero(cursos[f.id].pagado_inicial)}</div>
+                          <div>Cuota mensual: {dinero(cursos[f.id].cuota_mensual)} · Saldo del curso: <strong className="text-foreground">{dinero(f.saldoCurso ?? 0)}</strong></div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -402,51 +414,50 @@ function Page() {
                   )}
                 </td>
                 <td className="px-3 py-3">
+                  <Button variant="ghost" size="sm" onClick={() => setGestionDe(f)} aria-label={`Ver cuenta y acompañantes de ${nombreAlumna(f)}`}>
                   {f.cuenta_bancaria_completa ? (
                     <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Completa</span>
                   ) : (
                     <span className="text-xs font-medium text-amber-700 dark:text-amber-300 inline-flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" /> Pendiente</span>
                   )}
+                  </Button>
                 </td>
                 <td className="px-3 py-3 text-xs font-medium">{Number(f.acompanantes_count || 0)} / 2</td>
                 <td className="px-4 py-3">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => setGestionDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
-                      <UserRound className="w-3.5 h-3.5" /> Ficha
-                    </button>
-                    <button onClick={() => setCursoDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
-                      <Landmark className="w-3.5 h-3.5" /> {cursos[f.id] ? "Editar curso" : "Valor curso"}
-                    </button>
-                    <button
+                  <div className="flex flex-wrap justify-end gap-2 min-w-[290px]">
+                    <Button variant="outline" onClick={() => setCursoDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
+                      <Landmark className="w-3.5 h-3.5" /> {cursos[f.id] ? "Editar valor del curso" : "Valor del curso"}
+                    </Button>
+                    <Button variant="outline"
                       onClick={() => {
-                        const c = cursos[f.id]; const s = saldoCurso(c);
                         generarInformeAlumnasPDF({
                           mes, anio, totalAlumnas: 1, seleccionadas: 1,
                           pagadas: f.estado === "pagado" ? 1 : 0, pendientes: f.estado === "debe" ? 1 : 0,
-                          totalFacturado: c ? Number(c.valor_total) : f.total,
-                          totalAbonado: s ? s.pagado : f.pagado,
-                          totalFalta: s ? s.falta : f.falta,
+                          totalFacturado: f.total,
+                          totalAbonado: f.pagado,
+                          totalFalta: f.falta,
                           filas: [{
                             nombre: nombreAlumna(f), email: f.email || "", total: f.total, pagado: f.pagado, falta: f.falta,
                             estado: f.estado, cuentaCompleta: Boolean(f.cuenta_bancaria_completa),
                             acompanantes: Number(f.acompanantes_count || 0),
-                            abonos: f.abonos.map((a) => ({ fecha: a.fecha_pago, monto: Number(a.monto), tipo: a.tipo_pago, bancoOrigen: a.banco_origen, cuentaOrigen: a.cuenta_origen, titularOrigen: a.titular_origen, referencia: a.referencia_pago, numeroComprobante: a.numero_comprobante, observacion: a.observacion })),
+                            curso: cursos[f.id],
+                            abonos: f.abonos.map((a) => ({ fecha: a.fecha_pago, monto: Number(a.monto), tipo: a.tipo_pago, bancoOrigen: a.banco_origen, cuentaOrigen: a.cuenta_origen, titularOrigen: a.titular_origen, referencia: a.referencia_pago, numeroComprobante: a.numero_comprobante, observacion: a.observacion, archivoUrl: a.archivo_url })),
                           }],
                         });
                       }}
                       className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40"
                     >
                       <FileText className="w-3.5 h-3.5" /> PDF
-                    </button>
-                    <button onClick={() => setTotalesDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
-                      <Calculator className="w-3.5 h-3.5" /> Totales
-                    </button>
-                    <button onClick={() => setComprobantesDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
-                      <Eye className="w-3.5 h-3.5" /> Ver comp.
-                    </button>
-                    <button onClick={() => setAbonoDe(f)} disabled={!!infraError} className="px-3 py-1.5 rounded-lg bg-violet-gradient text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50">
-                      <ReceiptText className="w-3.5 h-3.5" /> Registrar abono
-                    </button>
+                    </Button>
+                    <Button variant="outline" onClick={() => setTotalesDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
+                      <Calculator className="w-3.5 h-3.5" /> Totales del mes
+                    </Button>
+                    <Button variant="outline" onClick={() => setComprobantesDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
+                      <Eye className="w-3.5 h-3.5" /> Comprobantes
+                    </Button>
+                    <Button variant="default" onClick={() => setAbonoDe(f)} disabled={!!infraError} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50">
+                      <ReceiptText className="w-3.5 h-3.5" /> Nuevo abono mensual
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -553,17 +564,16 @@ function TotalesModal({ fila, mes, anio, uid, onClose, onSaved }: {
     } as never, { onConflict: "alumna_id,mes,anio" });
     setGuardando(false);
     if (error) return toast.error(error.message);
-    toast.success("Total de mentoría guardado");
+    toast.success("Total mensual guardado");
     await onSaved();
   };
 
   return (
-    <ModalBase title={`Totales · ${nombreAlumna(fila)}`} subtitle={`${MESES[mes - 1]} ${anio}`} onClose={onClose}>
+    <ModalBase title={`Totales del mes · ${nombreAlumna(fila)}`} subtitle={`${MESES[mes - 1]} ${anio}`} onClose={onClose}>
       <div className="p-5 space-y-4">
         <div>
-          <label className="block text-xs font-semibold mb-1">Total de mentoría del mes ($)</label>
+          <label className="block text-xs font-semibold mb-1">Total a pagar este mes ($)</label>
           <input type="number" min="0" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm tabular-nums" placeholder="0.00" />
-          <p className="text-[11px] text-muted-foreground mt-1">Este es el único valor manual. Pagado y Falta se calculan con los abonos registrados.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -578,10 +588,10 @@ function TotalesModal({ fila, mes, anio, uid, onClose, onSaved }: {
         </div>
 
         <div className="flex justify-end gap-2">
-          <button disabled={guardando} onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button>
-          <button disabled={guardando} onClick={() => void guardar()} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold disabled:opacity-60">
+          <Button variant="outline" disabled={guardando} onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cancelar</Button>
+          <Button variant="outline" disabled={guardando} onClick={() => void guardar()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">
             {guardando ? "Guardando…" : "Guardar total"}
-          </button>
+          </Button>
         </div>
       </div>
     </ModalBase>
@@ -650,7 +660,8 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
 
   const guardar = async () => {
     if (!Number.isFinite(montoNum) || montoNum <= 0) return toast.error("Escribe el monto del abono.");
-    if (fila.total <= 0) return toast.error("Primero registra el total de mentoría del mes.");
+    if (fila.total <= 0) return toast.error("Primero registra el valor del curso y la cuota mensual o el total del mes.");
+    if (fila.saldoCurso !== undefined && montoNum > fila.saldoCurso + 0.001) return toast.error("El abono supera el saldo pendiente del curso.");
     if (montoNum > fila.falta + 0.001) return toast.error(`El abono supera lo que falta por pagar (${dinero(fila.falta)}).`);
     if ((tipoPago === "transferencia" || tipoPago === "deposito") && !bancoOrigen.trim()) {
       return toast.error("Indica el banco de origen para este pago.");
@@ -672,6 +683,11 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
       }
     }
 
+    // Preserve the amount agreed for this period before reducing the course balance.
+    const { error: totalError } = await tablaTotales().upsert({
+      alumna_id: fila.id, mes, anio, total: fila.total, creado_por: uid, updated_at: new Date().toISOString(),
+    } as never, { onConflict: "alumna_id,mes,anio" });
+    if (totalError) { setGuardando(false); return toast.error("No se pudo guardar el total del mes. El abono no fue registrado."); }
     const { error } = await tablaAbonos().insert({
       alumna_id: fila.id,
       mes,
@@ -698,7 +714,7 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
   };
 
   return (
-    <ModalBase title={`Registrar abono · ${nombreAlumna(fila)}`} subtitle={`${MESES[mes - 1]} ${anio}`} onClose={onClose} wide>
+    <ModalBase title={`Nuevo abono mensual · ${nombreAlumna(fila)}`} subtitle={`${MESES[mes - 1]} ${anio}`} onClose={onClose} wide>
       <div className="grid md:grid-cols-[1fr_220px] gap-5 p-5">
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -738,18 +754,19 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
           <Campo label="Observación"><textarea rows={3} value={observacion} onChange={(e) => setObservacion(e.target.value.slice(0, 300))} maxLength={300} className="w-full px-3 py-2 rounded-lg border bg-background text-sm" placeholder="Nota adicional, concepto o medio usado" /></Campo>
 
           <div className="grid grid-cols-3 gap-2 pt-1">
-            <MiniTotal label="Total" value={dinero(fila.total)} />
-            <MiniTotal label="Pagado" value={dinero(fila.pagado)} positivo />
-            <MiniTotal label="Falta" value={dinero(fila.falta)} alerta={fila.falta > 0} />
+            <MiniTotal label="Total del mes" value={dinero(fila.total)} />
+            <MiniTotal label="Abonado del mes" value={dinero(fila.pagado)} positivo />
+            <MiniTotal label="Pendiente tras abono" value={dinero(Math.max(0, fila.falta - montoNum))} alerta={fila.falta > montoNum} />
           </div>
+          {fila.saldoCurso !== undefined && <MiniTotal label="Saldo del curso tras este abono" value={dinero(Math.max(0, fila.saldoCurso - montoNum))} />}
         </div>
 
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Comprobante</div>
-          <button
+          <Button variant="outline"
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-full aspect-square max-h-[210px] rounded-xl border-2 border-dashed grid place-items-center overflow-hidden text-xs"
+            className="w-full h-auto aspect-square max-h-[210px] rounded-xl border-2 border-dashed grid place-items-center overflow-hidden text-xs whitespace-normal"
             style={{ borderColor: "var(--violet)", background: "color-mix(in oklab, var(--violet) 6%, transparent)" }}
           >
             {preview ? <img src={preview} alt="Comprobante" className="w-full h-full object-contain" /> : leyendo ? (
@@ -757,16 +774,16 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
             ) : (
               <span className="inline-flex flex-col items-center gap-2 text-muted-foreground px-3 text-center"><Upload className="w-5 h-5" /> Subir imagen y detectar datos</span>
             )}
-          </button>
+          </Button>
           <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) void procesar(file); }} />
           <p className="text-[11px] text-muted-foreground mt-2">Al subir una imagen, el sistema intenta detectar monto, fecha y número de comprobante.</p>
         </div>
       </div>
       <div className="px-5 pb-5 flex justify-end gap-2">
-        <button disabled={guardando} onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button>
-        <button disabled={guardando || leyendo} onClick={() => void guardar()} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold disabled:opacity-60">
-          {guardando ? "Guardando…" : "Guardar abono"}
-        </button>
+        <Button variant="outline" disabled={guardando} onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cancelar</Button>
+        <Button variant="outline" disabled={guardando || leyendo} onClick={() => void guardar()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">
+          {guardando ? "Guardando…" : "Guardar abono mensual"}
+        </Button>
       </div>
     </ModalBase>
   );
@@ -805,14 +822,14 @@ function ComprobantesModal({ fila, onClose }: { fila: FilaAlumna; onClose: () =>
                   {(a.tarjeta_marca || a.tarjeta_ultimos4) && <div className="text-[11px] text-muted-foreground mt-1">Tarjeta: {[a.tarjeta_marca, a.tarjeta_ultimos4 ? `•••• ${a.tarjeta_ultimos4}` : null].filter(Boolean).join(" · ")}</div>}
                   {a.observacion && <div className="text-xs text-muted-foreground mt-1">{a.observacion}</div>}
                 </div>
-                <button onClick={() => void abrirComprobante(a)} disabled={!a.archivo_url} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 disabled:opacity-40">
+                <Button variant="outline" onClick={() => void abrirComprobante(a)} disabled={!a.archivo_url} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 disabled:opacity-40">
                   <Eye className="w-3.5 h-3.5" /> {a.archivo_url ? "Abrir comprobante" : "Sin archivo"}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
         )}
-        <div className="flex justify-end mt-4"><button onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cerrar</button></div>
+        <div className="flex justify-end mt-4"><Button variant="outline" onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cerrar</Button></div>
       </div>
     </ModalBase>
   );
@@ -827,13 +844,13 @@ function ModalBase({ title, subtitle, onClose, wide = false, children }: {
 }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-3 overflow-y-auto" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-2xl bg-card border shadow-xl my-6`} onMouseDown={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={title} className={`w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-2xl bg-card border shadow-xl my-6`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 rounded-t-2xl text-white bg-violet-gradient">
           <div className="min-w-0">
             <div className="font-semibold truncate">{title}</div>
             {subtitle && <div className="text-xs opacity-85 truncate">{subtitle}</div>}
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full grid place-items-center bg-white/20"><X className="w-4 h-4" /></button>
+          <Button variant="outline" onClick={onClose} className="w-8 h-8 rounded-full grid place-items-center bg-white/20"><X className="w-4 h-4" /></Button>
         </div>
         {children}
       </div>
@@ -849,7 +866,6 @@ function CursoModal({ fila, curso, onClose, onSaved }: {
   fila: FilaAlumna; curso?: CursoMentoria; onClose: () => void; onSaved: () => Promise<void>;
 }) {
   const [v, setV] = useState({
-    nombre: curso?.nombre_curso ?? "",
     total: curso ? String(curso.valor_total) : "",
     pagado: curso ? String(curso.pagado_inicial) : "",
     cuota: curso ? String(curso.cuota_mensual) : "",
@@ -857,10 +873,13 @@ function CursoModal({ fila, curso, onClose, onSaved }: {
   const [busy, setBusy] = useState(false);
   const total = Number(v.total || 0), pagado = Number(v.pagado || 0) + Number(curso?.abonado_total || 0);
   const guardar = async () => {
-    if (total <= 0) return toast.error("Escribe el valor total del curso.");
+    if (!Number.isFinite(total) || total <= 0) return toast.error("Escribe el valor total del curso.");
+    const inicial = Number(v.pagado || 0), cuota = Number(v.cuota || 0);
+    if (!Number.isFinite(inicial) || inicial < 0 || !Number.isFinite(cuota) || cuota < 0) return toast.error("Los valores deben ser números válidos, sin negativos.");
+    if (pagado > total) return toast.error("El valor del curso no puede ser menor a lo ya pagado y los abonos registrados.");
     setBusy(true);
     const { error } = await supabase.from("mentoria_cursos").upsert({
-      alumna_id: fila.id, nombre_curso: v.nombre.trim() || null, valor_total: total,
+      alumna_id: fila.id, valor_total: total,
       pagado_inicial: Number(v.pagado || 0), cuota_mensual: Number(v.cuota || 0), updated_at: new Date().toISOString(),
     });
     setBusy(false);
@@ -870,11 +889,10 @@ function CursoModal({ fila, curso, onClose, onSaved }: {
   };
   const cls = "w-full px-3 py-2 rounded-lg border bg-background text-sm";
   return (
-    <ModalBase title={`Valor del curso · ${nombreAlumna(fila)}`} subtitle="Se llena una sola vez; puedes editarlo si te equivocas." onClose={onClose}>
+    <ModalBase title={`Valor del curso · ${nombreAlumna(fila)}`} onClose={onClose}>
       <div className="p-5 space-y-3">
-        <Campo label="Nombre del curso / programa"><input value={v.nombre} onChange={(e) => setV({ ...v, nombre: e.target.value })} className={cls} /></Campo>
-        <div className="grid grid-cols-3 gap-3">
-          <Campo label="Valor total ($)"><input type="number" min="0" step="0.01" value={v.total} onChange={(e) => setV({ ...v, total: e.target.value })} className={cls} /></Campo>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Campo label="Valor del curso ($)"><input type="number" min="0" step="0.01" value={v.total} onChange={(e) => setV({ ...v, total: e.target.value })} className={cls} /></Campo>
           <Campo label="Ya pagado antes ($)"><input type="number" min="0" step="0.01" value={v.pagado} onChange={(e) => setV({ ...v, pagado: e.target.value })} className={cls} /></Campo>
           <Campo label="Cuota mensual ($)"><input type="number" min="0" step="0.01" value={v.cuota} onChange={(e) => setV({ ...v, cuota: e.target.value })} className={cls} /></Campo>
         </div>
@@ -883,8 +901,8 @@ function CursoModal({ fila, curso, onClose, onSaved }: {
           <MiniTotal label="Falta" value={dinero(Math.max(0, total - pagado))} alerta />
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button>
-          <button disabled={busy} onClick={guardar} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold">{busy ? "Guardando…" : "Guardar"}</button>
+          <Button variant="outline" onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cancelar</Button>
+          <Button variant="outline" disabled={busy} onClick={guardar} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold">{busy ? "Guardando…" : "Guardar"}</Button>
         </div>
       </div>
     </ModalBase>
@@ -950,13 +968,13 @@ function SeleccionAlumnasModal({ usuarios, onClose, onSaved }: {
                 <span>{u.cuenta_bancaria_completa ? "Banco registrado" : "Banco pendiente"}</span>
                 <span>·</span><span>{Number(u.acompanantes_count || 0)}/2 acompañantes</span>
               </div>
-              <button disabled={guardando === u.id} onClick={() => void toggle(u)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${u.seleccionada ? "bg-foreground text-background border-transparent" : "bg-card hover:bg-muted"}`}>
+              <Button variant="outline" disabled={guardando === u.id} onClick={() => void toggle(u)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${u.seleccionada ? "bg-foreground text-background border-transparent" : "bg-card hover:bg-muted"}`}>
                 {guardando === u.id ? "Guardando…" : u.seleccionada ? "Seleccionada" : "Seleccionar"}
-              </button>
+              </Button>
             </div>
           ))}
         </div>
-        <div className="flex justify-end mt-4"><button onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cerrar</button></div>
+        <div className="flex justify-end mt-4"><Button variant="outline" onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cerrar</Button></div>
       </div>
     </ModalBase>
   );
@@ -990,7 +1008,7 @@ function GestionAlumnaModal({ fila, onClose, onSaved }: {
         const row = (cuentaRes.data?.[0] ?? null) as { banco: string | null; tipo_cuenta: string | null; numero_cuenta: string | null; titular_cuenta: string | null; cedula_titular: string | null; completo: boolean } | null;
         setCuenta(row);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "No se pudo cargar la ficha de la alumna.");
+        toast.error(error instanceof Error ? error.message : "No se pudieron cargar los datos de la alumna.");
       } finally {
         if (activo) setCargando(false);
       }
@@ -1020,9 +1038,9 @@ function GestionAlumnaModal({ fila, onClose, onSaved }: {
   const opciones = acompanantes.filter((a) => !seleccionados.some((id, idx) => id === a.id && idx !== seleccionados.indexOf(a.id)));
 
   return (
-    <ModalBase title={`Ficha de mentoría · ${nombreAlumna(fila)}`} subtitle={`${fila.email || "Sin correo"}`} onClose={onClose} wide>
+    <ModalBase title={`Cuenta y acompañantes · ${nombreAlumna(fila)}`} subtitle={`${fila.email || "Sin correo"}`} onClose={onClose} wide>
       <div className="p-5 space-y-5">
-        {cargando ? <div className="py-8 text-center text-sm text-muted-foreground">Cargando ficha…</div> : (
+        {cargando ? <div className="py-8 text-center text-sm text-muted-foreground">Cargando datos…</div> : (
           <>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="rounded-xl border p-4">
@@ -1061,7 +1079,7 @@ function GestionAlumnaModal({ fila, onClose, onSaved }: {
                 ))}
               </div>
               <div className="flex justify-end mt-3">
-                <button disabled={guardando} onClick={() => void guardarAcompanantes()} className="px-3 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold">{guardando ? "Guardando…" : "Guardar acompañantes"}</button>
+                <Button variant="outline" disabled={guardando} onClick={() => void guardarAcompanantes()} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold">{guardando ? "Guardando…" : "Guardar acompañantes"}</Button>
               </div>
             </div>
 
@@ -1071,7 +1089,7 @@ function GestionAlumnaModal({ fila, onClose, onSaved }: {
             </div>
           </>
         )}
-        <div className="flex justify-end"><button onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cerrar</button></div>
+        <div className="flex justify-end"><Button variant="outline" onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cerrar</Button></div>
       </div>
     </ModalBase>
   );

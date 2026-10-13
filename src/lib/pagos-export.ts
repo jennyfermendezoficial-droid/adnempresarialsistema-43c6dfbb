@@ -430,6 +430,7 @@ export interface InformeAlumnaAbonoPDF {
   referencia?: string | null;
   numeroComprobante?: string | null;
   observacion?: string | null;
+  archivoUrl?: string | null;
 }
 
 export interface InformeAlumnaPDFInput {
@@ -451,6 +452,7 @@ export interface InformeAlumnaPDFInput {
     estado: string;
     cuentaCompleta: boolean;
     acompanantes: number;
+    curso?: { valor_total: number; pagado_inicial: number; cuota_mensual: number; abonado_total: number };
     abonos: InformeAlumnaAbonoPDF[];
   }>;
 }
@@ -476,9 +478,9 @@ export function generarInformeAlumnasPDF(input: InformeAlumnaPDFInput) {
 
   const cards: [string, string][] = [
     ["Alumnas seleccionadas", String(seleccionadas)],
-    ["Total facturado", `$${totalFacturado.toFixed(2)}`],
-    ["Total abonado", `$${totalAbonado.toFixed(2)}`],
-    ["Deuda pendiente", `$${totalFalta.toFixed(2)}`],
+    ["Total del mes", `$${totalFacturado.toFixed(2)}`],
+    ["Abonado del mes", `$${totalAbonado.toFixed(2)}`],
+    ["Pendiente del mes", `$${totalFalta.toFixed(2)}`],
   ];
   const cw = (W - 80 - 30) / 4;
   cards.forEach(([label, value], i) => {
@@ -516,7 +518,7 @@ export function generarInformeAlumnasPDF(input: InformeAlumnaPDFInput) {
         `$${f.total.toFixed(2)}`,
         `$${f.pagado.toFixed(2)}`,
         `$${f.falta.toFixed(2)}`,
-        f.estado === "pagado" ? "Pagado" : "Debe",
+        f.estado === "pagado" ? "Pagado" : f.estado === "sin_total" ? "Sin valor" : "Debe",
         f.cuentaCompleta ? "Completa" : "Pendiente",
         String(f.acompanantes),
       ]),
@@ -530,13 +532,46 @@ export function generarInformeAlumnasPDF(input: InformeAlumnaPDFInput) {
     y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 60) + 24;
 
     for (const f of filas) {
-      if (!f.abonos.length) continue;
-      if (y > H - 150) { doc.addPage(); y = 45; }
+      if (y > H - 220) { doc.addPage(); y = 45; }
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(30, 28, 50);
-      doc.text(`${f.nombre} · movimientos del periodo`, 40, y);
-      y += 8;
+      const escribir = (texto: string, negrita = false) => {
+        doc.setFont("helvetica", negrita ? "bold" : "normal");
+        doc.setFontSize(negrita ? 11 : 10);
+        const lineas: string[] = doc.splitTextToSize(texto, W - 80);
+        for (const linea of lineas) {
+          if (y > H - 55) { doc.addPage(); y = 45; }
+          doc.text(linea, 40, y);
+          y += 14;
+        }
+        y += 8;
+      };
+      const money = (n: number) => `$${Number(n).toFixed(2)}`;
+      escribir(`${f.nombre} · informe individual`, true);
+      if (f.curso) {
+        const c = f.curso;
+        const acumulado = Number(c.pagado_inicial) + Number(c.abonado_total);
+        const saldo = Math.max(0, Number(c.valor_total) - acumulado);
+        escribir(`El curso tiene un valor de ${money(c.valor_total)}. Antes del registro de abonos se habían pagado ${money(c.pagado_inicial)}. La cuota mensual acordada es de ${money(c.cuota_mensual)}.`);
+        escribir(`A la fecha de emisión, los abonos registrados de todos los meses suman ${money(c.abonado_total)}. Incluyendo el pago previo, el total pagado por el curso es ${money(acumulado)} y el saldo pendiente del curso es ${money(saldo)}. Estos valores acumulados no corresponden únicamente al mes seleccionado.`);
+      } else {
+        escribir("El valor del curso, el pago previo y la cuota mensual todavía no han sido registrados.");
+      }
+      escribir(`Durante ${MESES[mes - 1]} de ${anio}, el total a pagar es ${money(f.total)}. Se registraron ${f.abonos.length} abonos por ${money(f.pagado)}, quedando ${money(f.falta)} pendientes de este mes. ${f.estado === "sin_total" ? "El total mensual aún no está definido." : f.falta > 0 ? "La cuota del mes continúa pendiente de completar." : "La cuota de este mes está cubierta."}`);
+      if (!f.abonos.length) {
+        escribir("No se registraron pagos ni comprobantes durante este periodo.");
+        continue;
+      }
+      for (const a of f.abonos) {
+        escribir(`El ${a.fecha} se recibió un abono de ${money(a.monto)} mediante ${a.tipo.replace(/_/g, " ")}.${a.numeroComprobante ? ` Comprobante número ${a.numeroComprobante}.` : ""}${a.bancoOrigen ? ` Banco de origen: ${a.bancoOrigen}.` : ""}${a.cuentaOrigen ? ` Cuenta: ${a.cuentaOrigen}.` : ""}${a.titularOrigen ? ` Titular: ${a.titularOrigen}.` : ""}${a.referencia ? ` Referencia: ${a.referencia}.` : ""}${a.observacion ? ` Observaciones: ${a.observacion}` : ""} ${a.archivoUrl ? "Comprobante adjunto disponible en el sistema." : "Sin archivo de comprobante adjunto."}`);
+        if (a.archivoUrl && /^https:\/\//.test(a.archivoUrl)) {
+          if (y > H - 55) { doc.addPage(); y = 45; }
+          doc.textWithLink("Abrir comprobante adjunto", 40, y, { url: a.archivoUrl });
+          y += 22;
+        }
+      }
+      if (y > H - 100) { doc.addPage(); y = 45; }
       autoTable(doc, {
         startY: y + 10,
         head: [["Fecha", "Monto", "Método", "Banco origen", "Cuenta / titular", "Referencia", "Comprobante", "Observación"]],

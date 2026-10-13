@@ -5,6 +5,14 @@ import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/")({
   component: Index,
+  head: () => ({ meta: [
+    { title: "ADN Empresarial · Academia y comunidad" },
+    { name: "description", content: "Accede a tu academia, comunidad y actividades de ADN Empresarial." },
+    { property: "og:title", content: "ADN Empresarial · Academia y comunidad" },
+    { property: "og:description", content: "Tu espacio de aprendizaje y acompañamiento empresarial." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary_large_image" },
+  ] }),
 });
 
 function Index() {
