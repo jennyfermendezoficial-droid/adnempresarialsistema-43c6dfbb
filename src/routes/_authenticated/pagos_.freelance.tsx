@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, FileText, Loader2, Plus, Sparkles, Trash2, Upload, Users, X } from "lucide-react";
@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { puedeVerPagos } from "@/lib/roles";
 import { listaMeses } from "@/lib/pagos-export";
 import { formatNombre } from "@/lib/nombres";
+import { MisActividadesFreelance } from "@/components/MisActividadesFreelance";
 import { CalendarioActividades } from "@/components/CalendarioActividades";
 import { generarResumenFreelance, leerComprobanteGratis } from "@/lib/freelance-ia.functions";
 
@@ -48,7 +49,7 @@ function calcular(m: Miembro, acts: Act[], aj: Ajuste[], pagos: Pago[]) {
   return { horas, base, bonos, desc, total, pagado, saldo: Math.max(0, total - pagado) };
 }
 
-function Page() { return <FreelancePanel />; }
+function Page() { return <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6"><MisActividadesFreelance /><div className="border-t pt-6"><FreelancePanel embebido /></div></div>; }
 
 export function FreelancePanel({ embebido = false }: { embebido?: boolean }) {
   const { role, session } = useAuth();
@@ -112,7 +113,7 @@ export function FreelancePanel({ embebido = false }: { embebido?: boolean }) {
     return { m, a, j, p, c: calcular(m, a, j, p) };
   }).sort((x, y) => nombre(x.m.usuario_id).localeCompare(nombre(y.m.usuario_id), "es")), [miembros, acts, ajustes, pagos, nombre]);
 
-  if (!permitido) return <div className="p-8 text-center text-muted-foreground">No tienes permiso para ver Pagos e informes.</div>;
+  if (!permitido) return embebido ? null : <div className="p-8 text-center text-muted-foreground">No tienes permiso para ver Pagos e informes.</div>;
 
   const fila = detalle ? filas.find((f) => f.m.usuario_id === detalle) : null;
   if (fila) {
@@ -129,9 +130,6 @@ export function FreelancePanel({ embebido = false }: { embebido?: boolean }) {
           <select value={`${anio}-${mes}`} onChange={(e) => { const [a, m] = e.target.value.split("-").map(Number); setAnio(a); setMes(m); }} className="px-3 py-2 rounded-lg border bg-card text-sm">
             {listaMeses().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          {!embebido && miembros.some((x) => x.usuario_id === session?.user.id) && (
-            <Link to="/mis-actividades-freelance" className="px-4 py-2 rounded-lg border bg-card text-sm font-semibold inline-flex gap-2 items-center"><Upload className="w-4 h-4" />Subir mis actividades (PDF)</Link>
-          )}
           <button onClick={() => setSelOpen(true)} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold inline-flex gap-2 items-center"><Users className="w-4 h-4" />Seleccionar freelancers</button>
         </div>
       </div>
