@@ -381,6 +381,9 @@ function Page() {
                     <div className="min-w-0">
                       <div className="font-semibold truncate">{nombreAlumna(f)}</div>
                       <div className="text-[11px] text-muted-foreground truncate">{f.email || "Sin correo"}</div>
+                      {cursos[f.id] && (() => { const c = cursos[f.id]; const s = saldoCurso(c)!; return (
+                        <div className="text-[11px] mt-0.5">Curso {dinero(c.valor_total)} · pagado <b className="text-emerald-600">{dinero(s.pagado)}</b> · falta <b className="text-red-600">{dinero(s.falta)}</b> · cuota {dinero(c.cuota_mensual)}/mes</div>
+                      ); })()}
                     </div>
                   </div>
                 </td>
@@ -410,6 +413,30 @@ function Page() {
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setGestionDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
                       <UserRound className="w-3.5 h-3.5" /> Ficha
+                    </button>
+                    <button onClick={() => setCursoDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
+                      <Landmark className="w-3.5 h-3.5" /> {cursos[f.id] ? "Editar curso" : "Valor curso"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const c = cursos[f.id]; const s = saldoCurso(c);
+                        generarInformeAlumnasPDF({
+                          mes, anio, totalAlumnas: 1, seleccionadas: 1,
+                          pagadas: f.estado === "pagado" ? 1 : 0, pendientes: f.estado === "debe" ? 1 : 0,
+                          totalFacturado: c ? Number(c.valor_total) : f.total,
+                          totalAbonado: s ? s.pagado : f.pagado,
+                          totalFalta: s ? s.falta : f.falta,
+                          filas: [{
+                            nombre: nombreAlumna(f), email: f.email || "", total: f.total, pagado: f.pagado, falta: f.falta,
+                            estado: f.estado, cuentaCompleta: Boolean(f.cuenta_bancaria_completa),
+                            acompanantes: Number(f.acompanantes_count || 0),
+                            abonos: f.abonos.map((a) => ({ fecha: a.fecha_pago, monto: Number(a.monto), tipo: a.tipo_pago, bancoOrigen: a.banco_origen, cuentaOrigen: a.cuenta_origen, titularOrigen: a.titular_origen, referencia: a.referencia_pago, numeroComprobante: a.numero_comprobante, observacion: a.observacion })),
+                          }],
+                        });
+                      }}
+                      className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> PDF
                     </button>
                     <button onClick={() => setTotalesDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
                       <Calculator className="w-3.5 h-3.5" /> Totales
@@ -467,6 +494,14 @@ function Page() {
           usuarios={todosUsuarios}
           onClose={() => setSeleccionAlumnasOpen(false)}
           onSaved={async () => { await cargar(); }}
+        />
+      )}
+      {cursoDe && (
+        <CursoModal
+          fila={cursoDe}
+          curso={cursos[cursoDe.id]}
+          onClose={() => setCursoDe(null)}
+          onSaved={async () => { setCursoDe(null); await cargar(); }}
         />
       )}
       {gestionDe && (
