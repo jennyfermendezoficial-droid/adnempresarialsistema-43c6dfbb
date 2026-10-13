@@ -1,0 +1,1 @@
+ALTER TABLE public.freelance_actividades ADD COLUMN IF NOT EXISTS hora_inicio time, ADD COLUMN IF NOT EXISTS hora_fin time;

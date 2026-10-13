@@ -857,6 +857,8 @@ export type Database = {
           created_at: string
           descripcion: string | null
           fecha: string
+          hora_fin: string | null
+          hora_inicio: string | null
           horas: number
           id: string
           titulo: string
@@ -869,6 +871,8 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           fecha: string
+          hora_fin?: string | null
+          hora_inicio?: string | null
           horas?: number
           id?: string
           titulo: string
@@ -881,6 +885,8 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           fecha?: string
+          hora_fin?: string | null
+          hora_inicio?: string | null
           horas?: number
           id?: string
           titulo?: string
