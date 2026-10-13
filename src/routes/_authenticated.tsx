@@ -6,6 +6,7 @@ import { TopNav } from "@/components/TopNav";
 import { Logo, BrandName } from "@/components/Logo";
 import { PostClassRatingModal } from "@/components/PostClassRatingModal";
 import { FichaProfesorModal } from "@/components/FichaProfesorModal";
+import { DatosPagoExternoGuard } from "@/components/DatosPagoExternoGuard";
 import { AlertaRegistroProfesor } from "@/components/AlertaRegistroProfesor";
 import { Agenda1a1FinalizacionProfesor } from "@/components/Agenda1a1FinalizacionProfesor";
 import { PendientesRegistroProfesorPanel } from "@/components/PendientesRegistroProfesorPanel";
@@ -124,6 +125,7 @@ function AuthedLayout() {
       </main>
       <PostClassRatingModal />
       <FichaProfesorModal />
+      <DatosPagoExternoGuard />
       <AlertaRegistroProfesor />
     </div>
   );

@@ -98,6 +98,21 @@ function nombreAlumna(a: AlumnaBasica) {
   return formatNombre(a.nombre_completo) || a.email || "Alumna";
 }
 
+interface CursoMentoria {
+  alumna_id: string;
+  nombre_curso: string | null;
+  valor_total: number;
+  pagado_inicial: number;
+  cuota_mensual: number;
+  abonado_total: number;
+}
+
+function saldoCurso(c?: CursoMentoria) {
+  if (!c) return null;
+  const pagado = Number(c.pagado_inicial || 0) + Number(c.abonado_total || 0);
+  return { pagado, falta: Math.max(0, Math.round((Number(c.valor_total) - pagado) * 100) / 100) };
+}
+
 // Tablas creadas previamente para la gestión mensual de mentoría de alumnas.
 // El cast conserva el cliente generado actual sin tocar types.ts; en runtime
 // Supabase recibe los nombres reales que aparecen antes del `as`.
@@ -127,6 +142,8 @@ function Page() {
   const [todosUsuarios, setTodosUsuarios] = useState<AlumnaBasica[]>([]);
   const [seleccionAlumnasOpen, setSeleccionAlumnasOpen] = useState(false);
   const [gestionDe, setGestionDe] = useState<FilaAlumna | null>(null);
+  const [cursos, setCursos] = useState<Record<string, CursoMentoria>>({});
+  const [cursoDe, setCursoDe] = useState<FilaAlumna | null>(null);
 
   const cargar = useCallback(async () => {
     if (!puedeGestionar) {
@@ -147,9 +164,11 @@ function Page() {
       setTodosUsuarios(usuarios);
       setAlumnas(seleccionadas);
 
-      const [totalesRes, abonosRes] = await Promise.all([
+      const [totalesRes, abonosRes, cursosRes, todosAbonosRes] = await Promise.all([
         tablaTotales().select("*").eq("mes", mes).eq("anio", anio),
         tablaAbonos().select("*").eq("mes", mes).eq("anio", anio).order("fecha_pago", { ascending: false }),
+        supabase.from("mentoria_cursos").select("*"),
+        supabase.from("pagos_mentoria_abonos").select("alumna_id,monto"),
       ]);
 
       if (totalesRes.error || abonosRes.error) {
@@ -160,6 +179,10 @@ function Page() {
         return;
       }
 
+      const cm: Record<string, CursoMentoria> = {};
+      (cursosRes.data ?? []).forEach((c) => { cm[c.alumna_id] = { ...c, abonado_total: 0 } as CursoMentoria; });
+      (todosAbonosRes.data ?? []).forEach((a) => { if (cm[a.alumna_id]) cm[a.alumna_id].abonado_total += Number(a.monto || 0); });
+      setCursos(cm);
       setTotales(((totalesRes.data ?? []) as unknown) as TotalMentoria[]);
       setAbonos(((abonosRes.data ?? []) as unknown) as AbonoMentoria[]);
     } catch (error) {
@@ -358,6 +381,9 @@ function Page() {
                     <div className="min-w-0">
                       <div className="font-semibold truncate">{nombreAlumna(f)}</div>
                       <div className="text-[11px] text-muted-foreground truncate">{f.email || "Sin correo"}</div>
+                      {cursos[f.id] && (() => { const c = cursos[f.id]; const s = saldoCurso(c)!; return (
+                        <div className="text-[11px] mt-0.5">Curso {dinero(c.valor_total)} · pagado <b className="text-emerald-600">{dinero(s.pagado)}</b> · falta <b className="text-red-600">{dinero(s.falta)}</b> · cuota {dinero(c.cuota_mensual)}/mes</div>
+                      ); })()}
                     </div>
                   </div>
                 </td>
@@ -387,6 +413,30 @@ function Page() {
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setGestionDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
                       <UserRound className="w-3.5 h-3.5" /> Ficha
+                    </button>
+                    <button onClick={() => setCursoDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
+                      <Landmark className="w-3.5 h-3.5" /> {cursos[f.id] ? "Editar curso" : "Valor curso"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const c = cursos[f.id]; const s = saldoCurso(c);
+                        generarInformeAlumnasPDF({
+                          mes, anio, totalAlumnas: 1, seleccionadas: 1,
+                          pagadas: f.estado === "pagado" ? 1 : 0, pendientes: f.estado === "debe" ? 1 : 0,
+                          totalFacturado: c ? Number(c.valor_total) : f.total,
+                          totalAbonado: s ? s.pagado : f.pagado,
+                          totalFalta: s ? s.falta : f.falta,
+                          filas: [{
+                            nombre: nombreAlumna(f), email: f.email || "", total: f.total, pagado: f.pagado, falta: f.falta,
+                            estado: f.estado, cuentaCompleta: Boolean(f.cuenta_bancaria_completa),
+                            acompanantes: Number(f.acompanantes_count || 0),
+                            abonos: f.abonos.map((a) => ({ fecha: a.fecha_pago, monto: Number(a.monto), tipo: a.tipo_pago, bancoOrigen: a.banco_origen, cuentaOrigen: a.cuenta_origen, titularOrigen: a.titular_origen, referencia: a.referencia_pago, numeroComprobante: a.numero_comprobante, observacion: a.observacion })),
+                          }],
+                        });
+                      }}
+                      className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> PDF
                     </button>
                     <button onClick={() => setTotalesDe(f)} className="px-3 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 hover:bg-muted/40">
                       <Calculator className="w-3.5 h-3.5" /> Totales
@@ -444,6 +494,14 @@ function Page() {
           usuarios={todosUsuarios}
           onClose={() => setSeleccionAlumnasOpen(false)}
           onSaved={async () => { await cargar(); }}
+        />
+      )}
+      {cursoDe && (
+        <CursoModal
+          fila={cursoDe}
+          curso={cursos[cursoDe.id]}
+          onClose={() => setCursoDe(null)}
+          onSaved={async () => { setCursoDe(null); await cargar(); }}
         />
       )}
       {gestionDe && (
@@ -785,6 +843,52 @@ function ModalBase({ title, subtitle, onClose, wide = false, children }: {
 
 function Campo({ label, children }: { label: string; children: ReactNode }) {
   return <label className="block"><span className="block text-[11px] font-semibold text-muted-foreground mb-1">{label}</span>{children}</label>;
+}
+
+function CursoModal({ fila, curso, onClose, onSaved }: {
+  fila: FilaAlumna; curso?: CursoMentoria; onClose: () => void; onSaved: () => Promise<void>;
+}) {
+  const [v, setV] = useState({
+    nombre: curso?.nombre_curso ?? "",
+    total: curso ? String(curso.valor_total) : "",
+    pagado: curso ? String(curso.pagado_inicial) : "",
+    cuota: curso ? String(curso.cuota_mensual) : "",
+  });
+  const [busy, setBusy] = useState(false);
+  const total = Number(v.total || 0), pagado = Number(v.pagado || 0) + Number(curso?.abonado_total || 0);
+  const guardar = async () => {
+    if (total <= 0) return toast.error("Escribe el valor total del curso.");
+    setBusy(true);
+    const { error } = await supabase.from("mentoria_cursos").upsert({
+      alumna_id: fila.id, nombre_curso: v.nombre.trim() || null, valor_total: total,
+      pagado_inicial: Number(v.pagado || 0), cuota_mensual: Number(v.cuota || 0), updated_at: new Date().toISOString(),
+    });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Valor del curso guardado");
+    await onSaved();
+  };
+  const cls = "w-full px-3 py-2 rounded-lg border bg-background text-sm";
+  return (
+    <ModalBase title={`Valor del curso · ${nombreAlumna(fila)}`} subtitle="Se llena una sola vez; puedes editarlo si te equivocas." onClose={onClose}>
+      <div className="p-5 space-y-3">
+        <Campo label="Nombre del curso / programa"><input value={v.nombre} onChange={(e) => setV({ ...v, nombre: e.target.value })} className={cls} /></Campo>
+        <div className="grid grid-cols-3 gap-3">
+          <Campo label="Valor total ($)"><input type="number" min="0" step="0.01" value={v.total} onChange={(e) => setV({ ...v, total: e.target.value })} className={cls} /></Campo>
+          <Campo label="Ya pagado antes ($)"><input type="number" min="0" step="0.01" value={v.pagado} onChange={(e) => setV({ ...v, pagado: e.target.value })} className={cls} /></Campo>
+          <Campo label="Cuota mensual ($)"><input type="number" min="0" step="0.01" value={v.cuota} onChange={(e) => setV({ ...v, cuota: e.target.value })} className={cls} /></Campo>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <MiniTotal label="Pagado (incluye abonos)" value={dinero(pagado)} positivo />
+          <MiniTotal label="Falta" value={dinero(Math.max(0, total - pagado))} alerta />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border text-sm">Cancelar</button>
+          <button disabled={busy} onClick={guardar} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold">{busy ? "Guardando…" : "Guardar"}</button>
+        </div>
+      </div>
+    </ModalBase>
+  );
 }
 
 function MiniTotal({ label, value, positivo = false, alerta = false }: { label: string; value: string; positivo?: boolean; alerta?: boolean }) {

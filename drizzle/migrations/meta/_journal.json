@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791852737136,
+      "tag": "0000_mentoria_curso_freelance_calificaciones",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791852760333,
+      "tag": "0001_freelance_storage_policies",
+      "breakpoints": true
+    }
+  ]
+}

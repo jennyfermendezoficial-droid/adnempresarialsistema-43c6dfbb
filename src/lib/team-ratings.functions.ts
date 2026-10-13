@@ -135,7 +135,15 @@ export const estadoCalificacionEquipo = createServerFn({ method: "GET" })
       if (!porProfesor.has(c.profesor_id)) porProfesor.set(c.profesor_id, c);
     });
 
-    const profesores = equipo.map((p) => {
+    const conActividad: PerfilEquipo[] = [];
+    for (const p of equipo) {
+      const { data: ok } = await supabaseAdmin.rpc("profesor_tuvo_actividad", {
+        _alumna: context.userId, _prof: p.id, _mes: CALIFICACION_EQUIPO_MES, _anio: CALIFICACION_EQUIPO_ANIO,
+      });
+      if (ok) conActividad.push(p);
+    }
+
+    const profesores = conActividad.map((p) => {
       const c = porProfesor.get(p.id);
       const promedio = c ? promedioFila(c) : null;
       return {
