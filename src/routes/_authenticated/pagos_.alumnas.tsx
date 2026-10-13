@@ -112,17 +112,10 @@ function nombreAlumna(a: AlumnaBasica) {
 
 interface CursoMentoria {
   alumna_id: string;
-  nombre_curso: string | null;
   valor_total: number;
   pagado_inicial: number;
   cuota_mensual: number;
   abonado_total: number;
-}
-
-function saldoCurso(c?: CursoMentoria) {
-  if (!c) return null;
-  const pagado = Number(c.pagado_inicial || 0) + Number(c.abonado_total || 0);
-  return { pagado, falta: Math.max(0, Math.round((Number(c.valor_total) - pagado) * 100) / 100) };
 }
 
 // Tablas creadas previamente para la gestión mensual de mentoría de alumnas.
@@ -312,6 +305,7 @@ function Page() {
                     referencia: a.referencia_pago,
                     numeroComprobante: a.numero_comprobante,
                     observacion: a.observacion,
+                    archivoUrl: a.archivo_url,
                   })),
                 })),
               });
@@ -446,8 +440,8 @@ function Page() {
                             nombre: nombreAlumna(f), email: f.email || "", total: f.total, pagado: f.pagado, falta: f.falta,
                             estado: f.estado, cuentaCompleta: Boolean(f.cuenta_bancaria_completa),
                             acompanantes: Number(f.acompanantes_count || 0),
-                  curso: cursos[f.id],
-                            abonos: f.abonos.map((a) => ({ fecha: a.fecha_pago, monto: Number(a.monto), tipo: a.tipo_pago, bancoOrigen: a.banco_origen, cuentaOrigen: a.cuenta_origen, titularOrigen: a.titular_origen, referencia: a.referencia_pago, numeroComprobante: a.numero_comprobante, observacion: a.observacion })),
+                            curso: cursos[f.id],
+                            abonos: f.abonos.map((a) => ({ fecha: a.fecha_pago, monto: Number(a.monto), tipo: a.tipo_pago, bancoOrigen: a.banco_origen, cuentaOrigen: a.cuenta_origen, titularOrigen: a.titular_origen, referencia: a.referencia_pago, numeroComprobante: a.numero_comprobante, observacion: a.observacion, archivoUrl: a.archivo_url })),
                           }],
                         });
                       }}
