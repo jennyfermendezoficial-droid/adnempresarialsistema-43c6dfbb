@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, FileText, Loader2, Plus, Sparkles, Trash2, Upload, Users, X } from "lucide-react";
@@ -77,7 +77,15 @@ function Page() {
     if (err) toast.error(err.message);
     setUsuarios((u.data ?? []) as Usuario[]);
     setMiembros((m.data ?? []) as Miembro[]);
-    const cm: Record<string, Cuenta> = {}; (c.data ?? []).forEach((x) => { cm[x.usuario_id] = x as Cuenta; }); setCuentas(cm);
+    const cm: Record<string, Cuenta> = {}; (c.data ?? []).forEach((x) => { if (x.numero_cuenta) cm[x.usuario_id] = x as Cuenta; });
+    // Los datos de pago son los mismos de toda la app: si no registró aparte, se usan los de su ficha.
+    const ids = (m.data ?? []).map((x) => x.usuario_id).filter((id) => !cm[id]);
+    if (ids.length) {
+      const { data: pf } = await supabase.rpc("perfiles_pagos", { _ids: ids });
+      ((pf ?? []) as { id: string; banco: string | null; tipo_cuenta: string | null; numero_cuenta: string | null; titular_cuenta: string | null; cedula: string | null }[])
+        .forEach((x) => { if (x.numero_cuenta) cm[x.id] = { usuario_id: x.id, banco: x.banco, tipo_cuenta: x.tipo_cuenta, numero_cuenta: x.numero_cuenta, titular_cuenta: x.titular_cuenta, cedula_titular: x.cedula }; });
+    }
+    setCuentas(cm);
     setActs((a.data ?? []) as Act[]); setAjustes((j.data ?? []) as Ajuste[]); setPagos((p.data ?? []) as Pago[]);
     const rm: Record<string, string> = {}; (r.data ?? []).forEach((x) => { rm[x.usuario_id] = x.resumen; }); setResumenes(rm);
     setLoading(false);
@@ -113,6 +121,9 @@ function Page() {
           <select value={`${anio}-${mes}`} onChange={(e) => { const [a, m] = e.target.value.split("-").map(Number); setAnio(a); setMes(m); }} className="px-3 py-2 rounded-lg border bg-card text-sm">
             {listaMeses().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+          {miembros.some((x) => x.usuario_id === session?.user.id) && (
+            <Link to="/mis-actividades-freelance" className="px-4 py-2 rounded-lg border bg-card text-sm font-semibold inline-flex gap-2 items-center"><Upload className="w-4 h-4" />Subir mis actividades (PDF)</Link>
+          )}
           <button onClick={() => setSelOpen(true)} className="px-4 py-2 rounded-lg bg-violet-gradient text-white text-sm font-semibold inline-flex gap-2 items-center"><Users className="w-4 h-4" />Seleccionar freelancers</button>
         </div>
       </div>

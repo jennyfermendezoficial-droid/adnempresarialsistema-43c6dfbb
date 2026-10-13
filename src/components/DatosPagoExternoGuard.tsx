@@ -38,7 +38,12 @@ export function DatosPagoExternoGuard() {
       setEsFreelance(!!fr);
       if (fr) {
         const { data: dp } = await supabase.from("freelance_datos_pago").select("numero_cuenta").eq("usuario_id", uid).maybeSingle();
-        if (!dp?.numero_cuenta) setModo("freelance");
+        if (!dp?.numero_cuenta) {
+          // Si ya tiene datos de pago en su ficha, no se le vuelve a pedir.
+          const { data: pf } = await supabase.rpc("perfiles_pagos", { _ids: [uid] });
+          const tiene = ((pf ?? []) as { numero_cuenta: string | null }[])[0]?.numero_cuenta;
+          if (!tiene) setModo("freelance");
+        }
       }
     } catch {
       /* silencioso */
