@@ -245,6 +245,8 @@ function Page() {
     alDia: filas.filter((f) => f.estado === "pagado").length,
   }), [filas]);
 
+  const detalleFila = filas.find((f) => f.id === detalleId);
+
   if (!puedeGestionar) {
     return <div className="p-8 text-center text-muted-foreground">No tienes permiso para ver Pagos e informes.</div>;
   }
@@ -486,8 +488,8 @@ function Page() {
         </table>
       </div>
 
-      {detalleId && filas.find((f) => f.id === detalleId) && (
-        <EstadoCuentaAlumna fila={filas.find((f) => f.id === detalleId) ?? filas[0]} curso={cursos[detalleId]} mes={mes} anio={anio} onClose={() => setDetalleId(null)}
+      {detalleFila && (
+        <EstadoCuentaAlumna fila={detalleFila} curso={cursos[detalleFila.id]} mes={mes} anio={anio} onClose={() => setDetalleId(null)}
           onCurso={(f) => { setDetalleId(null); setCursoDe(f); }} onTotal={(f) => { setDetalleId(null); setTotalesDe(f); }}
           onAbono={(f) => { setDetalleId(null); setAbonoDe(f); }} onCuenta={(f) => { setDetalleId(null); setGestionDe(f); }} />
       )}
