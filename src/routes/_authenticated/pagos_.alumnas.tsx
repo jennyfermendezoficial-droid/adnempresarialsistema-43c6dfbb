@@ -98,6 +98,21 @@ function nombreAlumna(a: AlumnaBasica) {
   return formatNombre(a.nombre_completo) || a.email || "Alumna";
 }
 
+interface CursoMentoria {
+  alumna_id: string;
+  nombre_curso: string | null;
+  valor_total: number;
+  pagado_inicial: number;
+  cuota_mensual: number;
+  abonado_total: number;
+}
+
+function saldoCurso(c?: CursoMentoria) {
+  if (!c) return null;
+  const pagado = Number(c.pagado_inicial || 0) + Number(c.abonado_total || 0);
+  return { pagado, falta: Math.max(0, Math.round((Number(c.valor_total) - pagado) * 100) / 100) };
+}
+
 // Tablas creadas previamente para la gestión mensual de mentoría de alumnas.
 // El cast conserva el cliente generado actual sin tocar types.ts; en runtime
 // Supabase recibe los nombres reales que aparecen antes del `as`.
@@ -127,6 +142,8 @@ function Page() {
   const [todosUsuarios, setTodosUsuarios] = useState<AlumnaBasica[]>([]);
   const [seleccionAlumnasOpen, setSeleccionAlumnasOpen] = useState(false);
   const [gestionDe, setGestionDe] = useState<FilaAlumna | null>(null);
+  const [cursos, setCursos] = useState<Record<string, CursoMentoria>>({});
+  const [cursoDe, setCursoDe] = useState<FilaAlumna | null>(null);
 
   const cargar = useCallback(async () => {
     if (!puedeGestionar) {
@@ -147,9 +164,11 @@ function Page() {
       setTodosUsuarios(usuarios);
       setAlumnas(seleccionadas);
 
-      const [totalesRes, abonosRes] = await Promise.all([
+      const [totalesRes, abonosRes, cursosRes, todosAbonosRes] = await Promise.all([
         tablaTotales().select("*").eq("mes", mes).eq("anio", anio),
         tablaAbonos().select("*").eq("mes", mes).eq("anio", anio).order("fecha_pago", { ascending: false }),
+        supabase.from("mentoria_cursos").select("*"),
+        supabase.from("pagos_mentoria_abonos").select("alumna_id,monto"),
       ]);
 
       if (totalesRes.error || abonosRes.error) {
@@ -160,6 +179,10 @@ function Page() {
         return;
       }
 
+      const cm: Record<string, CursoMentoria> = {};
+      (cursosRes.data ?? []).forEach((c) => { cm[c.alumna_id] = { ...c, abonado_total: 0 } as CursoMentoria; });
+      (todosAbonosRes.data ?? []).forEach((a) => { if (cm[a.alumna_id]) cm[a.alumna_id].abonado_total += Number(a.monto || 0); });
+      setCursos(cm);
       setTotales(((totalesRes.data ?? []) as unknown) as TotalMentoria[]);
       setAbonos(((abonosRes.data ?? []) as unknown) as AbonoMentoria[]);
     } catch (error) {
