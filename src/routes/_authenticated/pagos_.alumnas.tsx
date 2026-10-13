@@ -766,7 +766,7 @@ function RegistrarAbonoAlumnaModal({ fila, mes, anio, uid, onClose, onSaved }: {
           <Button variant="outline"
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-full aspect-square max-h-[210px] rounded-xl border-2 border-dashed grid place-items-center overflow-hidden text-xs"
+            className="w-full h-auto aspect-square max-h-[210px] rounded-xl border-2 border-dashed grid place-items-center overflow-hidden text-xs whitespace-normal"
             style={{ borderColor: "var(--violet)", background: "color-mix(in oklab, var(--violet) 6%, transparent)" }}
           >
             {preview ? <img src={preview} alt="Comprobante" className="w-full h-full object-contain" /> : leyendo ? (
