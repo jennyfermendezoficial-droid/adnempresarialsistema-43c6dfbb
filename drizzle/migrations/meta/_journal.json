@@ -15,6 +15,13 @@
       "when": 1791852760333,
       "tag": "0001_freelance_storage_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791854450240,
+      "tag": "0002_freelance_horario_actividad",
+      "breakpoints": true
     }
   ]
 }
