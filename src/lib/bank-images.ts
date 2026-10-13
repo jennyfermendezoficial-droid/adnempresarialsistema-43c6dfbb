@@ -1,3 +1,4 @@
+import { subirImagen } from "@/lib/cloudinary";
 import { supabase } from "@/integrations/supabase/client";
 
 const BUCKET = "bank-images";
@@ -69,6 +70,9 @@ async function imagenEmbebida(file: File): Promise<string> {
 
 async function subir(file: File, path: string) {
   validar(file);
+
+  // 0) Cloudinary: destino principal de todas las imágenes.
+  try { return await subirImagen(file, "adn/sistema"); } catch { /* respaldo */ }
 
   // 1) Bucket nuevo, cuando ya esté aplicado en Supabase.
   const principal = await subirEnBucket(file, BUCKET, path);
