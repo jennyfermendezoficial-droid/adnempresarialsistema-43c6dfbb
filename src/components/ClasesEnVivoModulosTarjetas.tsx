@@ -1,3 +1,4 @@
+import { subirImagen } from "@/lib/cloudinary";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ImagePlus, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -132,25 +133,7 @@ export function ClasesEnVivoModulosTarjetas({
     setImagePreview(URL.createObjectURL(file));
   };
 
-  const subirPortada = async (file: File) => {
-    const extRaw = file.name.split(".").pop() || "jpg";
-    const ext = extRaw.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-    const uuid = typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2);
-    const path = `modulos/${cursoId}/${Date.now()}-${uuid}.${ext}`;
-
-    const { error } = await supabase.storage.from("course-covers").upload(path, file, {
-      upsert: false,
-      cacheControl: "3600",
-      contentType: file.type || undefined,
-    });
-    if (error) throw new Error(`No se pudo subir la portada: ${error.message}`);
-
-    const { data } = supabase.storage.from("course-covers").getPublicUrl(path);
-    if (!data.publicUrl) throw new Error("No se pudo obtener la URL de la portada");
-    return data.publicUrl;
-  };
+  const subirPortada = async (file: File) => subirImagen(file, "adn/cursos");
 
   const guardar = async () => {
     if (!isStaff) return toast.error("Solo Profesor y Líder/Dueño pueden administrar módulos.");
