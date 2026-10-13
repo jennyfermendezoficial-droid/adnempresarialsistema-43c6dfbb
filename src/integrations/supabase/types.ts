@@ -849,6 +849,226 @@ export type Database = {
         }
         Relationships: []
       }
+      freelance_actividades: {
+        Row: {
+          archivo_nombre: string | null
+          archivo_path: string | null
+          archivo_tipo: string | null
+          created_at: string
+          descripcion: string | null
+          fecha: string
+          horas: number
+          id: string
+          titulo: string
+          usuario_id: string
+        }
+        Insert: {
+          archivo_nombre?: string | null
+          archivo_path?: string | null
+          archivo_tipo?: string | null
+          created_at?: string
+          descripcion?: string | null
+          fecha: string
+          horas?: number
+          id?: string
+          titulo: string
+          usuario_id: string
+        }
+        Update: {
+          archivo_nombre?: string | null
+          archivo_path?: string | null
+          archivo_tipo?: string | null
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          horas?: number
+          id?: string
+          titulo?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
+      freelance_ajustes: {
+        Row: {
+          anio: number
+          created_at: string
+          id: string
+          mes: number
+          monto: number
+          motivo: string
+          tipo: string
+          usuario_id: string
+        }
+        Insert: {
+          anio: number
+          created_at?: string
+          id?: string
+          mes: number
+          monto: number
+          motivo: string
+          tipo: string
+          usuario_id: string
+        }
+        Update: {
+          anio?: number
+          created_at?: string
+          id?: string
+          mes?: number
+          monto?: number
+          motivo?: string
+          tipo?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
+      freelance_datos_pago: {
+        Row: {
+          banco: string | null
+          cedula_titular: string | null
+          numero_cuenta: string | null
+          tipo_cuenta: string | null
+          titular_cuenta: string | null
+          updated_at: string
+          usuario_id: string
+        }
+        Insert: {
+          banco?: string | null
+          cedula_titular?: string | null
+          numero_cuenta?: string | null
+          tipo_cuenta?: string | null
+          titular_cuenta?: string | null
+          updated_at?: string
+          usuario_id: string
+        }
+        Update: {
+          banco?: string | null
+          cedula_titular?: string | null
+          numero_cuenta?: string | null
+          tipo_cuenta?: string | null
+          titular_cuenta?: string | null
+          updated_at?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freelance_datos_pago_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      freelance_miembros: {
+        Row: {
+          activo: boolean
+          area: string | null
+          created_at: string
+          modalidad: string
+          monto_fijo: number
+          tarifa_hora: number
+          usuario_id: string
+        }
+        Insert: {
+          activo?: boolean
+          area?: string | null
+          created_at?: string
+          modalidad?: string
+          monto_fijo?: number
+          tarifa_hora?: number
+          usuario_id: string
+        }
+        Update: {
+          activo?: boolean
+          area?: string | null
+          created_at?: string
+          modalidad?: string
+          monto_fijo?: number
+          tarifa_hora?: number
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freelance_miembros_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      freelance_pagos: {
+        Row: {
+          anio: number
+          archivo_url: string | null
+          banco: string | null
+          created_at: string
+          fecha_pago: string
+          id: string
+          mes: number
+          monto: number
+          numero_comprobante: string | null
+          observacion: string | null
+          referencia: string | null
+          tipo_pago: string
+          usuario_id: string
+        }
+        Insert: {
+          anio: number
+          archivo_url?: string | null
+          banco?: string | null
+          created_at?: string
+          fecha_pago: string
+          id?: string
+          mes: number
+          monto: number
+          numero_comprobante?: string | null
+          observacion?: string | null
+          referencia?: string | null
+          tipo_pago: string
+          usuario_id: string
+        }
+        Update: {
+          anio?: number
+          archivo_url?: string | null
+          banco?: string | null
+          created_at?: string
+          fecha_pago?: string
+          id?: string
+          mes?: number
+          monto?: number
+          numero_comprobante?: string | null
+          observacion?: string | null
+          referencia?: string | null
+          tipo_pago?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
+      freelance_resumenes: {
+        Row: {
+          anio: number
+          mes: number
+          resumen: string
+          updated_at: string
+          usuario_id: string
+        }
+        Insert: {
+          anio: number
+          mes: number
+          resumen: string
+          updated_at?: string
+          usuario_id: string
+        }
+        Update: {
+          anio?: number
+          mes?: number
+          resumen?: string
+          updated_at?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       horas_trabajadas: {
         Row: {
           fecha: string
@@ -1046,6 +1266,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "mentoria_alumnas_alumna_id_fkey"
+            columns: ["alumna_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentoria_cursos: {
+        Row: {
+          alumna_id: string
+          cuota_mensual: number
+          nombre_curso: string | null
+          pagado_inicial: number
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          alumna_id: string
+          cuota_mensual?: number
+          nombre_curso?: string | null
+          pagado_inicial?: number
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          alumna_id?: string
+          cuota_mensual?: number
+          nombre_curso?: string | null
+          pagado_inicial?: number
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentoria_cursos_alumna_id_fkey"
             columns: ["alumna_id"]
             isOneToOne: true
             referencedRelation: "profiles"
@@ -2109,6 +2364,7 @@ export type Database = {
         Returns: boolean
       }
       enviar_recordatorios: { Args: never; Returns: number }
+      es_freelance: { Args: { _uid: string }; Returns: boolean }
       get_my_tarifas: {
         Args: never
         Returns: {
@@ -2176,6 +2432,16 @@ export type Database = {
           email: string
           id: string
           nombre_completo: string
+        }[]
+      }
+      listar_usuarios_freelance: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          email: string
+          id: string
+          nombre_completo: string
+          seleccionado: boolean
         }[]
       }
       listar_usuarios_para_mentoria: {
@@ -2254,6 +2520,10 @@ export type Database = {
           nombre_completo: string
           puntos: number
         }[]
+      }
+      profesor_tuvo_actividad: {
+        Args: { _alumna: string; _anio: number; _mes: number; _prof: string }
+        Returns: boolean
       }
       profile_privileged_unchanged: {
         Args: {
