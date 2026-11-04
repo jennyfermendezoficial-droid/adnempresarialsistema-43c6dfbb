@@ -70,7 +70,10 @@ export function PermisosPanel() {
     }
   };
 
-  const userRole = (uid: string) => roles.find((r) => r.user_id === uid)?.role || "usuario";
+  const userRole = (uid: string) => {
+    const mine = roles.filter((r) => r.user_id === uid).map((r) => r.role);
+    return (["admin", "soporte", "usuario"] as const).find((x) => mine.includes(x)) || "usuario";
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
