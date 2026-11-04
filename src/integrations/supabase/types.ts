@@ -2386,6 +2386,7 @@ export type Database = {
       }
       enviar_recordatorios: { Args: never; Returns: number }
       es_freelance: { Args: { _uid: string }; Returns: boolean }
+      es_miembro_activo: { Args: never; Returns: boolean }
       get_my_tarifas: {
         Args: never
         Returns: {
