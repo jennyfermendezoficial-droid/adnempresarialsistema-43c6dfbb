@@ -8,6 +8,13 @@
       "when": 1793805396766,
       "tag": "0000_restringir_lecturas_a_miembros_activos",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793806715411,
+      "tag": "0001_restaurar_permiso_miembro_activo",
+      "breakpoints": true
     }
   ]
 }
