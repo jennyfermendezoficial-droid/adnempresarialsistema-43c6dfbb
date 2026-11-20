@@ -24,7 +24,7 @@ export function CursosBiblioteca({ tipo, titulo, subtitulo, etiqueta }: Props) {
   const pendingCursoId = useRef<string | null>(null);
 
   const reloadCursos = () =>
-    supabase.from("cursos").select("*").eq("tipo", tipo).order("orden").then(({ data }) => setCursos((data as Curso[]) ?? []));
+    supabase.from("cursos").select("*").eq("tipo", tipo).eq("visible_en_biblioteca", true).order("orden").then(({ data }) => setCursos((data as Curso[]) ?? []));
 
   useEffect(() => {
     reloadCursos();
