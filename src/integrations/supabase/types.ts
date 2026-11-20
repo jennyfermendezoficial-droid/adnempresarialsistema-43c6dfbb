@@ -799,6 +799,7 @@ export type Database = {
           nombre: string
           orden: number
           tipo: string
+          visible_en_biblioteca: boolean
         }
         Insert: {
           color_cover?: string | null
@@ -809,6 +810,7 @@ export type Database = {
           nombre: string
           orden?: number
           tipo?: string
+          visible_en_biblioteca?: boolean
         }
         Update: {
           color_cover?: string | null
@@ -819,6 +821,7 @@ export type Database = {
           nombre?: string
           orden?: number
           tipo?: string
+          visible_en_biblioteca?: boolean
         }
         Relationships: []
       }
