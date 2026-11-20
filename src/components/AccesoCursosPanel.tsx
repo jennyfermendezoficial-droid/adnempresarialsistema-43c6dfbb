@@ -26,7 +26,7 @@ export function AccesoCursosPanel({ tipo, titulo, plural }: Props) {
     (async () => {
       const [{ data: p }, { data: c }, { data: pc }, { data: roles }] = await Promise.all([
         supabase.from("profiles").select("id,nombre_completo,email,avatar_url").order("nombre_completo"),
-        supabase.from("cursos").select("id,nombre,color_cover").eq("tipo", tipo).order("orden"),
+        supabase.from("cursos").select("id,nombre,color_cover").eq("tipo", tipo).eq("visible_en_biblioteca", true).order("orden"),
         supabase.from("permisos_cursos").select("id,usuario_id,curso_id"),
         supabase.from("user_roles").select("user_id,role"),
       ]);
