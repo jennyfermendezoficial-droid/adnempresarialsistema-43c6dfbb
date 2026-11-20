@@ -11,9 +11,20 @@ BEGIN;
 ALTER TABLE public.cursos
   ADD COLUMN IF NOT EXISTS audience text;
 
-ALTER TABLE public.cursos
-  ADD CONSTRAINT cursos_audience_check
-  CHECK (audience IS NULL OR audience IN ('internal', 'student'));
+DO $migration$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'cursos_audience_check'
+      AND conrelid = 'public.cursos'::regclass
+  ) THEN
+    ALTER TABLE public.cursos
+      ADD CONSTRAINT cursos_audience_check
+      CHECK (audience IS NULL OR audience IN ('internal', 'student'));
+  END IF;
+END;
+$migration$;
 
 COMMENT ON COLUMN public.cursos.audience IS
   'Audiencia del curso: internal (administradores/profesores) o student (Classroom). NULL solo para registros legacy pendientes de clasificacion.';
