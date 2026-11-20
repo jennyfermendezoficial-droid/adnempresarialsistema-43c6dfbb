@@ -10,27 +10,33 @@ DECLARE
 BEGIN
   SELECT id INTO STRICT v_parent_id
   FROM public.cursos
-  WHERE lower(btrim(nombre)) = lower('MÁQUINA DEL DINERO - BONOS ™')
+  WHERE lower(translate(btrim(nombre), 'ÁÉÍÓÚÜÑáéíóúüñ', 'AEIOUUNaeiouun'))
+      = lower(translate('MÁQUINA DEL DINERO - BONOS ™', 'ÁÉÍÓÚÜÑáéíóúüñ', 'AEIOUUNaeiouun'))
     AND tipo = 'curso';
 
   SELECT id INTO STRICT v_source_id
   FROM public.cursos
-  WHERE lower(btrim(nombre)) = lower('Del fracaso al exito Bono')
+  WHERE lower(translate(btrim(nombre), 'ÁÉÍÓÚÜÑáéíóúüñ', 'AEIOUUNaeiouun'))
+      = lower(translate('Del fracaso al éxito Bono', 'ÁÉÍÓÚÜÑáéíóúüñ', 'AEIOUUNaeiouun'))
     AND tipo = 'curso';
 
   IF v_parent_id = v_source_id THEN
     RAISE EXCEPTION 'El curso contenedor y el curso que se va a integrar no pueden ser el mismo registro.';
   END IF;
 
-  SELECT count(*), min(id) INTO v_module_count, v_module_id
+  SELECT count(*) INTO v_module_count
   FROM public.modulos_curso
   WHERE curso_id = v_source_id;
 
   IF v_module_count <> 1 THEN
     RAISE EXCEPTION
-      'Se esperaba exactamente 1 módulo dentro de "Del fracaso al exito Bono", pero se encontraron % . No se realizaron cambios.',
+      'Se esperaba exactamente 1 módulo dentro de "Del fracaso al éxito Bono", pero se encontraron %. No se realizaron cambios.',
       v_module_count;
   END IF;
+
+  SELECT id INTO STRICT v_module_id
+  FROM public.modulos_curso
+  WHERE curso_id = v_source_id;
 
   -- Conceder al curso contenedor los accesos que ya tenían los alumnos en el curso independiente.
   INSERT INTO public.permisos_cursos (usuario_id, curso_id, fecha_otorgado, otorgado_por)
