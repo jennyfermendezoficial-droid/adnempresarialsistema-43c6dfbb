@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { createBunnyVideoForUpload, getBunnyPublicConfig, deleteBunnyVideo, getBunnyVideoStatus } from "@/lib/bunny.functions";
 
-interface Curso { id: string; nombre: string; descripcion: string | null; image_url: string | null; color_cover: string | null }
+interface Curso { id: string; nombre: string; descripcion: string | null; image_url: string | null; color_cover: string | null; grupo_id?: string | null }
 interface Modulo { id: string; curso_id: string; nombre: string; descripcion: string | null; orden: number }
 interface Recurso { tipo: "link" | "archivo"; nombre: string; url: string }
 interface Leccion { id: string; modulo_id: string; nombre: string; descripcion: string | null; bunny_video_id: string | null; orden: number; duracion_min: number | null; recursos_adjuntos: Recurso[] | null }
@@ -405,7 +405,7 @@ export function CursoDetalle({
               <ArrowLeft className="w-4 h-4" /> {volverLabel || "Volver"}
             </button>
           ) : (
-            <Link to="/cursos" className="inline-flex items-center gap-1 text-sm text-white/90 hover:text-white mb-2">
+            <Link to="/cursos" search={curso?.grupo_id ? { modulo: curso.grupo_id } : {}} className="inline-flex items-center gap-1 text-sm text-white/90 hover:text-white mb-2">
               <ArrowLeft className="w-4 h-4" /> {volverLabel || "Volver a cursos"}
             </Link>
           ))}
