@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1795537496973,
+      "tag": "0000_crear_grupos_cursos",
+      "breakpoints": true
+    }
+  ]
+}
