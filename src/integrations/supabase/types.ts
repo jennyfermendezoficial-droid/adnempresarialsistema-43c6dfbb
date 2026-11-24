@@ -794,6 +794,7 @@ export type Database = {
           color_cover: string | null
           created_at: string
           descripcion: string | null
+          grupo_id: string | null
           id: string
           image_url: string | null
           nombre: string
@@ -804,6 +805,7 @@ export type Database = {
           color_cover?: string | null
           created_at?: string
           descripcion?: string | null
+          grupo_id?: string | null
           id?: string
           image_url?: string | null
           nombre: string
@@ -814,13 +816,22 @@ export type Database = {
           color_cover?: string | null
           created_at?: string
           descripcion?: string | null
+          grupo_id?: string | null
           id?: string
           image_url?: string | null
           nombre?: string
           orden?: number
           tipo?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cursos_grupo_id_fkey"
+            columns: ["grupo_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_cursos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       disponibilidad: {
         Row: {
@@ -1087,6 +1098,30 @@ export type Database = {
           resumen?: string
           updated_at?: string
           usuario_id?: string
+        }
+        Relationships: []
+      }
+      grupos_cursos: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string | null
+          nombre: string
+          orden: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          nombre: string
+          orden?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          nombre?: string
+          orden?: number
         }
         Relationships: []
       }
