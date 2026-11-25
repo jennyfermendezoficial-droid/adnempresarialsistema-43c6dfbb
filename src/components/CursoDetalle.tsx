@@ -13,6 +13,9 @@ interface Modulo { id: string; curso_id: string; nombre: string; descripcion: st
 interface Recurso { tipo: "link" | "archivo"; nombre: string; url: string }
 interface Leccion { id: string; modulo_id: string; nombre: string; descripcion: string | null; bunny_video_id: string | null; orden: number; duracion_min: number | null; recursos_adjuntos: Recurso[] | null }
 
+// Acepta el enlace de Loom (share o embed) o el código de inserción completo
+const loomId = (v: string) => v.match(/loom\.com\/(?:share|embed)\/([0-9a-f]{32})/i)?.[1] ?? null;
+
 export function CursoDetalle({
   cursoId,
   volver,
@@ -213,8 +216,10 @@ export function CursoDetalle({
   };
 
   const agregarLeccionURL = async (modId: string) => {
-    const url = prompt("Pega la URL del video (YouTube o MP4 directo)");
-    if (!url) return;
+    const pegado = prompt("Pega la URL del video (YouTube, Loom o MP4 directo)");
+    if (!pegado) return;
+    const loom = loomId(pegado);
+    const url = loom ? `https://www.loom.com/share/${loom}` : pegado.trim();
     const nombre = prompt("Nombre de la clase", "Nueva clase");
     if (!nombre) return;
     const orden = lecciones.filter((l) => l.modulo_id === modId).length;
@@ -425,7 +430,15 @@ export function CursoDetalle({
         <div className="lg:col-span-2 space-y-4">
           <div className="rounded-2xl overflow-hidden bg-black aspect-video">
             {active?.bunny_video_id ? (
-              /youtube\.com|youtu\.be/.test(active.bunny_video_id) ? (
+              loomId(active.bunny_video_id) ? (
+                <iframe
+                  key={active.bunny_video_id}
+                  src={`https://www.loom.com/embed/${loomId(active.bunny_video_id)}`}
+                  className="w-full h-full"
+                  allow="fullscreen"
+                  allowFullScreen
+                />
+              ) : /youtube\.com|youtu\.be/.test(active.bunny_video_id) ? (
                 <iframe
                   src={active.bunny_video_id.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/")}
                   className="w-full h-full"
@@ -609,7 +622,7 @@ export function CursoDetalle({
                       </button>
                       <button
                         onClick={() => agregarLeccionURL(m.id)}
-                        title="Agregar clase por URL (YouTube/MP4)"
+                        title="Agregar clase por URL (YouTube/Loom/MP4)"
                         className="p-1.5 rounded border hover:bg-muted"
                       >
                         <Youtube className="w-3.5 h-3.5"/>
